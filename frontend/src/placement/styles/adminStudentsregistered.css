@@ -1,0 +1,256 @@
+/* ==============================
+   Admin Dashboard Container
+============================== */
+.admin-dashboard {
+  width: 90%;
+  margin: 20px auto;
+  font-family: 'Arial', sans-serif;
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* ==============================
+   Heading
+============================== */
+h2 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #333;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+/* ==============================
+   Search Box
+============================== */
+.search-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 15px;
+}
+
+.search-container input {
+  padding: 10px;
+  width: 300px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  transition: all 0.3s ease-in-out;
+}
+
+.search-container input:focus {
+  border-color: #007bff;
+  outline: none;
+  box-shadow: 0px 0px 5px rgba(0, 123, 255, 0.5);
+}
+
+/* ==============================
+   Admin Controls (Buttons & Dropdowns)
+============================== */
+.admin-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.admin-controls select,
+.admin-controls button,
+.admin-controls input[type="file"] {
+  padding: 10px 14px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  background: #fff;
+}
+
+.admin-controls button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  font-weight: bold;
+}
+
+.admin-controls button:hover {
+  background-color: #0056b3;
+  transform: scale(1.05);
+}
+
+/* ==============================
+   Show/Hide Filters Button
+============================== */
+.toggle-filter-btn {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  margin-bottom: 12px;
+  transition: background-color 0.3s ease;
+}
+
+.toggle-filter-btn:hover {
+  background-color: #0056b3;
+}
+
+/* ==============================
+   Filter Inputs
+============================== */
+.filter-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.filter-container input {
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+  width: 180px;
+}
+
+.filter-container input:focus {
+  border-color: #007bff;
+  outline: none;
+  box-shadow: 0px 0px 4px rgba(0, 123, 255, 0.4);
+}
+
+/* ==============================
+   Table Container
+============================== */
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+  margin-top: 20px;
+  border-radius: 10px;
+  box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* ==============================
+   Registered Students Table
+============================== */
+.display-register-students {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  background: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* Table Header */
+.display-register-students th {
+  background-color: #007bff;
+  color: #fff;
+  padding: 12px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 14px;
+  border: 1px solid #ddd;
+}
+
+/* Table Cells */
+.display-register-students td {
+  padding: 12px;
+  border: 1px solid #ddd;
+  text-align: center;
+  color: #333;
+  white-space: normal;        /* ✅ allow wrapping */
+  word-wrap: break-word;      /* ✅ break long words */
+  max-width: 220px;           /* limit column width */
+}
+
+/* Alternate Row Colors */
+.display-register-students tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.display-register-students tr:hover {
+  background-color: #f1f7ff;
+  transition: background-color 0.3s ease-in-out;
+}
+
+/* ==============================
+   Action Buttons inside Table
+============================== */
+.display-register-students button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: 0.3s;
+}
+
+.display-register-students button:hover {
+  background-color: #0056b3;
+  transform: scale(1.05);
+}
+
+/* ==============================
+   Placement Input Fields
+============================== */
+.placement-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  align-items: center;
+}
+
+.placement-inputs input {
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 12px;
+  width: 100px;
+}
+
+.placement-inputs input:focus {
+  border-color: #007bff;
+  outline: none;
+  box-shadow: 0px 0px 3px rgba(0, 123, 255, 0.3);
+}
+
+/* ==============================
+   Responsive Design
+============================== */
+@media screen and (max-width: 768px) {
+  .display-register-students {
+    font-size: 12px;
+  }
+
+  .admin-controls {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .search-container {
+    text-align: center;
+    width: 100%;
+  }
+
+  .search-container input {
+    width: 90%;
+  }
+
+  .filter-container {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .filter-container input {
+    width: 90%;
+  }
+}
