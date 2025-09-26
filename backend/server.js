@@ -9,7 +9,8 @@ import multer from 'multer';
 import nodemailer from 'nodemailer';
 import bodyParser from 'body-parser';
 import bcrypt from 'bcrypt';
-import { applyAssociations } from './models/index.js'; // Fixed: Removed duplicate import
+import jwt from 'jsonwebtoken'; // Added for JWT support
+import { applyAssociations } from './models/index.js';
 import PDFDocument from 'pdfkit';
 
 // Import Routes
@@ -19,20 +20,19 @@ import adminRoutes from './routes/admin/adminRoutes.js';
 import tableRoutes from './routes/admin/tableRoutes.js';
 import internRoutes from './routes/student/internshipRoutes.js';
 import dashboardRoutes from './routes/student/DashboardRoutes.js';
-import bulkRoutes from "./routes/admin/bulkRoutes.js";
-import studentRoutes from "./routes/student/studentRoutes.js"
-import staffRoutes from "./routes/staffRoutes.js";
+import bulkRoutes from './routes/admin/bulkRoutes.js';
+import studentRoutes from './routes/student/studentRoutes.js';
+import staffRoutes from './routes/staffRoutes.js';
 import locationRoutes from './routes/student/locationRoutes.js';
-import activityRoutes from "./routes/admin/activityRoutes.js";
+import activityRoutes from './routes/admin/activityRoutes.js';
 import ScholarshipRoutes from './routes/student/ScholarshipRoutes.js';
-import eventRoutes from './routes/student/eventRoutes.js'
+import eventRoutes from './routes/student/eventRoutes.js';
 import eventAttendedRoutes from './routes/student/eventAttendedRoutes.js';
-import OnlineCoursesRoutes from './routes/student/onlinecourseRoute.js'
-import achievementRoutes from './routes/student/achievementRoutes.js'
+import OnlineCoursesRoutes from './routes/student/onlinecourseRoute.js';
+import achievementRoutes from './routes/student/achievementRoutes.js';
 import courseRoutes from './routes/student/CourseRoutes.js';
 import biodataRoutes from './routes/student/bioDataRoutes.js';
-import studentEducationRoutes from'./routes/studentEducation.js';
-
+import studentEducationRoutes from './routes/studentEducation.js';
 import prosubmittedRoutes from './routes/prosubmitted.js';
 import eventsRoutes from './routes/events.js';
 import industryRoutes from './routes/industry.js';
@@ -55,12 +55,8 @@ import projectProposalRoutes from './routes/projectProposal.js';
 import projectPaymentDetailsRoutes from './routes/projectPaymentDetails.js';
 import personalRoutes from './routes/personal.js';
 import facultyPDFRoutes from './routes/facultyPDFRoutes.js';
-
-// Admin panel routes
 import adminPanelRoutes from './routes/adminPanelRoutes.js';
 import studentPanelRoutes from './routes/studentPanelRoutes.js';
-
-// Fixed import path
 import PersonalInfo from './routes/staff/personalRoutes.js';
 import placementRoutes from './routes/placementRoutes.js';
 
@@ -76,7 +72,7 @@ const db = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || 'Vishal2005#',
-  database: process.env.DB_NAME || 'college_records',
+  database: process.env.DB_NAME || 'record',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
@@ -148,13 +144,65 @@ async function testConnection() {
   }
 }
 
+// Initialize database and associations
+async function initializeDatabase() {
+  await testConnection();
+  await connectDB(); // Assuming connectDB handles Sequelize sync or initialization
+  applyAssociations(sequelize);
+}
 
-// Initialize both databases
+initializeDatabase().catch(err => {
+  console.error('Failed to initialize database:', err);
+  process.exit(1);
+});
 
-// Fixed: Use proper route registration order and placement login route
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/tables', tableRoutes);
+app.use('/api/internships', internRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/bulk', bulkRoutes);
+app.use('/api/students', studentRoutes);
+app.use('/api/staff', staffRoutes);
+app.use('/api/staff/personal', PersonalInfo);
+app.use('/api/locations', locationRoutes);
+app.use('/api/activities', activityRoutes);
+app.use('/api/scholarships', ScholarshipRoutes);
+app.use('/api/events', eventRoutes);
+app.use('/api/event-attended', eventAttendedRoutes);
+app.use('/api/leaves', leaveRoutes);
+app.use('/api/online-courses', OnlineCoursesRoutes);
+app.use('/api/achievements', achievementRoutes);
+app.use('/api/courses', courseRoutes);
+app.use('/api/biodata', biodataRoutes);
+app.use('/api/student-education', studentEducationRoutes);
+app.use('/api/proposals-submitted', prosubmittedRoutes);
+app.use('/api/industry', industryRoutes);
+app.use('/api/certifications', certificationRoutes);
+app.use('/api/book-chapters', bookChapterRoutes);
+app.use('/api/other', otherRoutes);
+app.use('/api/h-index', hIndexRoutes);
+app.use('/api/proposals', proposalsRoutes);
+app.use('/api/resource-person', resourcePersonRoutes);
+app.use('/api/seed-money', seedMoneyRoutes);
+app.use('/api/recognition', recognitionRoutes);
+app.use('/api/patent-product', patentProductRoutes);
+app.use('/api/sponsored-research', sponsoredResearchRoutes);
+app.use('/api/project-mentors', projectMentorRoutes);
+app.use('/api/events-organized', eventsOrganizedRoutes);
+app.use('/api/scholars', ScholarRoutes);
+app.use('/api/education', educationRoutes);
+app.use('/api/payment-details', paymentDetailsRoutes);
+app.use('/api/project-proposal', projectProposalRoutes);
+app.use('/api/project-payment-details', projectPaymentDetailsRoutes);
+app.use('/api/personal', personalRoutes);
+app.use('/api/faculty-pdf', facultyPDFRoutes);
+app.use('/api/admin-panel', adminPanelRoutes);
+app.use('/api/student-panel', studentPanelRoutes);
 app.use('/api/placement', placementRoutes);
 
-// General login route
+// General Login Route
 app.post('/api/login', async (req, res) => {
   const { identifier, password } = req.body;
 
@@ -165,7 +213,6 @@ app.post('/api/login', async (req, res) => {
   try {
     let query;
     let params;
-    // Check if identifier is a regno (Student) or username (Admin/Staff)
     if (/^\d+$/.test(identifier)) { // Assuming regno is numeric
       query = `
         SELECT u.*, sd.regno 
@@ -192,9 +239,20 @@ app.post('/api/login', async (req, res) => {
       return res.status(401).json({ message: 'Invalid password' });
     }
 
+    const token = jwt.sign(
+      {
+        userId: user.Userid,
+        role: user.role,
+        username: user.username,
+      },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '1h' }
+    );
+
     return res.json({
       message: 'Login successful',
-      role: user.role,
+      token,
+      role: user.role.toLowerCase(),
       userId: user.Userid,
       username: user.username,
       email: user.email,
@@ -205,64 +263,6 @@ app.post('/api/login', async (req, res) => {
     return res.status(500).json({ message: 'Database error' });
   }
 });
-
-// Route registration (Fixed duplicate route issues)
-app.use('/api', authRoutes); 
-app.use('/api', adminRoutes);
-app.use('/api', tableRoutes);
-app.use('/api', internRoutes);
-app.use('/api', dashboardRoutes);
-app.use("/api/bulk", bulkRoutes);
-app.use("/api", studentRoutes);
-
-// Fixed staff routes - removed extra slash and corrected path
-app.use("/api/staff", PersonalInfo);
-app.use('/api', staffRoutes);
-app.use('/api/auth', authRoutes);
-
-app.use('/api/proposals-submitted', prosubmittedRoutes);
-app.use('/api/events', eventsRoutes);
-app.use('/api/industry', industryRoutes);
-app.use('/api/certifications', certificationRoutes);
-app.use('/api/book-chapters', bookChapterRoutes);
-app.use('/api/other', otherRoutes);
-app.use('/api/h-index', hIndexRoutes);
-app.use('/api/proposals', proposalsRoutes);
-app.use('/api/resource-person', resourcePersonRoutes);
-app.use('/api/seed-money', seedMoneyRoutes);
-app.use('/api/recognition', recognitionRoutes);
-app.use('/api/patent-product', patentProductRoutes);
-app.use('/api/sponsored-research', sponsoredResearchRoutes);
-app.use('/api/project-mentors', projectMentorRoutes);
-app.use('/api/events-organized', eventsOrganizedRoutes);
-app.use('/api/scholars', ScholarRoutes);
-app.use('/api/education', educationRoutes);
-app.use('/api/payment-details', paymentDetailsRoutes);
-app.use('/api/project-proposal',projectProposalRoutes);
-app.use('/api/project-payment-details', projectPaymentDetailsRoutes);
-app.use('/api/personal', personalRoutes);
-app.use('/api/student-education', studentEducationRoutes);
-
-
-// Admin Panel Routes
-app.use('/api', adminPanelRoutes);
-app.use('/api', studentPanelRoutes);
-
-app.use('/api', locationRoutes);
-app.use('/api', activityRoutes);
-app.use('/api', ScholarshipRoutes);
-app.use('/api', eventRoutes);
-app.use('/api', eventAttendedRoutes);
-app.use('/api', leaveRoutes);
-app.use('/api', OnlineCoursesRoutes);
-app.use('/api', achievementRoutes);
-app.use('/api', courseRoutes);
-app.use("/api", biodataRoutes);
-
-app.use('/api', facultyPDFRoutes);
-
-
-
 
 // Health check
 app.get('/api/health', (req, res) => {
