@@ -74,6 +74,18 @@ router.post('/', authenticateToken, async (req, res) => {
       ) VALUES (?, ?, ?)`,
       [proposal_id, date, amount]
     );
+
+    // Update amount_received in project_proposals
+    const [sumRows] = await pool.query(
+      'SELECT SUM(amount) as total_received FROM project_payment_details WHERE proposal_id = ?',
+      [proposal_id]
+    );
+    const totalReceived = sumRows[0].total_received || 0;
+
+    await pool.query(
+      'UPDATE project_proposals SET amount_received = ? WHERE id = ?',
+      [totalReceived, proposal_id]
+    );
     
     res.status(201).json({ 
       message: 'Payment detail created successfully', 
@@ -121,6 +133,19 @@ router.put('/:id', authenticateToken, async (req, res) => {
       WHERE id = ?`,
       [date, amount, req.params.id]
     );
+
+    // Update amount_received in project_proposals
+    const proposalId = rows[0].proposal_id;
+    const [sumRows] = await pool.query(
+      'SELECT SUM(amount) as total_received FROM project_payment_details WHERE proposal_id = ?',
+      [proposalId]
+    );
+    const totalReceived = sumRows[0].total_received || 0;
+
+    await pool.query(
+      'UPDATE project_proposals SET amount_received = ? WHERE id = ?',
+      [totalReceived, proposalId]
+    );
     
     res.status(200).json({ message: 'Payment detail updated successfully' });
   } catch (error) {
@@ -129,7 +154,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Delete payment detail
+ // Delete payment detail
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
     // Check if payment detail exists and user has access
@@ -150,6 +175,19 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     
     // Delete payment detail
     await pool.query('DELETE FROM project_payment_details WHERE id = ?', [req.params.id]);
+
+    // Update amount_received in project_proposals
+    const proposalId = rows[0].proposal_id;
+    const [sumRows] = await pool.query(
+      'SELECT SUM(amount) as total_received FROM project_payment_details WHERE proposal_id = ?',
+      [proposalId]
+    );
+    const totalReceived = sumRows[0].total_received || 0;
+
+    await pool.query(
+      'UPDATE project_proposals SET amount_received = ? WHERE id = ?',
+      [totalReceived, proposalId]
+    );
     
     res.status(200).json({ message: 'Payment detail deleted successfully' });
   } catch (error) {

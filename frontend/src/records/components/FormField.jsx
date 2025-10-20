@@ -16,6 +16,8 @@ const FormField = ({
   disabled = false,
 }) => {
   const renderField = () => {
+    const baseClasses = "w-full p-3 border-2 border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 bg-gray-50 focus:bg-white";
+    
     switch (type) {
       case 'textarea':
         return (
@@ -28,7 +30,11 @@ const FormField = ({
             placeholder={placeholder}
             rows={rows}
             disabled={disabled}
-            className="w-full p-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-300 bg-gray-50 focus:bg-white resize-none"
+            className={`${baseClasses} resize-none custom-scrollbar`}
+            style={{
+              scrollbarWidth: 'thin',
+              scrollbarColor: '#3b82f6 #f3f4f6'
+            }}
           />
         );
       case 'select':
@@ -40,7 +46,7 @@ const FormField = ({
             onChange={onChange}
             required={required}
             disabled={disabled}
-            className="w-full p-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-300 bg-gray-50 focus:bg-white"
+            className={baseClasses}
           >
             <option value="">{placeholder || 'Select an option'}</option>
             {options.map((option) => (
@@ -60,9 +66,9 @@ const FormField = ({
               checked={value || false}
               onChange={onChange}
               disabled={disabled}
-              className="h-5 w-5 text-purple-600 border-2 border-gray-300 rounded focus:ring-purple-500 transition-all duration-200"
+              className="h-4 w-4 text-blue-600 border-2 border-gray-300 rounded focus:ring-blue-500 transition-all duration-200"
             />
-            <label htmlFor={name} className="ml-3 text-gray-700 font-medium">
+            <label htmlFor={name} className="ml-2 text-sm text-gray-700 font-medium">
               {label}
             </label>
           </div>
@@ -78,22 +84,41 @@ const FormField = ({
             required={required}
             placeholder={placeholder}
             disabled={disabled}
-            className="w-full p-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-300 bg-gray-50 focus:bg-white"
+            className={baseClasses}
           />
         );
     }
   };
 
   return (
-    <div className="mb-6">
+    <div className="mb-5">
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #f3f4f6;
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+        }
+      `}</style>
+      
       {type !== 'checkbox' && (
-        <label htmlFor={name} className="block text-sm font-semibold text-gray-700 mb-3">
-          {label} {required && <span className="text-red-500 text-lg">*</span>}
+        <label htmlFor={name} className="block text-sm font-semibold text-gray-700 mb-2">
+          {label} {required && <span className="text-red-500 text-base">*</span>}
         </label>
       )}
       {renderField()}
-      {error && <p className="mt-2 text-sm text-red-500 font-medium">{error}</p>}
+      {error && <p className="mt-2 text-xs text-red-500 font-medium">{error}</p>}
     </div>
   );
 };
+
+
 export default FormField;

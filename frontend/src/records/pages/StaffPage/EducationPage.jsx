@@ -51,7 +51,7 @@ const updateEducationEntry = async (id, data) => {
 };
 
 const deleteEducationEntry = async (id) => {
-  return await apiCall(`/education/${id}`, {
+  return await apiCall(`/ceducation/${id}`, {
     method: 'DELETE',
   });
 };
@@ -459,9 +459,9 @@ const EducationPage = () => {
     { name: 'phd_status', label: 'PhD Status', type: 'select', options: ['Ongoing', 'Completed', 'Submitted', 'Awarded'] },
     { name: 'phd_registration_year', label: 'PhD Registration Year', type: 'number' },
     { name: 'phd_completion_year', label: 'PhD Completion Year', type: 'number' },
-    { name: 'phd_publications_during', label: 'Publications During PhD', type: 'textarea' },
-    { name: 'phd_publications_post', label: 'Publications Post PhD', type: 'textarea' },
-    { name: 'phd_post_experience', label: 'Post PhD Experience', type: 'textarea' }
+    { name: 'phd_publications_during', label: 'Publications During PhD', type: 'number' },
+    { name: 'phd_publications_post', label: 'Publications Post PhD', type: 'number' },
+    { name: 'phd_post_experience', label: 'Post PhD Experience', type: 'number' }
   ];
 
   const renderField = (field) => {
