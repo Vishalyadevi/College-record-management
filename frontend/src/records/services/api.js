@@ -149,8 +149,20 @@ export const deletePaymentDetail = (id) => api.delete(`/payment-details/${id}`);
 // Project Proposals services (Funded Projects)
 export const getProjectProposals = () => api.get('/project-proposal');
 export const getProjectProposal = (id) => api.get(`/project-proposal/${id}`);
-export const createProjectProposal = (data) => api.post('/project-proposal', data);
-export const updateProjectProposal = (id, data) => api.put(`/project-proposal/${id}`, data);
+export const createProjectProposal = (data) => {
+  return api.post('/project-proposal', data, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
+export const updateProjectProposal = (id, data) => {
+  return api.put(`/project-proposal/${id}`, data, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
 export const deleteProjectProposal = (id) => api.delete(`/project-proposal/${id}`);
 
 // Project Payment Details services
@@ -161,19 +173,65 @@ export const updateProjectPaymentDetail = (id, data) => api.put(`/project-paymen
 export const deleteProjectPaymentDetail = (id) => api.delete(`/project-payment-details/${id}`);
 
 // Events services
+// Events services - Updated to handle file uploads
 export const getEvents = () => api.get('/events');
 export const getEvent = (id) => api.get(`/events/${id}`);
-export const createEvent = (data) => api.post('/events', data);
-export const updateEvent = (id, data) => api.put(`/events/${id}`, data);
+
+export const createEvent = (data) => {
+  return api.post('/events', data, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
+
+export const updateEvent = (id, data) => {
+  return api.put(`/events/${id}`, data, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
+
 export const deleteEvent = (id) => api.delete(`/events/${id}`);
 
+// Get event document (PDF)
+export const getEventDocument = (eventId, docType) => {
+  return api.get(`/events/${eventId}/document/${docType}`, {
+    responseType: 'blob', // Important for binary data
+  });
+};
+
 // Industry Know-how services
-export const getIndustryKnowhow = () => api.get('/industry');
+/*export const getIndustryKnowhow = () => api.get('/industry');
 export const getIndustryKnowhowItem = (id) => api.get(`/industry/${id}`);
 export const createIndustryKnowhow = (data) => api.post('/industry', data);
 export const updateIndustryKnowhow = (id, data) => api.put(`/industry/${id}`, data);
 export const deleteIndustryKnowhow = (id) => api.delete(`/industry/${id}`);
+*/
 
+// Industry Know-how services - Updated with PDF support
+export const getIndustryKnowhow = () => api.get('/industry');
+
+export const getIndustryKnowhowItem = (id) => api.get(`/industry/${id}`);
+
+export const createIndustryKnowhow = (data) => {
+  return api.post('/industry', data);
+};
+
+export const updateIndustryKnowhow = (id, data) => {
+  return api.put(`/industry/${id}`, data);
+};
+
+export const deleteIndustryKnowhow = (id) => api.delete(`/industry/${id}`);
+
+// Get industry certificate PDF
+export const getIndustryCertificatePDF = async (id) => {
+  const response = await api.get(`/industry/${id}/pdf`, {
+    responseType: 'blob',
+  });
+  return response.data;
+};
 // Certifications services
 export const getCertifications = () => api.get('/certifications');
 export const getCertification = (id) => api.get(`/certifications/${id}`);
@@ -218,19 +276,79 @@ export const updateHIndex = (id, data) => api.put(`/h-index/${id}`, data);
 export const deleteHIndex = (id) => api.delete(`/h-index/${id}`);
 
 // Resource Person services
+// Add these updated functions to your existing api.js file (Resource Person services section)
+
+// Resource Person services - Updated with file upload support
 export const getResourcePersonEntries = () => api.get('/resource-person');
+
 export const getResourcePersonEntry = (id) => api.get(`/resource-person/${id}`);
-export const createResourcePersonEntry = (data) => api.post('/resource-person', data);
-export const updateResourcePersonEntry = (id, data) => api.put(`/resource-person/${id}`, data);
+
+export const createResourcePersonEntry = (data) => {
+  return api.post('/resource-person', data, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
+
+export const updateResourcePersonEntry = (id, data) => {
+  return api.put(`/resource-person/${id}`, data, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
+
 export const deleteResourcePersonEntry = (id) => api.delete(`/resource-person/${id}`);
 
+// Download resource person file
+export const downloadResourcePersonFile = async (filename) => {
+  const response = await api.get(`/resource-person/download/${filename}`, {
+    responseType: 'blob',
+  });
+  return response.data;
+};
+
 // Recognition services
+/*
 export const getRecognitionEntries = () => api.get('/recognition');
 export const getRecognitionEntry = (id) => api.get(`/recognition/${id}`);
 export const createRecognitionEntry = (data) => api.post('/recognition', data);
 export const updateRecognitionEntry = (id, data) => api.put(`/recognition/${id}`, data);
 export const deleteRecognitionEntry = (id) => api.delete(`/recognition/${id}`);
+*/
+// Add these updated functions to your existing api.js file
 
+// Recognition services - Updated with PDF support
+export const getRecognitionEntries = () => api.get('/recognition');
+
+export const getRecognitionEntry = (id) => api.get(`/recognition/${id}`);
+
+export const createRecognitionEntry = (data) => {
+  return api.post('/recognition', data, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
+
+export const updateRecognitionEntry = (id, data) => {
+  return api.put(`/recognition/${id}`, data, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
+
+export const deleteRecognitionEntry = (id) => api.delete(`/recognition/${id}`);
+
+// Get recognition PDF
+export const getRecognitionPDF = async (id) => {
+  const response = await api.get(`/recognition/${id}/pdf`, {
+    responseType: 'blob',
+  });
+  return response.data;
+};
 // Patent/Product Development services
 export const getPatentEntries = () => api.get('/patent-product');
 export const getPatentEntry = (id) => api.get(`/patent-product/${id}`);
@@ -248,8 +366,20 @@ export const deleteProjectMentor = (id) => api.delete(`/project-mentors/${id}`);
 // Seed Money services
 export const getSeedMoneyEntries = () => api.get('/seed-money');
 export const getSeedMoneyEntry = (id) => api.get(`/seed-money/${id}`);
-export const createSeedMoneyEntry = (data) => api.post('/seed-money', data);
-export const updateSeedMoneyEntry = (id, data) => api.put(`/seed-money/${id}`, data);
+export const createSeedMoneyEntry = (data) => {
+  return api.post('/seed-money', data, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
+export const updateSeedMoneyEntry = (id, data) => {
+  return api.put(`/seed-money/${id}`, data, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
 export const deleteSeedMoneyEntry = (id) => api.delete(`/seed-money/${id}`);
 
 // REAL-TIME DASHBOARD STATS SERVICE
@@ -257,7 +387,7 @@ export const getDashboardStats = async () => {
   try {
     // Fetch all data concurrently for better performance
     const [
-      
+
       seedMoneyResponse,
       scholarsResponse,
       proposalsResponse,
@@ -321,11 +451,11 @@ export const getDashboardStatsOptimized = () => api.get('/other/dashboard-stats'
 export const createWebSocketConnection = (onStatsUpdate) => {
   const wsUrl = 'ws://localhost:5000/ws/dashboard';
   const socket = new WebSocket(wsUrl);
-  
+
   socket.onopen = () => {
     console.log('WebSocket connected for real-time dashboard updates');
   };
-  
+
   socket.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
@@ -336,11 +466,11 @@ export const createWebSocketConnection = (onStatsUpdate) => {
       console.error('Error parsing WebSocket message:', error);
     }
   };
-  
+
   socket.onerror = (error) => {
     console.error('WebSocket error:', error);
   };
-  
+
   socket.onclose = () => {
     console.log('WebSocket connection closed');
     // Attempt to reconnect after 5 seconds
@@ -348,7 +478,7 @@ export const createWebSocketConnection = (onStatsUpdate) => {
       createWebSocketConnection(onStatsUpdate);
     }, 5000);
   };
-  
+
   return socket;
 };
 
@@ -362,12 +492,12 @@ export const createPollingService = (onStatsUpdate, interval = 5000) => {
       console.error('Error polling dashboard stats:', error);
     }
   };
-  
+
   const intervalId = setInterval(pollStats, interval);
-  
+
   // Initial fetch
   pollStats();
-  
+
   // Return cleanup function
   return () => clearInterval(intervalId);
 };
@@ -388,15 +518,15 @@ const statsCache = {
 
 export const getCachedDashboardStats = async () => {
   const now = Date.now();
-  
+
   if (statsCache.data && (now - statsCache.timestamp) < CACHE_DURATION) {
     return { data: statsCache.data };
   }
-  
+
   const response = await getDashboardStats();
   statsCache.data = response.data;
   statsCache.timestamp = now;
-  
+
   return response;
 };
 

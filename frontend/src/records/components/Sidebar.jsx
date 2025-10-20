@@ -68,6 +68,7 @@ const Sidebar = () => {
             <SidebarLink to="/records/staff-list" icon={<FaUserTie />} label="Staff List" />
             <SidebarLink to="/records/staff-activities" icon={<FaUserTie />} label="Staff Activities" />
             <SidebarLink to="/records/student-activities" icon={<FaUserTie />} label="Student Activities" />
+            <SidebarLink to="/records/noncgpa-category" icon={<FaUserTie />} label="Add Non CGPA" />
 
             <SidebarLink to="/records/bulk" icon={<FaFileUpload />} label="Bulk Import" />
           </>
@@ -77,7 +78,7 @@ const Sidebar = () => {
           <>
             {/* FIXED: Changed routes to match App.tsx exactly */}
             <SidebarLink to="/records/staff" icon={<FaTachometerAlt />} label="Main Dashboard" />
-            <SidebarLink to="/records/staff-dashboard" icon={<FaChalkboardTeacher />} label="Staff Dashboard" />
+            <SidebarLink to="/records/staff-dashboard" icon={<FaChalkboardTeacher />} label="Approval Dashboard" />
             <SidebarLink to="/records/myward" icon={<FaUsers />} label="My Ward" />
             <SidebarLink to="/records/personal" icon={<FaUserGraduate />} label="Personal" />
             <SidebarLink to="/records/education" icon={<FaBook />} label="Education" />
@@ -96,6 +97,8 @@ const Sidebar = () => {
             <SidebarLink to="/records/patent-product" icon={<FaFileUpload />} label="Patent/Product Development" />
             <SidebarLink to="/records/project-mentors" icon={<FaUsers />} label="Project Mentors" />
               <SidebarLink to="/placement/staff-home" icon={<FaUsers />} label="Placement" />
+                          <SidebarLink to="/records/staff-mou" icon={<FaUsers />} label="MOU" />
+
         </>
         );
       case "Student":
@@ -103,6 +106,8 @@ const Sidebar = () => {
           <>
             <SidebarLink to="/records/student-background" icon={<FaTachometerAlt />} label="Dashboard" />
             <SidebarLink to="/records/student-personal-details" icon={<FaUserGraduate />} label="Personal Details" />
+                        <SidebarLink to="/records/student-education" icon={<FaUserGraduate />} label="Education" />
+
             {/*<SidebarLink to="/records/student-courses" icon={<FaBook />} label="Courses Enrolled" />*/}
             <SidebarLink to="/records/student-event-attended" icon={<FaCalendarAlt />} label="Events Attended" />
             <SidebarLink to="/records/student-event-organized" icon={<FaAward />} label="Events Organized" />
@@ -112,6 +117,13 @@ const Sidebar = () => {
             <SidebarLink to="/records/student-internships" icon={<FaSchool />} label="Internships" />
             <SidebarLink to="/records/student-scholarships" icon={<FaAward />} label="Scholarships" />
             <SidebarLink to="/records/student-leave" icon={<FaPlane />} label="Leave Request" />
+                        <SidebarLink to="/records/studenthackathon" icon={<FaPlane />} label="Hackathon" />
+                        <SidebarLink to="/records/student-extracurricular" icon={<FaPlane />} label="Extracurricular" />
+                        <SidebarLink to="/records/student-project" icon={<FaPlane />} label="Projects" />
+                        <SidebarLink to="/records/student-competency" icon={<FaPlane />} label="Competency & Coding" />
+                        <SidebarLink to="/records/student-publication" icon={<FaPlane />} label="Publications" />
+                        <SidebarLink to="/records/noncgpa" icon={<FaPlane />} label="Non CGPA" />
+
                         <SidebarLink to="/placement/home" icon={<FaUsers />} label="Placement" />
 
 

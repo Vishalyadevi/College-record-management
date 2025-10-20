@@ -47,13 +47,27 @@ const validateEducationInfo = (req, res, next) => {
     'tenth_year', 'twelfth_year', 'ug_year', 'pg_year', 'mphil_year',
     'phd_registration_year', 'phd_completion_year'
   ];
-  
+
   for (const field of yearFields) {
     if (data[field]) {
       const year = parseInt(data[field]);
       if (isNaN(year) || year < 1900 || year > new Date().getFullYear() + 10) {
         return res.status(400).json({
           message: `${field} must be a valid year between 1900 and ${new Date().getFullYear() + 10}`
+        });
+      }
+    }
+  }
+
+  // Validate PhD publication and experience fields (should be integers 1-20)
+  const phdIntFields = ['phd_publications_during', 'phd_publications_post', 'phd_post_experience'];
+
+  for (const field of phdIntFields) {
+    if (data[field]) {
+      const value = parseInt(data[field]);
+      if (isNaN(value) || value < 1 || value > 20) {
+        return res.status(400).json({
+          message: `${field} must be an integer between 1 and 20`
         });
       }
     }
@@ -73,9 +87,11 @@ const cleanEducationData = (data) => {
     'ug_institution', 'ug_university', 'ug_medium', 'ug_specialization', 'ug_degree', 'ug_cgpa_percentage',
     'pg_institution', 'pg_university', 'pg_medium', 'pg_specialization', 'pg_degree', 'pg_cgpa_percentage',
     'mphil_institution', 'mphil_university', 'mphil_medium', 'mphil_specialization', 'mphil_degree', 'mphil_cgpa_percentage',
-    'phd_university', 'phd_title', 'phd_guide_name', 'phd_college', 'phd_status',
-    'phd_publications_during', 'phd_publications_post', 'phd_post_experience'
+    'phd_university', 'phd_title', 'phd_guide_name', 'phd_college', 'phd_status'
   ];
+
+  // Integer fields (1-20)
+  const integerFields = ['phd_publications_during', 'phd_publications_post', 'phd_post_experience'];
   
   // ENUM fields
   const enumFields = [
@@ -112,7 +128,17 @@ const cleanEducationData = (data) => {
       }
     }
   });
-  
+
+  // Process integer fields
+  integerFields.forEach(field => {
+    if (data[field] && data[field].toString().trim() !== '') {
+      const value = parseInt(data[field]);
+      if (!isNaN(value) && value >= 1 && value <= 20) {
+        cleaned[field] = value;
+      }
+    }
+  });
+
   return cleaned;
 };
 

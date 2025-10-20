@@ -1,8 +1,23 @@
 import express from 'express';
+import multer from 'multer';
 import { pool } from '../db/db.js';
 import { authenticate as authenticateToken } from '../middlewares/auth.js';
 
 const router = express.Router();
+
+// Configure multer for PDF uploads
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF files are allowed'));
+    }
+  }
+});
 
 // Get all industry knowhow
 router.get('/', authenticateToken, async (req, res) => {
@@ -12,6 +27,7 @@ router.get('/', authenticateToken, async (req, res) => {
         id, Userid, internship_name, title, company, 
         outcomes, from_date, to_date, venue, participants, 
         financial_support, support_amount, certificate_link,
+        CASE WHEN certificate_pdf IS NOT NULL THEN true ELSE false END as has_pdf,
         created_at, updated_at
       FROM industry_knowhow
       WHERE Userid = ?
@@ -53,7 +69,12 @@ router.get('/', authenticateToken, async (req, res) => {
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT * FROM industry_knowhow WHERE id = ? AND Userid = ?', 
+      `SELECT id, Userid, internship_name, title, company, 
+       outcomes, from_date, to_date, venue, participants, 
+       financial_support, support_amount, certificate_link,
+       CASE WHEN certificate_pdf IS NOT NULL THEN true ELSE false END as has_pdf,
+       created_at, updated_at
+       FROM industry_knowhow WHERE id = ? AND Userid = ?`, 
       [req.params.id, req.user.Userid]
     );
     
@@ -88,8 +109,29 @@ router.get('/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Get certificate PDF
+router.get('/:id/pdf', authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT certificate_pdf FROM industry_knowhow WHERE id = ? AND Userid = ?',
+      [req.params.id, req.user.Userid]
+    );
+    
+    if (rows.length === 0 || !rows[0].certificate_pdf) {
+      return res.status(404).json({ message: 'Certificate PDF not found' });
+    }
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="certificate_${req.params.id}.pdf"`);
+    res.send(rows[0].certificate_pdf);
+  } catch (error) {
+    console.error('Error fetching certificate PDF:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Create new industry knowhow
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, upload.single('certificate_pdf'), async (req, res) => {
   const { 
     internship_name, 
     title, 
@@ -142,7 +184,7 @@ router.post('/', authenticateToken, async (req, res) => {
       });
     }
 
-    // Validate and sanitize internship_name (max 255 chars)
+    // Validate field lengths
     if (internship_name.trim().length > 255) {
       return res.status(400).json({ 
         success: false,
@@ -150,7 +192,6 @@ router.post('/', authenticateToken, async (req, res) => {
       });
     }
 
-    // Validate and sanitize title (max 255 chars)
     if (title.trim().length > 255) {
       return res.status(400).json({ 
         success: false,
@@ -158,7 +199,6 @@ router.post('/', authenticateToken, async (req, res) => {
       });
     }
 
-    // Validate and sanitize company (max 100 chars)
     if (company.trim().length > 100) {
       return res.status(400).json({ 
         success: false,
@@ -166,7 +206,6 @@ router.post('/', authenticateToken, async (req, res) => {
       });
     }
 
-    // Validate and sanitize venue (max 100 chars)
     if (venue.trim().length > 100) {
       return res.status(400).json({ 
         success: false,
@@ -191,7 +230,6 @@ router.post('/', authenticateToken, async (req, res) => {
         if (isNaN(date.getTime())) {
           throw new Error('Invalid date');
         }
-        // Ensure date is not too far in the past or future
         const currentYear = new Date().getFullYear();
         const dateYear = date.getFullYear();
         if (dateYear < 1900 || dateYear > currentYear + 10) {
@@ -234,7 +272,6 @@ router.post('/', authenticateToken, async (req, res) => {
         });
       }
       supportAmountValue = parseFloat(support_amount);
-      // Validate amount doesn't exceed DECIMAL(10,2) limits
       if (supportAmountValue >= 100000000) {
         return res.status(400).json({ 
           success: false,
@@ -253,14 +290,16 @@ router.post('/', authenticateToken, async (req, res) => {
         });
       }
     }
+
+    const pdfBuffer = req.file ? req.file.buffer : null;
     
     // Insert new industry knowhow
     const [result] = await pool.query(
       `INSERT INTO industry_knowhow (
         Userid, internship_name, title, company, 
         outcomes, from_date, to_date, venue, participants, 
-        financial_support, support_amount, certificate_link
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        financial_support, support_amount, certificate_link, certificate_pdf
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.user.Userid, 
         internship_name.trim(), 
@@ -273,7 +312,8 @@ router.post('/', authenticateToken, async (req, res) => {
         participantCount, 
         hasFinancialSupport, 
         supportAmountValue, 
-        certificate_link ? certificate_link.trim() : null
+        certificate_link ? certificate_link.trim() : null,
+        pdfBuffer
       ]
     );
     
@@ -314,7 +354,7 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 // Update industry knowhow
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/:id', authenticateToken, upload.single('certificate_pdf'), async (req, res) => {
   const { 
     internship_name, 
     title, 
@@ -326,7 +366,8 @@ router.put('/:id', authenticateToken, async (req, res) => {
     participants, 
     financial_support, 
     support_amount, 
-    certificate_link 
+    certificate_link,
+    remove_pdf
   } = req.body;
   
   try {
@@ -380,7 +421,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
       });
     }
 
-    // Validate field lengths (same as create)
+    // Validate field lengths
     if (internship_name.trim().length > 255) {
       return res.status(400).json({ 
         success: false,
@@ -486,15 +527,19 @@ router.put('/:id', authenticateToken, async (req, res) => {
         });
       }
     }
+
+    let query;
+    let params;
     
-    // Update industry knowhow
-    await pool.query(
-      `UPDATE industry_knowhow SET 
+    if (remove_pdf === 'true') {
+      // Remove PDF
+      query = `UPDATE industry_knowhow SET 
         internship_name = ?, title = ?, company = ?, 
         outcomes = ?, from_date = ?, to_date = ?, venue = ?, participants = ?, 
-        financial_support = ?, support_amount = ?, certificate_link = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ? AND Userid = ?`,
-      [
+        financial_support = ?, support_amount = ?, certificate_link = ?, 
+        certificate_pdf = NULL, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND Userid = ?`;
+      params = [
         internship_name.trim(), 
         title.trim(), 
         company.trim(),
@@ -508,8 +553,57 @@ router.put('/:id', authenticateToken, async (req, res) => {
         certificate_link ? certificate_link.trim() : null, 
         req.params.id,
         req.user.Userid
-      ]
-    );
+      ];
+    } else if (req.file) {
+      // Update with new PDF
+      query = `UPDATE industry_knowhow SET 
+        internship_name = ?, title = ?, company = ?, 
+        outcomes = ?, from_date = ?, to_date = ?, venue = ?, participants = ?, 
+        financial_support = ?, support_amount = ?, certificate_link = ?, 
+        certificate_pdf = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND Userid = ?`;
+      params = [
+        internship_name.trim(), 
+        title.trim(), 
+        company.trim(),
+        outcomes.trim(), 
+        formattedFromDate, 
+        formattedToDate, 
+        venue.trim(), 
+        participantCount,
+        hasFinancialSupport, 
+        supportAmountValue, 
+        certificate_link ? certificate_link.trim() : null,
+        req.file.buffer,
+        req.params.id,
+        req.user.Userid
+      ];
+    } else {
+      // Update without changing PDF
+      query = `UPDATE industry_knowhow SET 
+        internship_name = ?, title = ?, company = ?, 
+        outcomes = ?, from_date = ?, to_date = ?, venue = ?, participants = ?, 
+        financial_support = ?, support_amount = ?, certificate_link = ?, 
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND Userid = ?`;
+      params = [
+        internship_name.trim(), 
+        title.trim(), 
+        company.trim(),
+        outcomes.trim(), 
+        formattedFromDate, 
+        formattedToDate, 
+        venue.trim(), 
+        participantCount,
+        hasFinancialSupport, 
+        supportAmountValue, 
+        certificate_link ? certificate_link.trim() : null, 
+        req.params.id,
+        req.user.Userid
+      ];
+    }
+    
+    await pool.query(query, params);
     
     res.status(200).json({ 
       success: true,

@@ -16,8 +16,19 @@ import { ScholarshipProvider } from './records/contexts/ScholarshipContext.jsx';
 import { LeaveProvider } from './records/contexts/LeaveContext.jsx';
 import { OnlineCoursesProvider } from './records/contexts/OnlineCoursesContext.jsx';
 import { AchievementProvider } from "./records/contexts/AchievementContext.jsx";
+import { HackathonProvider } from "./records/contexts/HackathonContext.jsx"; // NEW
 import { StudentDataProvider } from './records/contexts/studentDataContext.jsx';
 import { CourseProvider } from './records/contexts/CourseContext.jsx';
+import { ExtracurricularProvider } from "./records/contexts/ExtracurricularContext.jsx";
+import { ProjectProvider } from "./records/contexts/ProjectContext.jsx";
+import { CompetencyCodingProvider } from "./records/contexts/CompetencyCodingContext.jsx"; // NEW
+import { PublicationProvider } from "./records/contexts/PublicationContext.jsx"; // NEW
+import { StudentEducationProvider } from "./records/contexts/StudentEducationContext.jsx"; // NEW
+import { NonCGPAProvider } from "./records/contexts/NonCGPAContext.jsx"; // NEW
+import { NonCGPACategoryProvider } from "./records/contexts/NonCGPACategoryContext.jsx"; // NEW
+
+
+
 
 // Main Website Components (from project/src/)
 import Navbar from './components/Navbar';
@@ -111,6 +122,17 @@ import StudentAchievements from './records/pages/Student/StudentAchievements';
 import StudentInternship from './records/pages/Student/StudentInternship';
 import StudentScholarship from './records/pages/Student/StudentScholarship';
 import StudentLeave from './records/pages/Student/StudentLeave';
+import Hackathon from './records/pages/Student/StudentHackathons.jsx'
+import ExtracurricularActivities from './records/pages/Student/ExtracurricularActivities.jsx';
+import StudentProject from './records/pages/Student/StudentProject.jsx';
+import StudentCompetency from './records/pages/Student/CompetencyCoding.jsx';
+import Publication from './records/pages/Student/Publication.jsx';
+import StudentEducation from './records/pages/Student/Education.jsx';
+import NonCGPA from './records/pages/Student/NonCGPACourses.jsx';
+import NonCGPACategory from './records/pages/admin/NonCGPACategoryManagement.jsx';
+
+
+
 import Dashboard from './records/pages/StaffPage/Dashboard';
 import RecordsSidebar from './records/components/Sidebar';
 import { ToastContainer } from "react-toastify";
@@ -147,6 +169,7 @@ import OverDashboardPage from './records/pages/StaffPage/Dashboard';
 import StaffActivitiesPage from './records/pages/admin/StaffActivities';
 import StudentActivitiesPage from './records/pages/admin/StudentActivities';
 import StaffFeedback from './placement/components/staff/stafffeedback';
+import StaffMou from './records/pages/StaffPage/MOUPage';
 
 // Authentication helper functions
 const getToken = (): string | null => {
@@ -557,7 +580,7 @@ const AppRoutes: React.FC = () => {
           <RecordsLayoutWithLocation><StaffActivitiesPage /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
-            <Route path="/records/student-activities" element={
+      <Route path="/records/student-activities" element={
         <ProtectedRoute allowedRoles={['Admin']}>
           <RecordsLayoutWithLocation><StudentActivitiesPage /></RecordsLayoutWithLocation>
         </ProtectedRoute>
@@ -675,6 +698,13 @@ const AppRoutes: React.FC = () => {
         </ProtectedRoute>
       } />
 
+      <Route path="/records/staff-mou" element={
+        <ProtectedRoute allowedRoles={['Staff']}>
+          <RecordsLayoutWithLocation><StaffMou /></RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
+      
+
       {/* Student Routes - WITH StudentProvider */}
       <Route path="/records/student" element={
         <ProtectedRoute allowedRoles={['Student']}>
@@ -768,6 +798,14 @@ const AppRoutes: React.FC = () => {
           </RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
+      <Route path="/records/studenthackathon" element={
+        <ProtectedRoute allowedRoles={['Student']}>
+          <RecordsLayoutWithLocation includeStudentProvider={true}>
+            <Hackathon />
+          </RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
+
       <Route path="/records/student-profile" element={
         <ProtectedRoute allowedRoles={['Student']}>
           <RecordsLayoutWithLocation><MyProfile /></RecordsLayoutWithLocation>
@@ -780,6 +818,63 @@ const AppRoutes: React.FC = () => {
           </RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
+      <Route path="/records/student-extracurricular" element={
+  <ProtectedRoute allowedRoles={['Student']}>
+    <RecordsLayoutWithLocation includeStudentProvider={true}>
+      <ExtracurricularActivities />
+    </RecordsLayoutWithLocation>
+  </ProtectedRoute>
+} />
+      <Route path="/records/student-project" element={
+  <ProtectedRoute allowedRoles={['Student']}>
+    <RecordsLayoutWithLocation includeStudentProvider={true}>
+      <StudentProject />
+    </RecordsLayoutWithLocation>
+  </ProtectedRoute>
+} />
+
+<Route path="/records/student-competency" element={
+  <ProtectedRoute allowedRoles={['Student']}>
+    <RecordsLayoutWithLocation includeStudentProvider={true}>
+      <StudentCompetency />
+    </RecordsLayoutWithLocation>
+  </ProtectedRoute>
+} />
+
+<Route path="/records/student-publication" element={
+  <ProtectedRoute allowedRoles={['Student']}>
+    <RecordsLayoutWithLocation includeStudentProvider={true}>
+      <Publication />
+    </RecordsLayoutWithLocation>
+  </ProtectedRoute>
+} />
+<Route path="/records/student-education" element={
+  <ProtectedRoute allowedRoles={['Student']}>
+    <RecordsLayoutWithLocation includeStudentProvider={true}>
+      <StudentEducation />
+    </RecordsLayoutWithLocation>
+  </ProtectedRoute>
+} />
+
+<Route path="/records/noncgpa" element={
+  <ProtectedRoute allowedRoles={['Student']}>
+    <RecordsLayoutWithLocation includeStudentProvider={true}>
+      <NonCGPA />
+    </RecordsLayoutWithLocation>
+  </ProtectedRoute>
+} />
+<Route path="/records/noncgpa-category" element={
+  <ProtectedRoute allowedRoles={['Admin']}>
+    <RecordsLayoutWithLocation includeStudentProvider={true}>
+      <NonCGPACategory />
+    </RecordsLayoutWithLocation>
+  </ProtectedRoute>
+} />
+
+
+
+
+
 
       {/* Common Protected Routes (All authenticated users) */}
       <Route path="/records/profile" element={
@@ -841,35 +936,51 @@ function App() {
   return (
     <StudentDataProvider>
       <CourseProvider>
-      <AchievementProvider>
-        <OnlineCoursesProvider>
-          <LeaveProvider>
-            <OrganizedEventProvider>
-              <ScholarshipProvider>
-                <LocationProvider>
-                  <AppProvider>
-                    <AttendedEventProvider>
-                      <InternProvider> 
-                        <DashboardProvider> 
-                          <UserProvider>
-                            <StudentProvider>
-                              <StaffProvider>
-                                <Router>
-                                  <AppRoutes />
-                                </Router>
-                              </StaffProvider>
-                            </StudentProvider>
-                          </UserProvider>
-                        </DashboardProvider>
-                      </InternProvider>
-                    </AttendedEventProvider>
-                  </AppProvider>
-                </LocationProvider>
-              </ScholarshipProvider>
-            </OrganizedEventProvider>
-          </LeaveProvider>
-        </OnlineCoursesProvider>
-      </AchievementProvider>
+        <NonCGPACategoryProvider>
+        <NonCGPAProvider>
+        <StudentEducationProvider>
+        <ExtracurricularProvider>
+          <ProjectProvider>
+            <CompetencyCodingProvider>
+              <PublicationProvider>
+                <HackathonProvider>
+          <AchievementProvider>
+            <OnlineCoursesProvider>
+              <LeaveProvider>
+                <OrganizedEventProvider>
+                  <ScholarshipProvider>
+                    <LocationProvider>
+                      <AppProvider>
+                        <AttendedEventProvider>
+                          <InternProvider> 
+                            <DashboardProvider> 
+                              <UserProvider>
+                                <StudentProvider>
+                                  <StaffProvider>
+                                    <Router>
+                                      <AppRoutes />
+                                    </Router>
+                                  </StaffProvider>
+                                </StudentProvider>
+                              </UserProvider>
+                            </DashboardProvider>
+                          </InternProvider>
+                        </AttendedEventProvider>
+                      </AppProvider>
+                    </LocationProvider>
+                  </ScholarshipProvider>
+                </OrganizedEventProvider>
+              </LeaveProvider>
+            </OnlineCoursesProvider>
+          </AchievementProvider>
+        </HackathonProvider>
+        </PublicationProvider>
+        </CompetencyCodingProvider>
+        </ProjectProvider>
+        </ExtracurricularProvider>
+</StudentEducationProvider>
+</NonCGPAProvider>
+</NonCGPACategoryProvider>
       </CourseProvider>
     </StudentDataProvider>
   );

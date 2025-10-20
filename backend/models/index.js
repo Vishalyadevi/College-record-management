@@ -10,7 +10,6 @@ import City from "./City.js";
 import Department from "./Department.js";
 import RelationDetails from "./RelationDetails.js";
 import BankDetails from "./BankDetails.js";
-import Extracurricular from "./Extracurricular.js";
 import EventAttended from "./eventAttended.js";
 import RecentActivity from "./RecentActivity.js";
 import BulkUploadHistory from "./BulkUploadHistory.js";
@@ -22,6 +21,15 @@ import OnlineCourses from "./OnlineCourses.js";
 import Achievement from "./Achievement.js";
 import Course from "./Course.js";
 import Marksheet from "./marksheet.js";
+import HackathonEvent from "./HackathonEvent.js";
+import Extracurricular from "./Extracurricular.js";
+import Project from "./Project.js";
+import StudentEducation from "./StudentEducation.js";
+import CompetencyCoding from "./CompetencyCoding.js";
+import StudentPublication from "./StudentPublication.js";
+import NonCGPACategory from "./NonCGPACategory.js";
+import StudentNonCGPA from "./StudentNonCGPA.js";
+
 
 const applyAssociations = () => {
   console.log("Applying model associations...");
@@ -215,11 +223,148 @@ Course.hasMany(Marksheet, { foreignKey: 'Userid', sourceKey: 'Userid' });
 
   console.log("✅ Associations applied successfully.");
 };
-// Export models and the association function
+User.hasMany(HackathonEvent, { foreignKey: "Userid", as: "hackathonEvents" });
+HackathonEvent.belongsTo(User, { foreignKey: "Userid", as: "organizer" });
+
+// Created_by association
+User.hasMany(HackathonEvent, { foreignKey: "Created_by", as: "createdHackathonEvents" });
+HackathonEvent.belongsTo(User, { foreignKey: "Created_by", as: "creator" });
+
+// Updated_by association
+User.hasMany(HackathonEvent, { foreignKey: "Updated_by", as: "updatedHackathonEvents" });
+HackathonEvent.belongsTo(User, { foreignKey: "Updated_by", as: "updater" });
+
+// Approved_by association
+User.hasMany(HackathonEvent, { foreignKey: "Approved_by", as: "approvedHackathonEvents" });
+HackathonEvent.belongsTo(User, { foreignKey: "Approved_by", as: "tutor" });
+
+// 🏅 EXTRACURRICULAR ACTIVITY ASSOCIATIONS
+// ========================
+
+// User as participant
+User.hasMany(Extracurricular, { foreignKey: "Userid", as: "extracurricularActivities" });
+Extracurricular.belongsTo(User, { foreignKey: "Userid", as: "organizer" });
+
+// Created_by association
+User.hasMany(Extracurricular, { foreignKey: "Created_by", as: "createdExtracurricularActivities" });
+Extracurricular.belongsTo(User, { foreignKey: "Created_by", as: "creator" });
+
+// Updated_by association
+User.hasMany(Extracurricular, { foreignKey: "Updated_by", as: "updatedExtracurricularActivities" });
+Extracurricular.belongsTo(User, { foreignKey: "Updated_by", as: "updater" });
+
+// Approved_by association
+User.hasMany(Extracurricular, { foreignKey: "Approved_by", as: "approvedExtracurricularActivities" });
+Extracurricular.belongsTo(User, { foreignKey: "Approved_by", as: "tutor" });
+
+// Update the exports at the bottom to include Extracurricular:
+User.hasMany(Project, { foreignKey: "Userid", as: "studentProjects" });
+Project.belongsTo(User, { foreignKey: "Userid", as: "organizer" });
+
+// Created_by association
+User.hasMany(Project, { foreignKey: "Created_by", as: "createdProjects" });
+Project.belongsTo(User, { foreignKey: "Created_by", as: "creator" });
+
+// Updated_by association
+User.hasMany(Project, { foreignKey: "Updated_by", as: "updatedProjects" });
+Project.belongsTo(User, { foreignKey: "Updated_by", as: "updater" });
+
+// Approved_by association
+User.hasMany(Project, { foreignKey: "Approved_by", as: "approvedProjects" });
+Project.belongsTo(User, { foreignKey: "Approved_by", as: "tutor" });
+
+// 📚 STUDENT EDUCATION ASSOCIATIONS
+// ========================
+
+// User to StudentEducation (One-to-One)
+User.hasOne(StudentEducation, { foreignKey: "Userid", as: "educationRecord" });
+StudentEducation.belongsTo(User, { foreignKey: "Userid", as: "organizer" });
+
+// Created_by association
+User.hasMany(StudentEducation, { foreignKey: "Created_by", as: "createdEducationRecords" });
+StudentEducation.belongsTo(User, { foreignKey: "Created_by", as: "creator" });
+
+// Updated_by association
+User.hasMany(StudentEducation, { foreignKey: "Updated_by", as: "updatedEducationRecords" });
+StudentEducation.belongsTo(User, { foreignKey: "Updated_by", as: "updater" });
+
+// Verified_by association
+User.hasMany(StudentEducation, { foreignKey: "Verified_by", as: "verifiedEducationRecords" });
+StudentEducation.belongsTo(User, { foreignKey: "Verified_by", as: "verifier" });
+
+// User to CompetencyCoding (One-to-One)
+User.hasOne(CompetencyCoding, { foreignKey: "Userid", as: "competencyCoding" });
+CompetencyCoding.belongsTo(User, { foreignKey: "Userid", as: "organizer" });
+
+// Created_by association
+User.hasMany(CompetencyCoding, { foreignKey: "Created_by", as: "createdCompetencyRecords" });
+CompetencyCoding.belongsTo(User, { foreignKey: "Created_by", as: "creator" });
+
+// Updated_by association
+User.hasMany(CompetencyCoding, { foreignKey: "Updated_by", as: "updatedCompetencyRecords" });
+CompetencyCoding.belongsTo(User, { foreignKey: "Updated_by", as: "updater" });
+
+// Verified_by association
+User.hasMany(CompetencyCoding, { foreignKey: "Verified_by", as: "verifiedCompetencyRecords" });
+CompetencyCoding.belongsTo(User, { foreignKey: "Verified_by", as: "verifier" });
+
+// User to StudentPublication (One-to-Many)
+User.hasMany(StudentPublication, { foreignKey: "Userid", as: "publications" });
+StudentPublication.belongsTo(User, { foreignKey: "Userid", as: "organizer" });
+
+// Created_by association
+User.hasMany(StudentPublication, { foreignKey: "Created_by", as: "createdPublications" });
+StudentPublication.belongsTo(User, { foreignKey: "Created_by", as: "creator" });
+
+// Updated_by association
+User.hasMany(StudentPublication, { foreignKey: "Updated_by", as: "updatedPublications" });
+StudentPublication.belongsTo(User, { foreignKey: "Updated_by", as: "updater" });
+
+// Verified_by association
+User.hasMany(StudentPublication, { foreignKey: "Verified_by", as: "verifiedPublications" });
+StudentPublication.belongsTo(User, { foreignKey: "Verified_by", as: "verifier" });
+
+// User as creator
+User.hasMany(NonCGPACategory, { foreignKey: "Created_by", as: "createdNonCGPACategories" });
+NonCGPACategory.belongsTo(User, { foreignKey: "Created_by", as: "creator" });
+
+// User as updater
+User.hasMany(NonCGPACategory, { foreignKey: "Updated_by", as: "updatedNonCGPACategories" });
+NonCGPACategory.belongsTo(User, { foreignKey: "Updated_by", as: "updater" });
+
+
+User.hasMany(StudentNonCGPA, { foreignKey: "Userid", as: "nonCGPARecords" });
+StudentNonCGPA.belongsTo(User, { foreignKey: "Userid", as: "student" });
+
+// NonCGPACategory to StudentNonCGPA (One-to-Many)
+NonCGPACategory.hasMany(StudentNonCGPA, { foreignKey: "category_id", as: "studentRecords" });
+StudentNonCGPA.belongsTo(NonCGPACategory, { foreignKey: "category_id", as: "category" });
+
+// Created_by association
+User.hasMany(StudentNonCGPA, { foreignKey: "Created_by", as: "createdNonCGPARecords" });
+StudentNonCGPA.belongsTo(User, { foreignKey: "Created_by", as: "creator" });
+
+// Updated_by association
+User.hasMany(StudentNonCGPA, { foreignKey: "Updated_by", as: "updatedNonCGPARecords" });
+StudentNonCGPA.belongsTo(User, { foreignKey: "Updated_by", as: "updater" });
+
+// Verified_by association
+User.hasMany(StudentNonCGPA, { foreignKey: "Verified_by", as: "verifiedNonCGPARecords" });
+StudentNonCGPA.belongsTo(User, { foreignKey: "Verified_by", as: "verifier" });
+// Update the exports at the bottom to include NonCGPACategory:
 export {
   sequelize,
-  User,OnlineCourses,
-  StudentDetails,Course,
+  User,
+  OnlineCourses,
+  StudentDetails,
+  Course,
+  HackathonEvent,
+  Extracurricular,
+  Project,
+  StudentEducation,
+  CompetencyCoding,
+  StudentPublication,
+  NonCGPACategory,  // Add this
   Internship,
   Message,
   Country,
@@ -229,8 +374,15 @@ export {
   City,
   RelationDetails,
   BankDetails,
-  Extracurricular,
-  EventAttended,EventOrganized,
-  RecentActivity, BulkUploadHistory, DownloadHistory ,Scholarship,StudentLeave,Achievement,Marksheet,
+  EventAttended,
+  EventOrganized,
+  RecentActivity,
+  BulkUploadHistory,
+  DownloadHistory,
+  Scholarship,
+  StudentLeave,
+  Achievement,
+  Marksheet,
+  StudentNonCGPA,
   applyAssociations,
 };

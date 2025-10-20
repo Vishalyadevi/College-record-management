@@ -1,16 +1,62 @@
 import express from 'express';
+import multer from 'multer';
 import { pool } from '../db/db.js';
 import { authenticate as authenticateToken } from '../middlewares/auth.js';
 
+// Configure multer for memory storage (for BLOB storage)
+const memoryUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF files are allowed'), false);
+    }
+  },
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  }
+});
+
 const router = express.Router();
+
+// Helper function to extract user ID (handles Sequelize models)
+const getUserId = (req) => {
+  return req.user?.Userid || req.user?.dataValues?.Userid || req.user?.id;
+};
 
 // Get all events attended
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      'SELECT * FROM events_attended WHERE Userid = ? ORDER BY created_at DESC',
-      [req.user.Userid] // ✅ Changed from req.user.id to req.user.Userid
-    );
+    const userId = getUserId(req);
+    
+    if (!userId) {
+      return res.status(401).json({ message: 'Authentication error: User ID not found' });
+    }
+
+    const [rows] = await pool.query(`
+      SELECT
+        id,
+        Userid,
+        programme_name,
+        title,
+        from_date,
+        to_date,
+        mode,
+        organized_by,
+        participants,
+        financial_support,
+        support_amount,
+        CASE WHEN permission_letter_link IS NOT NULL THEN true ELSE false END as has_permission_letter,
+        CASE WHEN certificate_link IS NOT NULL THEN true ELSE false END as has_certificate,
+        CASE WHEN financial_proof_link IS NOT NULL THEN true ELSE false END as has_financial_proof,
+        CASE WHEN programme_report_link IS NOT NULL THEN true ELSE false END as has_programme_report,
+        created_at,
+        updated_at
+      FROM events_attended
+      WHERE Userid = ? ORDER BY created_at DESC
+    `, [userId]);
+
     res.status(200).json(rows);
   } catch (error) {
     console.error('Error fetching events:', error);
@@ -21,9 +67,15 @@ router.get('/', authenticateToken, async (req, res) => {
 // Get event by ID
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
+    const userId = getUserId(req);
+    
+    if (!userId) {
+      return res.status(401).json({ message: 'Authentication error: User ID not found' });
+    }
+
     const [rows] = await pool.query(
       'SELECT * FROM events_attended WHERE id = ? AND Userid = ?',
-      [req.params.id, req.user.Userid] // ✅ Changed from req.user.id to req.user.Userid
+      [req.params.id, userId]
     );
     
     if (rows.length === 0) {
@@ -38,32 +90,42 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // Create new event
-router.post('/', authenticateToken, async (req, res) => {
-  const { 
-    programme_name, 
-    title, 
-    from_date, 
-    to_date, 
-    mode, 
-    organized_by, 
-    participants, 
-    financial_support, 
-    support_amount, 
-    permission_letter_link,
-    certificate_link,
-    financial_proof_link,
-    programme_report_link
-  } = req.body;
-  
+router.post('/', authenticateToken, memoryUpload.fields([
+  { name: 'permission_letter_link', maxCount: 1 },
+  { name: 'certificate_link', maxCount: 1 },
+  { name: 'financial_proof_link', maxCount: 1 },
+  { name: 'programme_report_link', maxCount: 1 }
+]), async (req, res) => {
   try {
-    // Debug logging - remove after fixing
-    console.log('=== DEBUG INFO ===');
-    console.log('req.user:', req.user);
-    console.log('req.user.Userid:', req.user.Userid);
-    console.log('typeof req.user.Userid:', typeof req.user.Userid);
+    const {
+      programme_name,
+      title,
+      from_date,
+      to_date,
+      mode,
+      organized_by,
+      participants,
+      financial_support,
+      support_amount
+    } = req.body;
+
+    console.log('=== Backend Received Data ===');
+    console.log('Body:', req.body);
+    console.log('Files:', req.files ? Object.keys(req.files) : 'none');
     
+    // Extract Userid correctly (handle Sequelize model)
+    const userId = getUserId(req);
+    
+    if (!userId) {
+      console.error('CRITICAL: No user ID found in request');
+      console.error('req.user:', req.user);
+      return res.status(401).json({ message: 'Authentication error: User ID not found' });
+    }
+    
+    console.log('Using Userid:', userId);
+
     // Basic validation
-    if (!programme_name?.trim() || !title?.trim() || !from_date || !to_date || !mode || !organized_by?.trim() || participants === undefined || participants === null) {
+    if (!programme_name?.trim() || !title?.trim() || !from_date || !to_date || !mode || !organized_by?.trim() || !participants) {
       return res.status(400).json({ message: 'Required fields missing' });
     }
     
@@ -81,8 +143,8 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'Invalid date format' });
     }
     
-    if (fromDate > toDate) {
-      return res.status(400).json({ message: 'Start date must be before end date' });
+    if (fromDate >= toDate) {
+      return res.status(400).json({ message: 'From date must be before to date' });
     }
 
     // Validate participants
@@ -91,21 +153,38 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'Participants must be a positive number' });
     }
 
+    // Convert financial_support to boolean
+    const financialSupportBool = financial_support === true || financial_support === 'true';
+
     // Validate support amount if financial support is true
     let supportAmount = null;
-    if (financial_support === true || financial_support === 'true') {
+    if (financialSupportBool) {
       if (support_amount !== undefined && support_amount !== null && support_amount !== '') {
         supportAmount = parseFloat(support_amount);
         if (isNaN(supportAmount) || supportAmount < 0) {
           return res.status(400).json({ message: 'Support amount must be a valid positive number' });
         }
+      } else {
+        return res.status(400).json({ message: 'Support amount is required when financial support is selected' });
       }
     }
     
-    // Validate organized_by length (max 100 characters as per schema)
+    // Validate organized_by length
     if (organized_by.trim().length > 100) {
       return res.status(400).json({ message: 'Organized by field cannot exceed 100 characters' });
     }
+
+    // Extract file buffers if uploaded
+    const permissionLetterBuffer = req.files?.['permission_letter_link']?.[0]?.buffer || null;
+    const certificateBuffer = req.files?.['certificate_link']?.[0]?.buffer || null;
+    const financialProofBuffer = req.files?.['financial_proof_link']?.[0]?.buffer || null;
+    const programmeReportBuffer = req.files?.['programme_report_link']?.[0]?.buffer || null;
+
+    console.log('=== File Buffers ===');
+    console.log('Permission Letter:', permissionLetterBuffer ? `${permissionLetterBuffer.length} bytes` : 'null');
+    console.log('Certificate:', certificateBuffer ? `${certificateBuffer.length} bytes` : 'null');
+    console.log('Financial Proof:', financialProofBuffer ? `${financialProofBuffer.length} bytes` : 'null');
+    console.log('Programme Report:', programmeReportBuffer ? `${programmeReportBuffer.length} bytes` : 'null');
     
     // Insert new event
     const [result] = await pool.query(
@@ -115,23 +194,26 @@ router.post('/', authenticateToken, async (req, res) => {
         permission_letter_link, certificate_link, financial_proof_link, programme_report_link
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        req.user.Userid, // ✅ Changed from req.user.id to req.user.Userid
-        programme_name.trim(), 
-        title.trim(), 
-        from_date, 
+        userId,
+        programme_name.trim(),
+        title.trim(),
+        from_date,
         to_date,
-        mode, 
-        organized_by.trim(), 
-        participantsCount, 
-        Boolean(financial_support), 
+        mode,
+        organized_by.trim(),
+        participantsCount,
+        financialSupportBool,
         supportAmount,
-        permission_letter_link?.trim() || null, 
-        certificate_link?.trim() || null, 
-        financial_proof_link?.trim() || null, 
-        programme_report_link?.trim() || null
+        permissionLetterBuffer,
+        certificateBuffer,
+        financialProofBuffer,
+        programmeReportBuffer
       ]
     );
     
+    console.log('=== Insert Result ===');
+    console.log('Insert ID:', result.insertId);
+
     res.status(201).json({ 
       message: 'Event created successfully', 
       id: result.insertId 
@@ -146,26 +228,33 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 // Update event
-router.put('/:id', authenticateToken, async (req, res) => {
-  const { 
-    programme_name, 
-    title, 
-    from_date, 
-    to_date, 
-    mode, 
-    organized_by, 
-    participants, 
-    financial_support, 
-    support_amount, 
-    permission_letter_link,
-    certificate_link,
-    financial_proof_link,
-    programme_report_link
-  } = req.body;
-  
+router.put('/:id', authenticateToken, memoryUpload.fields([
+  { name: 'permission_letter_link', maxCount: 1 },
+  { name: 'certificate_link', maxCount: 1 },
+  { name: 'financial_proof_link', maxCount: 1 },
+  { name: 'programme_report_link', maxCount: 1 }
+]), async (req, res) => {
   try {
+    const userId = getUserId(req);
+    
+    if (!userId) {
+      return res.status(401).json({ message: 'Authentication error: User ID not found' });
+    }
+
+    const {
+      programme_name,
+      title,
+      from_date,
+      to_date,
+      mode,
+      organized_by,
+      participants,
+      financial_support,
+      support_amount
+    } = req.body;
+
     // Basic validation
-    if (!programme_name?.trim() || !title?.trim() || !from_date || !to_date || !mode || !organized_by?.trim() || participants === undefined || participants === null) {
+    if (!programme_name?.trim() || !title?.trim() || !from_date || !to_date || !mode || !organized_by?.trim() || !participants) {
       return res.status(400).json({ message: 'Required fields missing' });
     }
     
@@ -183,8 +272,8 @@ router.put('/:id', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'Invalid date format' });
     }
     
-    if (fromDate > toDate) {
-      return res.status(400).json({ message: 'Start date must be before end date' });
+    if (fromDate >= toDate) {
+      return res.status(400).json({ message: 'From date must be before to date' });
     }
 
     // Validate participants
@@ -193,9 +282,12 @@ router.put('/:id', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'Participants must be a positive number' });
     }
 
+    // Convert financial_support to boolean
+    const financialSupportBool = financial_support === true || financial_support === 'true';
+
     // Validate support amount if financial support is true
     let supportAmount = null;
-    if (financial_support === true || financial_support === 'true') {
+    if (financialSupportBool) {
       if (support_amount !== undefined && support_amount !== null && support_amount !== '') {
         supportAmount = parseFloat(support_amount);
         if (isNaN(supportAmount) || supportAmount < 0) {
@@ -212,38 +304,68 @@ router.put('/:id', authenticateToken, async (req, res) => {
     // Check if event exists and belongs to user
     const [rows] = await pool.query(
       'SELECT * FROM events_attended WHERE id = ? AND Userid = ?',
-      [req.params.id, req.user.Userid] // ✅ Changed from req.user.id to req.user.Userid
+      [req.params.id, userId]
     );
     
     if (rows.length === 0) {
       return res.status(404).json({ message: 'Event not found or access denied' });
     }
+
+    // Extract file buffers if uploaded
+    const permissionLetterBuffer = req.files?.['permission_letter_link']?.[0]?.buffer;
+    const certificateBuffer = req.files?.['certificate_link']?.[0]?.buffer;
+    const financialProofBuffer = req.files?.['financial_proof_link']?.[0]?.buffer;
+    const programmeReportBuffer = req.files?.['programme_report_link']?.[0]?.buffer;
     
-    // Update event
+    // Build update query dynamically
+    const updateFields = [
+      'programme_name = ?',
+      'title = ?',
+      'from_date = ?',
+      'to_date = ?',
+      'mode = ?',
+      'organized_by = ?',
+      'participants = ?',
+      'financial_support = ?',
+      'support_amount = ?'
+    ];
+
+    const updateValues = [
+      programme_name.trim(),
+      title.trim(),
+      from_date,
+      to_date,
+      mode,
+      organized_by.trim(),
+      participantsCount,
+      financialSupportBool,
+      supportAmount
+    ];
+
+    // Only update file fields if new files are provided
+    if (permissionLetterBuffer) {
+      updateFields.push('permission_letter_link = ?');
+      updateValues.push(permissionLetterBuffer);
+    }
+    if (certificateBuffer) {
+      updateFields.push('certificate_link = ?');
+      updateValues.push(certificateBuffer);
+    }
+    if (financialProofBuffer) {
+      updateFields.push('financial_proof_link = ?');
+      updateValues.push(financialProofBuffer);
+    }
+    if (programmeReportBuffer) {
+      updateFields.push('programme_report_link = ?');
+      updateValues.push(programmeReportBuffer);
+    }
+
+    updateFields.push('updated_at = CURRENT_TIMESTAMP');
+    updateValues.push(req.params.id, userId);
+
     const [result] = await pool.query(
-      `UPDATE events_attended SET 
-        programme_name = ?, title = ?, from_date = ?, to_date = ?,
-        mode = ?, organized_by = ?, participants = ?, financial_support = ?, support_amount = ?,
-        permission_letter_link = ?, certificate_link = ?, financial_proof_link = ?, programme_report_link = ?,
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = ? AND Userid = ?`,
-      [
-        programme_name.trim(), 
-        title.trim(), 
-        from_date, 
-        to_date,
-        mode, 
-        organized_by.trim(), 
-        participantsCount, 
-        Boolean(financial_support), 
-        supportAmount,
-        permission_letter_link?.trim() || null, 
-        certificate_link?.trim() || null, 
-        financial_proof_link?.trim() || null, 
-        programme_report_link?.trim() || null,
-        req.params.id,
-        req.user.Userid // ✅ Changed from req.user.id to req.user.Userid
-      ]
+      `UPDATE events_attended SET ${updateFields.join(', ')} WHERE id = ? AND Userid = ?`,
+      updateValues
     );
     
     if (result.affectedRows === 0) {
@@ -260,29 +382,79 @@ router.put('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Delete event
-router.delete('/:id', authenticateToken, async (req, res) => {
+// Get document file
+router.get('/:id/document/:type', authenticateToken, async (req, res) => {
   try {
-    // Check if event exists and belongs to user
-    const [rows] = await pool.query(
-      'SELECT * FROM events_attended WHERE id = ? AND Userid = ?',
-      [req.params.id, req.user.Userid] // ✅ Changed from req.user.id to req.user.Userid
-    );
+    const userId = getUserId(req);
     
+    if (!userId) {
+      return res.status(401).json({ message: 'Authentication error: User ID not found' });
+    }
+
+    const { id, type } = req.params;
+
+    // Validate document type
+    const validTypes = ['permission_letter_link', 'certificate_link', 'financial_proof_link', 'programme_report_link'];
+    if (!validTypes.includes(type)) {
+      return res.status(400).json({ message: 'Invalid document type' });
+    }
+
+    // Get the document BLOB from database
+    const [rows] = await pool.query(
+      `SELECT ${type} FROM events_attended WHERE id = ? AND Userid = ?`,
+      [id, userId]
+    );
+
     if (rows.length === 0) {
       return res.status(404).json({ message: 'Event not found or access denied' });
     }
+
+    const documentBuffer = rows[0][type];
+    if (!documentBuffer) {
+      return res.status(404).json({ message: 'Document not found' });
+    }
+
+    // Set appropriate headers for PDF download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${type}_${id}.pdf"`);
+
+    // Send the BLOB data
+    res.send(documentBuffer);
+  } catch (error) {
+    console.error('Error fetching document:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Delete event
+router.delete('/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = getUserId(req);
     
+    if (!userId) {
+      return res.status(401).json({ message: 'Authentication error: User ID not found' });
+    }
+
+    // Check if event exists and belongs to user
+    const [rows] = await pool.query(
+      'SELECT * FROM events_attended WHERE id = ? AND Userid = ?',
+      [req.params.id, userId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Event not found or access denied' });
+    }
+
     // Delete event
     const [result] = await pool.query(
       'DELETE FROM events_attended WHERE id = ? AND Userid = ?',
-      [req.params.id, req.user.Userid] // ✅ Changed from req.user.id to req.user.Userid
+      [req.params.id, userId]
     );
-    
+
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Event not found' });
     }
-    
+
     res.status(200).json({ message: 'Event deleted successfully' });
   } catch (error) {
     console.error('Error deleting event:', error);

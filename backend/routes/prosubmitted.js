@@ -2,10 +2,7 @@ import express from 'express';
 import { pool } from '../db/db.js';
 import { authenticate as authenticateToken } from '../middlewares/auth.js';
 
-
-
 const router = express.Router();
-
 
 // Get all proposal submissions
 router.get('/', authenticateToken, async (req, res) => {

@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, ExternalLink } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, Download, FileText, File, Upload } from 'lucide-react';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FormField from '../../components/FormField';
-import { getCertifications, createCertification, updateCertification, deleteCertification } from '../../services/api';
 import toast from 'react-hot-toast';
+import api from '../../services/api';
 
 const CertificationsPage = () => {
   const [certifications, setCertifications] = useState([]);
@@ -13,25 +13,31 @@ const CertificationsPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
   const [currentCertification, setCurrentCertification] = useState(null);
-  
+  const fileInputRef = useRef(null);
+
+  // File state
+  const [certificateFile, setCertificateFile] = useState(null);
+
   const [formData, setFormData] = useState({
     course_name: '',
-    forum: '',
+    offered_by: '',
     from_date: '',
     to_date: '',
     days: '',
-    certification_date: '',
-    certificate_link: ''
+    weeks: '',
+    certification_date: ''
   });
 
   const fetchCertifications = async () => {
     try {
       setLoading(true);
-      const response = await getCertifications();
-      setCertifications(response.data);
+      const response = await api.get('/certifications');
+      const certsData = response.data || response || [];
+      setCertifications(Array.isArray(certsData) ? certsData : []);
     } catch (error) {
       console.error('Error fetching certifications:', error);
       toast.error('Failed to load certifications');
+      setCertifications([]);
     } finally {
       setLoading(false);
     }
@@ -41,42 +47,83 @@ const CertificationsPage = () => {
     fetchCertifications();
   }, []);
 
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData({
-      ...formData,
-      [name]: type === 'checkbox' ? checked : value
-    });
+  const calculateWeeks = (days) => {
+    if (!days || days <= 0) return '';
+    return Math.round((days / 7) * 10) / 10;
+  };
 
-    // Auto-calculate days when dates change
+  const calculateDays = (fromDate, toDate) => {
+    if (!fromDate || !toDate) return '';
+    const from = new Date(fromDate);
+    const to = new Date(toDate);
+    const differenceInTime = to - from;
+    return Math.ceil(differenceInTime / (1000 * 3600 * 24)) + 1;
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+
     if (name === 'from_date' || name === 'to_date') {
-      if (formData.from_date && name === 'to_date' && value) {
-        const fromDate = new Date(formData.from_date);
-        const toDate = new Date(value);
-        const differenceInTime = toDate - fromDate;
-        const differenceInDays = Math.ceil(differenceInTime / (1000 * 3600 * 24)) + 1; // +1 to include both start and end days
-        
-        if (differenceInDays > 0) {
+      const fromDate = name === 'from_date' ? value : formData.from_date;
+      const toDate = name === 'to_date' ? value : formData.to_date;
+
+      if (fromDate && toDate) {
+        const days = calculateDays(fromDate, toDate);
+        const weeks = calculateWeeks(days);
+
+        if (days > 0) {
           setFormData(prev => ({
             ...prev,
-            [name]: value,
-            days: differenceInDays.toString()
+            days: days.toString(),
+            weeks: weeks.toString()
+          }));
+        } else {
+          setFormData(prev => ({
+            ...prev,
+            days: '',
+            weeks: ''
           }));
         }
       }
     }
   };
 
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.type !== 'application/pdf') {
+        toast.error('Only PDF files are allowed');
+        e.target.value = '';
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('File size must be less than 10MB');
+        e.target.value = '';
+        return;
+      }
+      setCertificateFile(file);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       course_name: '',
-      forum: '',
+      offered_by: '',
       from_date: '',
       to_date: '',
       days: '',
-      certification_date: '',
-      certificate_link: ''
+      weeks: '',
+      certification_date: ''
     });
+    setCertificateFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
     setCurrentCertification(null);
     setIsViewMode(false);
   };
@@ -88,39 +135,40 @@ const CertificationsPage = () => {
 
   const handleEdit = (certification) => {
     setCurrentCertification(certification);
-    
-    // Format dates for the form
+
     const fromDate = certification.from_date ? certification.from_date.split('T')[0] : '';
     const toDate = certification.to_date ? certification.to_date.split('T')[0] : '';
-    
+    const certDate = certification.certification_date ? certification.certification_date.split('T')[0] : '';
+
     setFormData({
       course_name: certification.course_name || '',
-      forum: certification.forum || '',
+      offered_by: certification.offered_by || '',
       from_date: fromDate,
       to_date: toDate,
       days: certification.days?.toString() || '',
-      certification_date: certification.certification_date ? certification.certification_date.split('T')[0] : '',
-      certificate_link: certification.certificate_link || ''
+      weeks: certification.weeks?.toString() || '',
+      certification_date: certDate
     });
+    setCertificateFile(null);
     setIsViewMode(false);
     setIsModalOpen(true);
   };
 
   const handleView = (certification) => {
     setCurrentCertification(certification);
-    
-    // Format dates for the form
+
     const fromDate = certification.from_date ? certification.from_date.split('T')[0] : '';
     const toDate = certification.to_date ? certification.to_date.split('T')[0] : '';
-    
+    const certDate = certification.certification_date ? certification.certification_date.split('T')[0] : '';
+
     setFormData({
       course_name: certification.course_name || '',
-      forum: certification.forum || '',
+      offered_by: certification.offered_by || '',
       from_date: fromDate,
       to_date: toDate,
       days: certification.days?.toString() || '',
-      certification_date: certification.certification_date ? certification.certification_date.split('T')[0] : '',
-      certificate_link: certification.certificate_link || ''
+      weeks: certification.weeks?.toString() || '',
+      certification_date: certDate
     });
     setIsViewMode(true);
     setIsModalOpen(true);
@@ -129,7 +177,7 @@ const CertificationsPage = () => {
   const handleDelete = async (certification) => {
     if (window.confirm(`Are you sure you want to delete this certification: ${certification.course_name}?`)) {
       try {
-        await deleteCertification(certification.id);
+        await api.delete(`/certifications/${certification.id}`);
         toast.success('Certification deleted successfully');
         fetchCertifications();
       } catch (error) {
@@ -142,59 +190,91 @@ const CertificationsPage = () => {
   const handleSubmit = async () => {
     try {
       setIsSubmitting(true);
-      
-      // Validate required fields
-      if (!formData.course_name || !formData.forum || 
-          !formData.from_date || !formData.to_date || !formData.days || !formData.certification_date) {
+
+      if (!formData.course_name?.trim() || !formData.offered_by?.trim() || 
+          !formData.from_date || !formData.to_date || !formData.certification_date) {
         toast.error('Please fill in all required fields');
-        setIsSubmitting(false);
         return;
       }
-      
+
+      if (!currentCertification && !certificateFile) {
+        toast.error('Please upload a certificate PDF');
+        return;
+      }
+
+      const fromDate = new Date(formData.from_date);
+      const toDate = new Date(formData.to_date);
+      const certDate = new Date(formData.certification_date);
+
+      if (fromDate >= toDate) {
+        toast.error('From date must be before to date');
+        return;
+      }
+
+      if (certDate < fromDate) {
+        toast.error('Certification date cannot be before course start date');
+        return;
+      }
+
+      const submitData = new FormData();
+      submitData.append('course_name', formData.course_name.trim());
+      submitData.append('offered_by', formData.offered_by.trim());
+      submitData.append('from_date', formData.from_date);
+      submitData.append('to_date', formData.to_date);
+      submitData.append('certification_date', formData.certification_date);
+
+      if (certificateFile) {
+        submitData.append('certificate_pdf', certificateFile);
+      }
+
       if (currentCertification) {
-        await updateCertification(currentCertification.id, formData);
+        await api.put(`/certifications/${currentCertification.id}`, submitData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
         toast.success('Certification updated successfully');
       } else {
-        await createCertification(formData);
+        await api.post('/certifications', submitData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
         toast.success('Certification created successfully');
       }
-      
+
       setIsModalOpen(false);
       resetForm();
       fetchCertifications();
     } catch (error) {
       console.error('Error saving certification:', error);
-      toast.error('Failed to save certification');
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to save certification';
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Format date for display
-  const formatDate = (date) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString();
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
+      
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    } catch (error) {
+      return dateString;
+    }
   };
 
-  // Render certificate link with clickable icon if exists
-  const renderCertificateLink = (row) => {
-    if (!row.certificate_link) return '-';
-    
-    return (
-      <a 
-        href={row.certificate_link} 
-        target="_blank" 
-        rel="noopener noreferrer"
-        className="text-blue-600 hover:text-blue-800 flex items-center"
-      >
-        View
-      </a>
-    );
+  const getFileUrl = (filePath) => {
+    if (!filePath) return null;
+    return `${api.defaults.baseURL}/../${filePath}`;
   };
 
   const columns = [
     { field: 'course_name', header: 'Course Name' },
-    { field: 'forum', header: 'Forum' },
+    { field: 'offered_by', header: 'Offered By' },
     { 
       field: 'from_date', 
       header: 'From Date',
@@ -206,15 +286,32 @@ const CertificationsPage = () => {
       render: (row) => formatDate(row.to_date)
     },
     { field: 'days', header: 'Days' },
+    { field: 'weeks', header: 'Weeks' },
     { 
       field: 'certification_date', 
       header: 'Certification Date',
       render: (row) => formatDate(row.certification_date)
     },
     {
-      field: 'certificate_link',
+      field: 'certificate_pdf',
       header: 'Certificate',
-      render: renderCertificateLink
+      render: (rowData) => (
+        <div className="text-center">
+          {rowData.certificate_pdf ? (
+            <a
+              href={getFileUrl(rowData.certificate_pdf)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-800 text-sm flex items-center justify-center gap-1"
+            >
+              <File size={14} />
+              View
+            </a>
+          ) : (
+            <span className="text-gray-400 text-sm">-</span>
+          )}
+        </div>
+      )
     }
   ];
 
@@ -223,7 +320,7 @@ const CertificationsPage = () => {
       <div className="mb-6 flex justify-between items-center">
         <button
           onClick={handleAddNew}
-          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-pink-500 to-purple-400 hover:from-pink-800 hover:to-purple-500 px-4 py-2 rounded-md shadow-md"
+          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-blue-600 to-purple-400 hover:from-blue-800 hover:to-purple-500 px-4 py-2 rounded-md shadow-md"
         >
           <Plus size={16} />
           Add New Certification
@@ -241,30 +338,37 @@ const CertificationsPage = () => {
 
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          resetForm();
+        }}
         title={isViewMode ? 'View Certification' : currentCertification ? 'Edit Certification' : 'Add New Certification'}
         onSubmit={!isViewMode ? handleSubmit : null}
         isSubmitting={isSubmitting}
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            label="Course Name"
-            name="course_name"
-            value={formData.course_name}
-            onChange={handleInputChange}
-            required
-            disabled={isViewMode}
-          />
-          <FormField
-            label="Forum"
-            name="forum"
-            value={formData.forum}
-            onChange={handleInputChange}
-            required
-            disabled={isViewMode}
-            placeholder="e.g., SWAYAM, NPTEL"
-          />
-          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              label="Course Name"
+              name="course_name"
+              value={formData.course_name}
+              onChange={handleInputChange}
+              required
+              disabled={isViewMode}
+              placeholder="e.g., Machine Learning Fundamentals"
+            />
+            <FormField
+              label="Offered By"
+              name="offered_by"
+              value={formData.offered_by}
+              onChange={handleInputChange}
+              required
+              disabled={isViewMode}
+              placeholder="e.g., SWAYAM, NPTEL, Coursera"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
               label="From Date"
               name="from_date"
@@ -284,15 +388,27 @@ const CertificationsPage = () => {
               disabled={isViewMode}
             />
           </div>
-          <FormField
-            label="Number of Days"
-            name="days"
-            type="number"
-            value={formData.days}
-            onChange={handleInputChange}
-            required
-            disabled={isViewMode || (formData.from_date && formData.to_date)}
-          />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              label="Number of Days"
+              name="days"
+              type="number"
+              value={formData.days}
+              disabled={true}
+              placeholder="Auto-calculated"
+            />
+            <FormField
+              label="Number of Weeks"
+              name="weeks"
+              type="number"
+              step="0.1"
+              value={formData.weeks}
+              disabled={true}
+              placeholder="Auto-calculated"
+            />
+          </div>
+
           <FormField
             label="Certification Date"
             name="certification_date"
@@ -302,25 +418,63 @@ const CertificationsPage = () => {
             required
             disabled={isViewMode}
           />
-          <div className="md:col-span-2">
-            <FormField
-              label="Certificate Link"
-              name="certificate_link"
-              value={formData.certificate_link}
-              onChange={handleInputChange}
-              disabled={isViewMode}
-              placeholder="URL to certificate"
-            />
-            {isViewMode && formData.certificate_link && (
-              <div className="mt-2">
-                <a 
-                  href={formData.certificate_link} 
-                  target="_blank" 
+
+          {/* File Upload Section */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Certificate PDF
+              {!isViewMode && !currentCertification && <span className="text-red-500 ml-1">*</span>}
+            </label>
+            {isViewMode ? (
+              currentCertification?.certificate_pdf ? (
+                <a
+                  href={getFileUrl(currentCertification.certificate_pdf)}
+                  target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800 flex items-center"
+                  className="text-blue-600 hover:text-blue-800 underline flex items-center gap-1"
                 >
-                  View
+                  <File size={16} />
+                  View Certificate Document
                 </a>
+              ) : (
+                <span className="text-gray-500 text-sm">No file uploaded</span>
+              )
+            ) : (
+              <div>
+                <div className="mt-1 flex items-center gap-2">
+                  <label className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">
+                    <Upload size={16} />
+                    <span className="text-sm">Choose PDF File</span>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="application/pdf"
+                      onChange={handleFileChange}
+                      className="hidden"
+                      disabled={isViewMode}
+                    />
+                  </label>
+                  {certificateFile && (
+                    <span className="text-sm text-green-600 flex items-center gap-1">
+                      <File size={14} />
+                      {certificateFile.name}
+                    </span>
+                  )}
+                  {currentCertification?.certificate_pdf && !certificateFile && (
+                    <a
+                      href={getFileUrl(currentCertification.certificate_pdf)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                    >
+                      <File size={14} />
+                      Current File
+                    </a>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {currentCertification ? 'Upload new file to replace existing' : 'Max file size: 10MB'}
+                </p>
               </div>
             )}
           </div>

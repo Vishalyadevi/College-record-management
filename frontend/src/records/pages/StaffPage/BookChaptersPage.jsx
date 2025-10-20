@@ -13,7 +13,7 @@ const BookChaptersPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
   const [currentBookChapter, setCurrentBookChapter] = useState(null);
-  
+
   const [formData, setFormData] = useState({
     publication_type: 'book_chapter',
     publication_name: '',
@@ -90,7 +90,7 @@ const BookChaptersPage = () => {
       citations: bookChapter.citations?.toString() || '',
       publisher: bookChapter.publisher || '',
       page_no: bookChapter.page_no || '',
-      publication_date: bookChapter.publication_date || '',
+      publication_date: bookChapter.publication_date ? bookChapter.publication_date.split('T')[0] : '',
       impact_factor: bookChapter.impact_factor?.toString() || '',
       publication_link: bookChapter.publication_link || ''
     });
@@ -110,7 +110,7 @@ const BookChaptersPage = () => {
       citations: bookChapter.citations?.toString() || '',
       publisher: bookChapter.publisher || '',
       page_no: bookChapter.page_no || '',
-      publication_date: bookChapter.publication_date || '',
+      publication_date: bookChapter.publication_date ? bookChapter.publication_date.split('T')[0] : '',
       impact_factor: bookChapter.impact_factor?.toString() || '',
       publication_link: bookChapter.publication_link || ''
     });
@@ -134,13 +134,20 @@ const BookChaptersPage = () => {
   const handleSubmit = async () => {
     try {
       setIsSubmitting(true);
-      
+
       // Validate required fields
-      if (!formData.publication_name || !formData.publication_title || !formData.authors || !formData.index_type || !formData.publication_date) {
-        toast.error('Please fill in all required fields');
+      if (
+        !formData.publication_name ||
+        !formData.publication_title ||
+        !formData.authors ||
+        !formData.index_type ||
+        !formData.doi ||
+        !formData.publication_date
+      ) {
+        toast.error('Please fill in all required fields (Publication Name, Title, Authors, Index Type, DOI, Publication Date)');
         return;
       }
-      
+
       if (currentBookChapter) {
         await updateBookChapter(currentBookChapter.id, formData);
         toast.success('Publication updated successfully');
@@ -148,44 +155,39 @@ const BookChaptersPage = () => {
         await createBookChapter(formData);
         toast.success('Publication created successfully');
       }
-      
+
       setIsModalOpen(false);
       resetForm();
       fetchBookChapters();
     } catch (error) {
       console.error('Error saving publication:', error);
-      toast.error('Failed to save publication');
+      const errorMessage = error.response?.data?.message || 'Failed to save publication';
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Format date for display - only date part, no time
+  // Format date for display - DD/MM/YYYY
   const formatDate = (dateString) => {
-    if (!dateString) return '';
-    
-    // Extract only the date part (YYYY-MM-DD) if it contains a 'T'
-    if (dateString.includes('T')) {
-      dateString = dateString.split('T')[0];
-    }
-    
-    // Format as DD/MM/YYYY
-    const parts = dateString.split('-');
-    if (parts.length === 3) {
-      return `${parts[2]}/${parts[1]}/${parts[0]}`;
-    }
-    
-    return dateString;
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
   };
 
   // Custom renderer for publication link column
   const renderPublicationLink = (value) => {
     if (!value) return '-';
     return (
-      <a 
-        href={value} 
-        target="_blank" 
-        rel="noopener noreferrer" 
+      <a
+        href={value}
+        target="_blank"
+        rel="noopener noreferrer"
         className="text-blue-600 hover:text-blue-800"
       >
         View
@@ -193,28 +195,28 @@ const BookChaptersPage = () => {
     );
   };
 
-  // Updated columns to match new publication attributes
   const columns = [
-    { field: 'publication_type', header: 'Type' },
-    { field: 'publication_name', header: 'Publication Name' },
-    { field: 'publication_title', header: 'Title' },
-    { field: 'authors', header: 'Authors' },
-    { field: 'index_type', header: 'Index Type' },
-    { 
-      field: 'publication_date', 
-      header: 'Date',
-      render: (item) => formatDate(item.publication_date)
-    },
-    { field: 'publisher', header: 'Publisher' },
-    { field: 'citations', header: 'Citations' },
-    { field: 'impact_factor', header: 'Impact Factor' },
-    { 
-      field: 'publication_link', 
-      header: 'Link',
-      render: renderPublicationLink
-    }
-  ];
-
+  { field: 'publication_type', header: 'Type' },
+  { field: 'publication_name', header: 'Publication Name' },
+  { field: 'publication_title', header: 'Title' },
+  { field: 'authors', header: 'Authors' },
+  { field: 'index_type', header: 'Index Type' },
+  {
+    field: 'publication_date',
+    header: 'Date',
+    render: (item) => formatDate(item.publication_date)
+  },
+  { field: 'publisher', header: 'Publisher' },
+  { field: 'citations', header: 'Citations' },
+  { field: 'impact_factor', header: 'Impact Factor' },
+  { field: 'doi', header: 'DOI' }, // Added DOI column
+  { field: 'page_no', header: 'Page No.' }, // Added Page No. column
+  {
+    field: 'publication_link',
+    header: 'Link',
+    render: renderPublicationLink
+  }
+];
   const publicationTypes = [
     { value: 'journal', label: 'Journal Article' },
     { value: 'book_chapter', label: 'Book Chapter' },
@@ -235,9 +237,9 @@ const BookChaptersPage = () => {
   return (
     <div>
       <div className="mb-6 flex justify-between items-center">
-       <button
+        <button
           onClick={handleAddNew}
-          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-pink-500 to-purple-400 hover:from-pink-800 hover:to-purple-500 px-4 py-2 rounded-md shadow-md"
+          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-blue-600 to-purple-400 hover:from-blue-800 hover:to-purple-500 px-4 py-2 rounded-md shadow-md"
         >
           <Plus size={16} />
           Add New Publication
@@ -279,7 +281,7 @@ const BookChaptersPage = () => {
             onChange={handleInputChange}
             required
             disabled={isViewMode}
-            placeholder="e.g., Journal name or Book name"
+            placeholder="e.g., Advances in Computer Science"
           />
           <FormField
             label="Publication Title"
@@ -288,7 +290,7 @@ const BookChaptersPage = () => {
             onChange={handleInputChange}
             required
             disabled={isViewMode}
-            placeholder="Title of the article/chapter"
+            placeholder="e.g., Machine Learning Techniques for Data Analysis"
           />
           <FormField
             label="Authors"
@@ -297,7 +299,7 @@ const BookChaptersPage = () => {
             onChange={handleInputChange}
             required
             disabled={isViewMode}
-            placeholder="Comma separated list of authors"
+            placeholder="e.g., John Doe, Jane Smith"
           />
           <FormField
             label="Index Type"
@@ -308,6 +310,15 @@ const BookChaptersPage = () => {
             required
             disabled={isViewMode}
             options={indexTypes}
+          />
+          <FormField
+            label="DOI"
+            name="doi"
+            value={formData.doi}
+            onChange={handleInputChange}
+            required
+            disabled={isViewMode}
+            placeholder="e.g., 10.1007/978-3-030-12345-6_1"
           />
           <FormField
             label="Publication Date"
@@ -324,6 +335,7 @@ const BookChaptersPage = () => {
             value={formData.publisher}
             onChange={handleInputChange}
             disabled={isViewMode}
+            placeholder="e.g., IEEE, Springer, Elsevier"
           />
           <FormField
             label="Page No."
@@ -331,15 +343,7 @@ const BookChaptersPage = () => {
             value={formData.page_no}
             onChange={handleInputChange}
             disabled={isViewMode}
-            placeholder="e.g., 123-130"
-          />
-          <FormField
-            label="DOI"
-            name="doi"
-            value={formData.doi}
-            onChange={handleInputChange}
-            disabled={isViewMode}
-            placeholder="e.g., 10.1000/xyz123"
+            placeholder="e.g., 45-60"
           />
           <FormField
             label="Citations"
@@ -348,6 +352,7 @@ const BookChaptersPage = () => {
             value={formData.citations}
             onChange={handleInputChange}
             disabled={isViewMode}
+            placeholder="e.g., 25"
           />
           <FormField
             label="Impact Factor"
@@ -357,6 +362,7 @@ const BookChaptersPage = () => {
             value={formData.impact_factor}
             onChange={handleInputChange}
             disabled={isViewMode}
+            placeholder="e.g., 3.456"
           />
           <FormField
             label="Publication Link"
@@ -365,7 +371,7 @@ const BookChaptersPage = () => {
             value={formData.publication_link}
             onChange={handleInputChange}
             disabled={isViewMode}
-            placeholder="https://..."
+            placeholder="e.g., https://link.springer.com/chapter/10.1007/978-3-030-12345-6_1"
           />
         </div>
       </Modal>

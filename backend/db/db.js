@@ -55,6 +55,41 @@ async function initializeDatabase() {
       (6, 'Electrical and Electronics Engineering', 'EEE')
     `);
 
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS mou (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  Userid INT NOT NULL,
+  company_name VARCHAR(200) NOT NULL,
+  signed_on DATE NOT NULL,
+  mou_copy_link TEXT COMMENT 'Stores file path: uploads/mou/filename.pdf',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE,
+  INDEX idx_userid (Userid),
+  INDEX idx_signed_on (signed_on)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+  `);
+   await connection.query(`
+    CREATE TABLE IF NOT EXISTS mou_activities (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  mou_id INT NOT NULL,
+  Userid INT NOT NULL,
+  date DATE NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  no_of_participants INT NOT NULL CHECK (no_of_participants > 0),
+  venue VARCHAR(255) NOT NULL,
+  proof_link TEXT COMMENT 'Stores file path: uploads/mou/filename.pdf',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (mou_id) REFERENCES mou(id) ON DELETE CASCADE,
+  FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE,
+  INDEX idx_mou_id (mou_id),
+  INDEX idx_userid (Userid),
+  INDEX idx_date (date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `);
+
     // Create users table
     await connection.query(`
       CREATE TABLE IF NOT EXISTS users (
@@ -211,7 +246,7 @@ async function initializeDatabase() {
       )
     `);
 
-    await connection.query(`
+  await connection.query(`
       CREATE TABLE IF NOT EXISTS project_proposals (
         id INT AUTO_INCREMENT PRIMARY KEY,
         Userid INT NOT NULL,
@@ -222,7 +257,9 @@ async function initializeDatabase() {
         from_date DATE NOT NULL,
         to_date DATE NOT NULL,
         amount DECIMAL(15,2) NOT NULL,
-        proof TEXT,
+        proof longblob,
+        yearly_report longblob,
+        final_report longblob,
         organization_name VARCHAR(100) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -255,18 +292,17 @@ async function initializeDatabase() {
         participants INT NOT NULL,
         financial_support BOOLEAN DEFAULT FALSE,
         support_amount DECIMAL(10,2),
-        permission_letter_link TEXT,
-        certificate_link TEXT,
-        financial_proof_link TEXT,
-        programme_report_link TEXT,
+        permission_letter_link longblob,
+        certificate_link longblob,
+        financial_proof_link longblob,
+        programme_report_link longblob,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE
       )
     `);
-
     // Create industry_knowhow table
-    await connection.query(`
+  await connection.query(`
       CREATE TABLE IF NOT EXISTS industry_knowhow (
         id INT AUTO_INCREMENT PRIMARY KEY,
         Userid INT NOT NULL,
@@ -281,6 +317,7 @@ async function initializeDatabase() {
         financial_support BOOLEAN DEFAULT FALSE,
         support_amount DECIMAL(10,2),
         certificate_link TEXT,
+        certificate_pdf longblob,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE
@@ -290,19 +327,26 @@ async function initializeDatabase() {
     // Create certification_courses table
     await connection.query(`
       CREATE TABLE IF NOT EXISTS certification_courses (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        Userid INT NOT NULL,
-        course_name VARCHAR(255) NOT NULL,
-        forum VARCHAR(100) NOT NULL,
-        from_date DATE NOT NULL,
-        to_date DATE NOT NULL,
-        days INT NOT NULL,
-        certification_date DATE NOT NULL,
-        certificate_link TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE
-      )
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    Userid INT NOT NULL,
+    course_name VARCHAR(255) NOT NULL,
+    offered_by VARCHAR(100) NOT NULL,  -- Changed from 'forum' to 'offered_by'
+    from_date DATE NOT NULL,
+    to_date DATE NOT NULL,
+    days INT NOT NULL,
+    weeks DECIMAL(3,1) NOT NULL,  -- Added weeks field (allows 1 decimal place)
+    certification_date DATE NOT NULL,
+    certificate_pdf VARCHAR(500),  -- Changed from certificate_link to certificate_pdf for file path
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE,
+    
+    -- Add constraints for better data validation
+    CONSTRAINT chk_from_to_date CHECK (from_date <= to_date),
+    CONSTRAINT chk_positive_days CHECK (days > 0),
+    CONSTRAINT chk_positive_weeks CHECK (weeks > 0),
+    CONSTRAINT chk_cert_date_range CHECK (certification_date >= from_date)
+)
     `);
 
     // Create book_chapters table
@@ -368,7 +412,7 @@ async function initializeDatabase() {
     `);
 
     // Create resource_person table
-    await connection.query(`
+   await connection.query(`
       CREATE TABLE IF NOT EXISTS resource_person (
         id INT AUTO_INCREMENT PRIMARY KEY,
         Userid INT NOT NULL,
@@ -376,84 +420,85 @@ async function initializeDatabase() {
         title VARCHAR(255) NOT NULL,
         venue VARCHAR(100) NOT NULL,
         event_date DATE NOT NULL,
-        proof_link TEXT,
-        photo_link TEXT,
+        proof_link longblob,
+        photo_link longblob,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE
       )
     `);
 
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS education (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        Userid INT NOT NULL,
-        
-        -- 10th Standard fields
-        tenth_institution VARCHAR(255),
-        tenth_university VARCHAR(255),
-        tenth_medium VARCHAR(100),
-        tenth_cgpa_percentage VARCHAR(50),
-        tenth_first_attempt ENUM('Yes', 'No'),
-        tenth_year YEAR,
-        
-        -- 12th Standard fields
-        twelfth_institution VARCHAR(255),
-        twelfth_university VARCHAR(255),
-        twelfth_medium VARCHAR(100),
-        twelfth_cgpa_percentage VARCHAR(50),
-        twelfth_first_attempt ENUM('Yes', 'No'),
-        twelfth_year YEAR,
-        
-        -- Undergraduate fields
-        ug_institution VARCHAR(255),
-        ug_university VARCHAR(255),
-        ug_medium VARCHAR(100),
-        ug_specialization VARCHAR(255),
-        ug_degree VARCHAR(255),
-        ug_cgpa_percentage VARCHAR(50),
-        ug_first_attempt ENUM('Yes', 'No'),
-        ug_year YEAR,
-        
-        -- Postgraduate fields
-        pg_institution VARCHAR(255),
-        pg_university VARCHAR(255),
-        pg_medium VARCHAR(100),
-        pg_specialization VARCHAR(255),
-        pg_degree VARCHAR(255),
-        pg_cgpa_percentage VARCHAR(50),
-        pg_first_attempt ENUM('Yes', 'No'),
-        pg_year YEAR,
-        
-        -- MPhil fields
-        mphil_institution VARCHAR(255),
-        mphil_university VARCHAR(255),
-        mphil_medium VARCHAR(100),
-        mphil_specialization VARCHAR(255),
-        mphil_degree VARCHAR(255),
-        mphil_cgpa_percentage VARCHAR(50),
-        mphil_first_attempt ENUM('Yes', 'No'),
-        mphil_year YEAR,
-        
-        -- PhD fields
-        phd_university VARCHAR(255),
-        phd_title VARCHAR(500),
-        phd_guide_name VARCHAR(255),
-        phd_college VARCHAR(255),
-        phd_status ENUM('Ongoing', 'Completed', 'Submitted', 'Awarded'),
-        phd_registration_year YEAR,
-        phd_completion_year YEAR,
-        phd_publications_during TEXT,
-        phd_publications_post TEXT,
-        phd_post_experience TEXT,
-        
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        
-        FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE,
-        INDEX idx_Userid (Userid)
-      )
-    `);
+   await connection.query(`
+  CREATE TABLE IF NOT EXISTS education (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    Userid INT NOT NULL,
+    
+    -- 10th Standard fields
+    tenth_institution VARCHAR(255),
+    tenth_university VARCHAR(255),
+    tenth_medium VARCHAR(100),
+    tenth_cgpa_percentage VARCHAR(50),
+    tenth_first_attempt ENUM('Yes', 'No'),
+    tenth_year YEAR,
+    
+    -- 12th Standard fields
+    twelfth_institution VARCHAR(255),
+    twelfth_university VARCHAR(255),
+    twelfth_medium VARCHAR(100),
+    twelfth_cgpa_percentage VARCHAR(50),
+    twelfth_first_attempt ENUM('Yes', 'No'),
+    twelfth_year YEAR,
+    
+    -- Undergraduate fields
+    ug_institution VARCHAR(255),
+    ug_university VARCHAR(255),
+    ug_medium VARCHAR(100),
+    ug_specialization VARCHAR(255),
+    ug_degree VARCHAR(255),
+    ug_cgpa_percentage VARCHAR(50),
+    ug_first_attempt ENUM('Yes', 'No'),
+    ug_year YEAR,
+    
+    -- Postgraduate fields
+    pg_institution VARCHAR(255),
+    pg_university VARCHAR(255),
+    pg_medium VARCHAR(100),
+    pg_specialization VARCHAR(255),
+    pg_degree VARCHAR(255),
+    pg_cgpa_percentage VARCHAR(50),
+    pg_first_attempt ENUM('Yes', 'No'),
+    pg_year YEAR,
+    
+    -- MPhil fields
+    mphil_institution VARCHAR(255),
+    mphil_university VARCHAR(255),
+    mphil_medium VARCHAR(100),
+    mphil_specialization VARCHAR(255),
+    mphil_degree VARCHAR(255),
+    mphil_cgpa_percentage VARCHAR(50),
+    mphil_first_attempt ENUM('Yes', 'No'),
+    mphil_year YEAR,
+    
+    -- PhD fields
+    phd_university VARCHAR(255),
+    phd_title VARCHAR(500),
+    phd_guide_name VARCHAR(255),
+    phd_college VARCHAR(255),
+    phd_status ENUM('Ongoing', 'Completed', 'Submitted', 'Awarded'),
+    phd_registration_year YEAR,
+    phd_completion_year YEAR,
+    phd_publications_during INT,
+    phd_publications_post INT,
+    phd_post_experience INT,
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE,
+    INDEX idx_Userid (Userid)
+  )
+`);
+
 
     await connection.query(`
       CREATE TABLE IF NOT EXISTS scholars (
@@ -475,16 +520,17 @@ async function initializeDatabase() {
       )
     `);
 
-    // Create seed_money table
-    await connection.query(`
+   await connection.query(`
       CREATE TABLE IF NOT EXISTS seed_money (
         id INT AUTO_INCREMENT PRIMARY KEY,
         Userid INT NOT NULL,
         project_title VARCHAR(255) NOT NULL,
         project_duration VARCHAR(50) NOT NULL,
+        from_date DATE NOT NULL,
+        to_date DATE NOT NULL,
         amount DECIMAL(10,2) NOT NULL,
         outcomes TEXT NOT NULL,
-        proof_link TEXT,
+        proof_link longblob,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE
@@ -859,198 +905,6 @@ await connection.execute(`
             ON UPDATE CASCADE ON DELETE CASCADE
     )
 `);
-
-await connection.query(`
-      CREATE TABLE IF NOT EXISTS placement_feedback (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        student_id INT NOT NULL,
-        regno VARCHAR(50) NOT NULL,
-        student_name VARCHAR(255),
-        course_branch ENUM('CSE','IT','AIDS','EEE','ECE','CIVIL','MECH') NOT NULL,
-        batch_year VARCHAR(10) NOT NULL,
-        company_name VARCHAR(255),
-        industry_sector VARCHAR(100),
-        job_role VARCHAR(255),
-        work_location VARCHAR(255),
-        ctc_fixed DECIMAL(10,2),
-        ctc_variable DECIMAL(10,2),
-        ctc_bonus DECIMAL(10,2),
-        ctc_total DECIMAL(10,2),
-        drive_mode ENUM('On-Campus', 'Off-Campus', 'Pooled'),
-        eligibility_criteria TEXT,
-        total_rounds INT,
-        overall_difficulty ENUM('Easy', 'Medium', 'Hard'),
-        online_test_platform VARCHAR(100),
-        test_sections TEXT,
-        test_questions_count INT,
-        test_duration VARCHAR(50),
-        memory_based_questions TEXT,
-        coding_problems_links TEXT,
-        technical_questions TEXT,
-        hr_questions TEXT,
-        tips_suggestions TEXT,
-        company_expectations TEXT,
-        final_outcome ENUM('Selected', 'Rejected', 'Waitlisted'),
-        process_difficulty_rating INT CHECK(process_difficulty_rating BETWEEN 1 AND 5),
-        company_communication_rating INT CHECK(company_communication_rating BETWEEN 1 AND 5),
-        overall_experience_rating INT CHECK(overall_experience_rating BETWEEN 1 AND 5),
-        show_name_publicly BOOLEAN DEFAULT TRUE,
-        question_files JSON,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (student_id) REFERENCES users(Userid) ON DELETE CASCADE
-      )
-    `);
-
-    // Create feedback_rounds table for detailed round information
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS feedback_rounds (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        feedback_id INT NOT NULL,
-        round_number INT NOT NULL,
-        round_type ENUM('Online Test', 'Group Discussion', 'Case Study', 'Technical Interview', 'HR Interview', 'Other'),
-        round_description TEXT,
-        difficulty_level ENUM('Easy', 'Medium', 'Hard'),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (feedback_id) REFERENCES placement_feedback(id) ON DELETE CASCADE
-      )
-    `);
-
-    // Create companies table
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS companies (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        companyName VARCHAR(255) NOT NULL UNIQUE,
-        description TEXT,
-        ceo VARCHAR(255),
-        location VARCHAR(255),
-        package DECIMAL(10,2),
-        objective TEXT,
-        skillSets JSON,
-        localBranches JSON,
-        roles JSON,
-        logo VARCHAR(255),
-        Created_by INT,
-        Updated_by INT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        CONSTRAINT fk_companies_createdby FOREIGN KEY (Created_by) REFERENCES users(Userid) ON DELETE SET NULL,
-        CONSTRAINT fk_companies_updatedby FOREIGN KEY (Updated_by) REFERENCES users(Userid) ON DELETE SET NULL
-      )
-    `);
-
-    // Create upcomingdrives_placement table
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS upcomingdrives_placement (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        post VARCHAR(255),
-        company_name VARCHAR(255) NOT NULL,
-        eligibility TEXT,
-        date DATE NOT NULL,
-        time TIME NOT NULL,
-        venue VARCHAR(255),
-        roles VARCHAR(255) DEFAULT 'Not specified',
-        salary VARCHAR(255) DEFAULT 'Not specified',
-        Created_by INT,
-        Updated_by INT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        CONSTRAINT fk_upcomingdrives_createdby FOREIGN KEY (Created_by) REFERENCES users(Userid) ON DELETE SET NULL,
-        CONSTRAINT fk_upcomingdrives_updatedby FOREIGN KEY (Updated_by) REFERENCES users(Userid) ON DELETE SET NULL
-      )
-    `);
-
-    // Create companydetails table
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS companydetails (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        company_name VARCHAR(255) NOT NULL,
-        description TEXT,
-        ceo VARCHAR(255),
-        location VARCHAR(255),
-        salary_package DECIMAL(10,2),
-        objective TEXT,
-        Created_by INT,
-        Updated_by INT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        CONSTRAINT fk_companydetails_createdby FOREIGN KEY (Created_by) REFERENCES users(Userid) ON DELETE SET NULL,
-        CONSTRAINT fk_companydetails_updatedby FOREIGN KEY (Updated_by) REFERENCES users(Userid) ON DELETE SET NULL
-      )
-    `);
-
-    // Create placed_student table
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS placed_student (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        Userid INT NOT NULL,
-        regno VARCHAR(50) NOT NULL,
-        company_name VARCHAR(255) NOT NULL,
-        role VARCHAR(255) NOT NULL,
-        package DECIMAL(10,2) NOT NULL,
-        year INT NOT NULL,
-        Created_by INT,
-        Updated_by INT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        CONSTRAINT fk_placed_user FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE,
-        CONSTRAINT fk_placed_regno FOREIGN KEY (regno) REFERENCES student_details(regno) ON DELETE CASCADE,
-        CONSTRAINT fk_placed_createdby FOREIGN KEY (Created_by) REFERENCES users(Userid) ON DELETE SET NULL,
-        CONSTRAINT fk_placed_updatedby FOREIGN KEY (Updated_by) REFERENCES users(Userid) ON DELETE SET NULL,
-        INDEX idx_year (year),
-        INDEX idx_company_name (company_name)
-      )
-    `);
-
-    // Create registered_student_placement table
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS registered_student_placement (
-        id INT AUTO_INCREMENT,
-        Userid INT NOT NULL,
-        regno VARCHAR(50) NOT NULL,
-        company_name VARCHAR(255) NOT NULL,
-        register BOOLEAN DEFAULT TRUE,
-        Created_by INT,
-        Updated_by INT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        PRIMARY KEY (id, Userid),
-        CONSTRAINT fk_registered_user FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE,
-        CONSTRAINT fk_registered_regno FOREIGN KEY (regno) REFERENCES student_details(regno) ON DELETE CASCADE,
-        CONSTRAINT fk_registered_createdby FOREIGN KEY (Created_by) REFERENCES users(Userid) ON DELETE SET NULL,
-        CONSTRAINT fk_registered_updatedby FOREIGN KEY (Updated_by) REFERENCES users(Userid) ON DELETE SET NULL,
-        INDEX idx_company_name (company_name)
-      )
-    `);
-
-    // Create hackathons table
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS hackathons (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        content TEXT NOT NULL,
-        link VARCHAR(500),
-        Created_by INT,
-        Updated_by INT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        CONSTRAINT fk_hackathons_createdby FOREIGN KEY (Created_by) REFERENCES users(Userid) ON DELETE SET NULL,
-        CONSTRAINT fk_hackathons_updatedby FOREIGN KEY (Updated_by) REFERENCES users(Userid) ON DELETE SET NULL
-      )
-    `);
-
-    // Create notifications table
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS notifications (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        message TEXT NOT NULL,
-        Created_by INT,
-        Updated_by INT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        CONSTRAINT fk_notifications_createdby FOREIGN KEY (Created_by) REFERENCES users(Userid) ON DELETE SET NULL,
-        CONSTRAINT fk_notifications_updatedby FOREIGN KEY (Updated_by) REFERENCES users(Userid) ON DELETE SET NULL
-      )
-    `);
 
     // Insert default admin user if it doesn't exist
     const [rows] = await connection.query('SELECT * FROM users WHERE username = ?', ['faculty']);
