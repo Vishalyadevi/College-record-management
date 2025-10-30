@@ -471,10 +471,10 @@ const AdminPlacementFeedback = () => {
 
   return (
     
-    <div className="min-h-screen bg-gray-50">
-<br></br>
-      <br></br>
-      <br></br>
+    <div className="min-h-screen bg-gray-50"
+          style={{ marginLeft: "250px", padding: "20px" }}
+>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 text-center">Placement Feedback</h1>
@@ -594,27 +594,27 @@ const AdminPlacementFeedback = () => {
               </p>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+<div className="bg-blue-800 rounded-lg shadow-sm border overflow-hidden text-white">
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-grey-800">
+                  <thead className="bg-blue-800">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/5">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white-500 uppercase tracking-wider w-1/5">
                         Student Details
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/5">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white-500 uppercase tracking-wider w-1/5">
                         Company & Role
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white-500 uppercase tracking-wider w-1/6">
                         CTC
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white-500 uppercase tracking-wider w-1/6">
                         Outcome
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white-500 uppercase tracking-wider w-1/6">
                         Date
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white-500 uppercase tracking-wider w-1/6">
                         Actions
                       </th>
                     </tr>

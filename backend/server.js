@@ -39,8 +39,9 @@ import publicationRoutes from "./routes/student/studentPublicationRoutes.js";
 import nonCGPACategoryRoutes from "./routes/admin/nonCGPACategoryRoutes.js";
 import CompetencyCoding  from "./routes/student/competencyCodingRoutes.js";
 import Noncgpa  from "./routes/student/studentNonCGPARoutes.js";
+import studentFilterRoutes from './routes/studentFilterRoutes.js';
 
-
+import studentPdfRoutes from './routes/student/studentPdfRoutes.js';
 
 
 import prosubmittedRoutes from './routes/prosubmitted.js';
@@ -67,15 +68,20 @@ import personalRoutes from './routes/personal.js';
 import facultyPDFRoutes from './routes/facultyPDFRoutes.js';
 import mouRoutes from './routes/mou.js';
 import StudentEducationRoutes from "./routes/student/educationRoutes.js";
+import registrationRoutes from './routes/placement/registrationRoutes.js';
+import profileRoutes from './routes/placement/profile.js';
 
 // Admin panel routes
 import adminPanelRoutes from './routes/adminPanelRoutes.js';
 import studentPanelRoutes from './routes/studentPanelRoutes.js';
+import certificateRoutes from "./routes/student/certificateRoutes.js";
 
 // Fixed import path
 import PersonalInfo from './routes/staff/personalRoutes.js';
 import placementRoutes from './routes/placementRoutes.js';
-
+import placementDrivesRoutes from './routes/placement/placementDrives.js';
+import placementhackathonRoutes from './routes/placement/hackathon.js';
+import studentHackathonRoutes from './routes/placement/studentHackathon.js';
 dotenv.config();
 
 const app = express();
@@ -252,25 +258,7 @@ async function initializeDatabase() {
     `);
 
     // Create upcomingdrives_placement table
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS upcomingdrives_placement (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        post VARCHAR(255),
-        company_name VARCHAR(255) NOT NULL,
-        eligibility TEXT,
-        date DATE NOT NULL,
-        time TIME NOT NULL,
-        venue VARCHAR(255),
-        roles VARCHAR(255) DEFAULT 'Not specified',
-        salary VARCHAR(255) DEFAULT 'Not specified',
-        Created_by INT,
-        Updated_by INT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        CONSTRAINT fk_upcomingdrives_createdby FOREIGN KEY (Created_by) REFERENCES users(Userid) ON DELETE SET NULL,
-        CONSTRAINT fk_upcomingdrives_updatedby FOREIGN KEY (Updated_by) REFERENCES users(Userid) ON DELETE SET NULL
-      )
-    `);
+    
 
     // Create companydetails table
     await connection.query(`
@@ -336,20 +324,7 @@ async function initializeDatabase() {
     `);
 
     // Create hackathons table
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS hackathons (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        content TEXT NOT NULL,
-        link VARCHAR(500),
-        Created_by INT,
-        Updated_by INT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        CONSTRAINT fk_hackathons_createdby FOREIGN KEY (Created_by) REFERENCES users(Userid) ON DELETE SET NULL,
-        CONSTRAINT fk_hackathons_updatedby FOREIGN KEY (Updated_by) REFERENCES users(Userid) ON DELETE SET NULL
-      )
-    `);
-
+    
     // Create notifications table
     await connection.query(`
       CREATE TABLE IF NOT EXISTS notifications (
@@ -422,6 +397,8 @@ app.use('/api', tableRoutes);
 app.use('/api', internRoutes);
 app.use('/api', dashboardRoutes);
 app.use("/api/bulk", bulkRoutes);
+app.use('/api/student', studentPdfRoutes);
+
 app.use("/api", studentRoutes);
 app.use("/api/staff", PersonalInfo);
 app.use('/api', staffRoutes);
@@ -473,6 +450,14 @@ app.use('/api', facultyPDFRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'Uploads')));
 
 
+app.use('/api/placement-drives', placementDrivesRoutes);
+app.use('/api/placement-hackathons', placementhackathonRoutes);
+app.use('/api/student-hackathons', studentHackathonRoutes);
+app.use('/api/registration',registrationRoutes);
+app.use('/api/students', studentFilterRoutes);
+app.use('/api/profile', profileRoutes);
+
+app.use("/api", certificateRoutes);
 
 
 

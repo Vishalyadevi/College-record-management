@@ -3,13 +3,15 @@ import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import {
   FaUserPlus, FaUsers, FaUserTie, FaChalkboardTeacher, FaTachometerAlt,
   FaUserGraduate, FaBook, FaMedal, FaCertificate, FaLaptopCode, FaCalendarAlt,
-  FaSchool, FaPlane, FaAward, FaDownload, FaFileUpload
+  FaSchool, FaPlane, FaAward, FaDownload, FaFileUpload, FaBriefcase,
+  FaBuilding, FaCalendarCheck, FaCode, FaComments, FaChevronDown, FaChevronUp
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import axios from "axios";
 
 const Sidebar = () => {
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showPlacementDropdown, setShowPlacementDropdown] = useState(false);
   const [currentUser, setCurrentUser] = useState({
     role: "",
     username: "",
@@ -37,7 +39,7 @@ const Sidebar = () => {
             username: response.data.user.username,
             profileImage: response.data.user.profileImage
               ? `${backendUrl}${response.data.user.profileImage}`
-              : "https://thumbs.dreamstime.com/b/default-avatar-profile-icon-vector-social-media-user-image-182145777.jpg", // Default profile image
+              : "https://thumbs.dreamstime.com/b/default-avatar-profile-icon-vector-social-media-user-image-182145777.jpg",
           });
         } else {
           toast.error("Failed to fetch user details");
@@ -55,12 +57,19 @@ const Sidebar = () => {
     setShowDropdown(false);
   }, [location.pathname]);
 
+  // Auto-expand placement dropdown if user is on a placement page
+  useEffect(() => {
+    if (location.pathname.includes('/placement/')) {
+      setShowPlacementDropdown(true);
+    }
+  }, [location.pathname]);
+
   const role = localStorage.getItem("userRole");
 
   const renderSidebarItems = () => {
     switch (role) {
       case "Admin":
-         return (
+        return (
           <>
             <SidebarLink to="/records/admin" icon={<FaChalkboardTeacher />} label="Dashboard" />
             <SidebarLink to="/records/add-user" icon={<FaUserTie />} label="Add User" />
@@ -69,14 +78,12 @@ const Sidebar = () => {
             <SidebarLink to="/records/staff-activities" icon={<FaUserTie />} label="Staff Activities" />
             <SidebarLink to="/records/student-activities" icon={<FaUserTie />} label="Student Activities" />
             <SidebarLink to="/records/noncgpa-category" icon={<FaUserTie />} label="Add Non CGPA" />
-
             <SidebarLink to="/records/bulk" icon={<FaFileUpload />} label="Bulk Import" />
           </>
         );
       case "Staff":
         return (
           <>
-            {/* FIXED: Changed routes to match App.tsx exactly */}
             <SidebarLink to="/records/staff" icon={<FaTachometerAlt />} label="Main Dashboard" />
             <SidebarLink to="/records/staff-dashboard" icon={<FaChalkboardTeacher />} label="Approval Dashboard" />
             <SidebarLink to="/records/myward" icon={<FaUsers />} label="My Ward" />
@@ -96,19 +103,21 @@ const Sidebar = () => {
             <SidebarLink to="/records/recognition" icon={<FaAward />} label="Recognition" />
             <SidebarLink to="/records/patent-product" icon={<FaFileUpload />} label="Patent/Product Development" />
             <SidebarLink to="/records/project-mentors" icon={<FaUsers />} label="Project Mentors" />
-              <SidebarLink to="/placement/staff-home" icon={<FaUsers />} label="Placement" />
-                          <SidebarLink to="/records/staff-mou" icon={<FaUsers />} label="MOU" />
-
-        </>
+            <SidebarLink to="/records/staff-mou" icon={<FaUsers />} label="MOU" />
+            
+            {/* Placement Dropdown for Staff */}
+            <StaffPlacementDropdown 
+              isOpen={showPlacementDropdown}
+              setIsOpen={setShowPlacementDropdown}
+            />
+          </>
         );
       case "Student":
         return (
           <>
             <SidebarLink to="/records/student-background" icon={<FaTachometerAlt />} label="Dashboard" />
             <SidebarLink to="/records/student-personal-details" icon={<FaUserGraduate />} label="Personal Details" />
-                        <SidebarLink to="/records/student-education" icon={<FaUserGraduate />} label="Education" />
-
-            {/*<SidebarLink to="/records/student-courses" icon={<FaBook />} label="Courses Enrolled" />*/}
+            <SidebarLink to="/records/student-education" icon={<FaUserGraduate />} label="Education" />
             <SidebarLink to="/records/student-event-attended" icon={<FaCalendarAlt />} label="Events Attended" />
             <SidebarLink to="/records/student-event-organized" icon={<FaAward />} label="Events Organized" />
             <SidebarLink to="/records/student-certificates" icon={<FaCertificate />} label="Certifications" />
@@ -117,16 +126,18 @@ const Sidebar = () => {
             <SidebarLink to="/records/student-internships" icon={<FaSchool />} label="Internships" />
             <SidebarLink to="/records/student-scholarships" icon={<FaAward />} label="Scholarships" />
             <SidebarLink to="/records/student-leave" icon={<FaPlane />} label="Leave Request" />
-                        <SidebarLink to="/records/studenthackathon" icon={<FaPlane />} label="Hackathon" />
-                        <SidebarLink to="/records/student-extracurricular" icon={<FaPlane />} label="Extracurricular" />
-                        <SidebarLink to="/records/student-project" icon={<FaPlane />} label="Projects" />
-                        <SidebarLink to="/records/student-competency" icon={<FaPlane />} label="Competency & Coding" />
-                        <SidebarLink to="/records/student-publication" icon={<FaPlane />} label="Publications" />
-                        <SidebarLink to="/records/noncgpa" icon={<FaPlane />} label="Non CGPA" />
+            <SidebarLink to="/records/studenthackathon" icon={<FaCode />} label="Hackathon" />
+            <SidebarLink to="/records/student-extracurricular" icon={<FaMedal />} label="Extracurricular" />
+            <SidebarLink to="/records/student-project" icon={<FaLaptopCode />} label="Projects" />
+            <SidebarLink to="/records/student-competency" icon={<FaBook />} label="Competency & Coding" />
+            <SidebarLink to="/records/student-publication" icon={<FaBook />} label="Publications" />
+            <SidebarLink to="/records/noncgpa" icon={<FaAward />} label="Non CGPA" />
 
-                        <SidebarLink to="/placement/home" icon={<FaUsers />} label="Placement" />
-
-
+            {/* Placement Dropdown for Student */}
+            <StudentPlacementDropdown 
+              isOpen={showPlacementDropdown}
+              setIsOpen={setShowPlacementDropdown}
+            />
           </>
         );
       default:
@@ -139,12 +150,10 @@ const Sidebar = () => {
     }
   };
 
-
   return (
     <div className="fixed w-64 bg-white shadow-lg border-r border-gray-200 h-screen flex flex-col">
       {/* Profile Section */}
       <div className="p-6 border-b border-gray-200 flex flex-col items-center">
-        {/* Profile Image Container */}
         <div
           className="relative w-24 h-24 rounded-full flex items-center justify-center cursor-pointer"
           style={{
@@ -152,13 +161,11 @@ const Sidebar = () => {
           }}
           onClick={() => setShowDropdown(!showDropdown)}
         >
-          {/* Profile Image */}
           <img
             src={currentUser.profileImage}
             alt="profile"
             className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-sm"
           />
-          {/* Dropdown Arrow */}
           <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-md">
             <svg
               className={`w-3 h-3 text-purple-600 transition-transform ${
@@ -179,13 +186,11 @@ const Sidebar = () => {
           </div>
         </div>
 
-        {/* Username and Role */}
         <div className="mt-4 text-center">
           <p className="text-md font-semibold text-gray-700">{currentUser.username}</p>
           <p className="text-sm text-gray-500">{currentUser.role}</p>
         </div>
 
-        {/* Enhanced Dropdown */}
         {showDropdown && (
           <div className="mt-2 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden w-48">
             <button
@@ -237,5 +242,113 @@ const SidebarLink = ({ to, icon, label }) => (
     <span>{label}</span>
   </NavLink>
 );
+
+// Staff Placement Dropdown Component
+const StaffPlacementDropdown = ({ isOpen, setIsOpen }) => {
+  const location = useLocation();
+  
+  const subMenuItems = [
+   // { to: "/placement/staff-home", icon: <FaBriefcase />, label: "Home" },
+    { to: "/records/staff-recruiters", icon: <FaBuilding />, label: "Recruiters" },
+    { to: "/records/staff-upcomingdrive", icon: <FaCalendarCheck />, label: "Upcoming Drives" },
+    { to: "/records/staff-hackathon", icon: <FaCode />, label: "Hackathons" },
+    { to: "/records/staff-feedback", icon: <FaComments />, label: "Feedback" },
+        { to: "/records/eligible-staff-students", icon: <FaComments />, label: "Eligible students" },
+
+  ];
+
+  return (
+    <div>
+      {/* Main Placement Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex items-center justify-between w-full py-3 px-6 text-sm font-medium text-gray-700 hover:bg-gradient-to-r from-purple-100 to-blue-100 transition-colors ${
+          location.pathname.includes('/placement/') ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white" : ""
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-lg"><FaBriefcase /></span>
+          <span>Placement</span>
+        </div>
+        <span className="text-lg">
+          {isOpen ? <FaChevronUp /> : <FaChevronDown />}
+        </span>
+      </button>
+
+      {/* Dropdown Submenu */}
+      {isOpen && (
+        <div className="bg-gray-50">
+          {subMenuItems.map((item, index) => (
+            <NavLink
+              key={index}
+              to={item.to}
+              className={({ isActive }) =>
+                `flex items-center gap-3 py-2.5 pl-12 pr-6 text-sm font-medium text-gray-600 hover:bg-gradient-to-r from-purple-50 to-blue-50 transition-colors ${
+                  isActive ? "bg-gradient-to-r from-purple-500 to-blue-500 text-white" : ""
+                }`
+              }
+            >
+              <span className="text-base">{item.icon}</span>
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Student Placement Dropdown Component
+const StudentPlacementDropdown = ({ isOpen, setIsOpen }) => {
+  const location = useLocation();
+  
+  const subMenuItems = [
+   // { to: "/placement/home", icon: <FaBriefcase />, label: "Home" },
+    { to: "/placement/recruiters", icon: <FaBuilding />, label: "Recruiters" },
+    { to: "/placement/upcoming-drive", icon: <FaCalendarCheck />, label: "Upcoming Drives" },
+    { to: "/placement/hackathon", icon: <FaCode />, label: "Hackathons" },
+    { to: "/placement/feedback", icon: <FaComments />, label: "Feedback" },
+  ];
+
+  return (
+    <div>
+      {/* Main Placement Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex items-center justify-between w-full py-3 px-6 text-sm font-medium text-gray-700 hover:bg-gradient-to-r from-purple-100 to-blue-100 transition-colors ${
+          location.pathname.includes('/placement/') ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white" : ""
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-lg"><FaBriefcase /></span>
+          <span>Placement</span>
+        </div>
+        <span className="text-lg">
+          {isOpen ? <FaChevronUp /> : <FaChevronDown />}
+        </span>
+      </button>
+
+      {/* Dropdown Submenu */}
+      {isOpen && (
+        <div className="bg-gray-50">
+          {subMenuItems.map((item, index) => (
+            <NavLink
+              key={index}
+              to={item.to}
+              className={({ isActive }) =>
+                `flex items-center gap-3 py-2.5 pl-12 pr-6 text-sm font-medium text-gray-600 hover:bg-gradient-to-r from-purple-50 to-blue-50 transition-colors ${
+                  isActive ? "bg-gradient-to-r from-purple-500 to-blue-500 text-white" : ""
+                }`
+              }
+            >
+              <span className="text-base">{item.icon}</span>
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default Sidebar;

@@ -906,6 +906,137 @@ await connection.execute(`
     )
 `);
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+//-----------Placement--------
+await connection.execute(`
+CREATE TABLE IF NOT EXISTS placement_drives (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  Userid INT NOT NULL,
+  company_name VARCHAR(200) NOT NULL,
+  
+  -- Eligibility criteria as JSON or separate columns
+  batch VARCHAR(50),
+  departments TEXT,
+  tenth_percentage DECIMAL(5,2),
+  twelfth_percentage DECIMAL(5,2),
+  cgpa DECIMAL(4,2),
+  history_of_arrears VARCHAR(10),
+  standing_arrears VARCHAR(10),
+  
+  -- Drive details
+  drive_date DATE NOT NULL,
+  drive_time TIME NOT NULL,
+  venue VARCHAR(255),
+  salary VARCHAR(100),
+  roles TEXT,
+  
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE,
+  INDEX idx_userid (Userid),
+  INDEX idx_company (company_name),
+  INDEX idx_date (drive_date)
+);
+`)
+await connection.execute(`
+
+CREATE TABLE IF NOT EXISTS hackathons (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  contest_name VARCHAR(255) NOT NULL,
+  contest_link VARCHAR(500) NOT NULL,
+  date DATE NOT NULL,
+  host_by VARCHAR(255) NOT NULL,
+  eligibility_year ENUM('1st Year', '2nd Year', '3rd Year', '4th Year', 'All Years') NOT NULL,
+  department ENUM('CSE', 'ECE', 'EEE', 'MECH', 'CIVIL', 'IT', 'All Departments') NOT NULL,
+  attempt_date DATE NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+)
+  `)
+
+  await connection.execute(`
+
+CREATE TABLE IF NOT EXISTS student_registrations (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  student_id VARCHAR(50) NOT NULL,
+  hackathon_id INT NOT NULL,
+  registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  attempted BOOLEAN DEFAULT 0,
+  attempt_date DATE NULL,
+  FOREIGN KEY (hackathon_id) REFERENCES hackathons(id) ON DELETE CASCADE,
+  UNIQUE KEY unique_registration (student_id, hackathon_id)
+);
+`)
+
+await connection.execute(`
+CREATE TABLE IF NOT EXISTS registrations (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  Userid INT NOT NULL,
+  drive_id INT NOT NULL,
+  status VARCHAR(50) DEFAULT 'Pending',
+  current_round INT NULL,
+  round_1_status VARCHAR(50) NULL,
+  round_2_status VARCHAR(50) NULL,
+  round_3_status VARCHAR(50) NULL,
+  round_4_status VARCHAR(50) NULL,
+  round_5_status VARCHAR(50) NULL,
+  round_6_status VARCHAR(50) NULL,
+  round_7_status VARCHAR(50) NULL,
+  round_8_status VARCHAR(50) NULL,
+  placed BOOLEAN DEFAULT FALSE,
+  placement_package DECIMAL(10,2) NULL,
+  placement_role VARCHAR(255) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (Userid) REFERENCES users(Userid),
+  FOREIGN KEY (drive_id) REFERENCES placement_drives(id)
+);
+`)
+await connection.execute(`
+
+-- Create certificates table
+CREATE TABLE IF NOT EXISTS certificates (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id VARCHAR(50) NOT NULL,
+  category ENUM('academic', 'personal', 'extracurricular') NOT NULL,
+  certificate_type VARCHAR(255) NOT NULL,
+  file_name VARCHAR(255) NOT NULL,
+  file_path VARCHAR(500) NOT NULL,
+  upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_user_id (user_id),
+  INDEX idx_category (category)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+`)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     // Insert default admin user if it doesn't exist
     const [rows] = await connection.query('SELECT * FROM users WHERE username = ?', ['faculty']);
     if (rows.length === 0) {

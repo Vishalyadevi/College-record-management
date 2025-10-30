@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "../../styles/home.css";
-import Navbar from "./staffnavbar";
 import ImageSlider from "../imageslider"; 
 import {
   BarChart,
@@ -130,11 +129,11 @@ const Home = () => {
 
   return (
     <>
-      <Navbar />
-      <br></br>
-      <br></br>
-      <br></br>
-      <div className="home-container">
+     
+     
+      <div className="home-container"
+            style={{ marginLeft: "150px", padding: "20px" }}
+>
         {/* Statistics Section */}
         <div className="stats-container">
           <div className="stat-box">

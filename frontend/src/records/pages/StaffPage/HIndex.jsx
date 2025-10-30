@@ -17,7 +17,10 @@ const HIndexPage = () => {
   const [formData, setFormData] = useState({
     faculty_name: '',
     citations: '',
-    h_index: ''
+    h_index: '',
+    i_index: '',
+    google_citations: '',
+    scopus_citations: ''
   });
 
   const [errors, setErrors] = useState({});
@@ -108,6 +111,36 @@ const HIndexPage = () => {
       }
     }
 
+    // I-index validation
+    if (!formData.i_index) {
+      newErrors.i_index = 'I-index field is required';
+    } else {
+      const iIndexNum = parseFloat(formData.i_index);
+      if (isNaN(iIndexNum) || iIndexNum < 0) {
+        newErrors.i_index = 'I-index must be a non-negative number';
+      }
+    }
+
+    // Google citations validation
+    if (!formData.google_citations) {
+      newErrors.google_citations = 'Google citations field is required';
+    } else {
+      const googleCitationsNum = parseInt(formData.google_citations);
+      if (isNaN(googleCitationsNum) || googleCitationsNum < 0) {
+        newErrors.google_citations = 'Google citations must be a non-negative integer';
+      }
+    }
+
+    // Scopus citations validation
+    if (!formData.scopus_citations) {
+      newErrors.scopus_citations = 'Scopus citations field is required';
+    } else {
+      const scopusCitationsNum = parseInt(formData.scopus_citations);
+      if (isNaN(scopusCitationsNum) || scopusCitationsNum < 0) {
+        newErrors.scopus_citations = 'Scopus citations must be a non-negative integer';
+      }
+    }
+
     // Logical validation: h-index cannot be greater than citations
     if (formData.citations && formData.h_index) {
       const citationsNum = parseInt(formData.citations);
@@ -135,7 +168,10 @@ const HIndexPage = () => {
     setFormData({
       faculty_name: '',
       citations: '',
-      h_index: ''
+      h_index: '',
+      i_index: '',
+      google_citations: '',
+      scopus_citations: ''
     });
     setCurrentRecord(null);
     setIsViewMode(false);
@@ -152,7 +188,10 @@ const HIndexPage = () => {
     setFormData({
       faculty_name: record.faculty_name || '',
       citations: record.citations?.toString() || '',
-      h_index: record.h_index?.toString() || ''
+      h_index: record.h_index?.toString() || '',
+      i_index: record.i_index?.toString() || '',
+      google_citations: record.google_citations?.toString() || '',
+      scopus_citations: record.scopus_citations?.toString() || ''
     });
     setIsViewMode(false);
     setErrors({});
@@ -164,7 +203,10 @@ const HIndexPage = () => {
     setFormData({
       faculty_name: record.faculty_name || '',
       citations: record.citations?.toString() || '',
-      h_index: record.h_index?.toString() || ''
+      h_index: record.h_index?.toString() || '',
+      i_index: record.i_index?.toString() || '',
+      google_citations: record.google_citations?.toString() || '',
+      scopus_citations: record.scopus_citations?.toString() || ''
     });
     setIsViewMode(true);
     setErrors({});
@@ -197,7 +239,10 @@ const HIndexPage = () => {
       const submitData = {
         faculty_name: formData.faculty_name.trim(),
         citations: parseInt(formData.citations),
-        h_index: parseInt(formData.h_index)
+        h_index: parseInt(formData.h_index),
+        i_index: parseFloat(formData.i_index),
+        google_citations: parseInt(formData.google_citations),
+        scopus_citations: parseInt(formData.scopus_citations)
       };
 
       if (currentRecord) {
@@ -246,6 +291,21 @@ const HIndexPage = () => {
       header: 'H Index',
       render: (row) => row.h_index?.toString() || '0'
     },
+    { 
+      field: 'i_index', 
+      header: 'I Index',
+      render: (row) => row.i_index?.toString() || '0'
+    },
+    { 
+      field: 'google_citations', 
+      header: 'Google Citations',
+      render: (row) => row.google_citations?.toLocaleString() || '0'
+    },
+    { 
+      field: 'scopus_citations', 
+      header: 'Scopus Citations',
+      render: (row) => row.scopus_citations?.toLocaleString() || '0'
+    },
     {
       field: 'username',
       header: 'Added By',
@@ -269,7 +329,7 @@ const HIndexPage = () => {
         </div>
         <button 
           onClick={handleAddNew}           
-          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-pink-500 to-purple-400 hover:from-pink-600 hover:to-purple-500 px-4 py-2 rounded-md shadow-md transition-all duration-200"
+          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-blue-600 to-purple-400 hover:from-blue-800 hover:to-purple-500 px-4 py-2 rounded-md shadow-md"
         >
           <Plus size={16} />
           Add New H Index
@@ -330,6 +390,43 @@ const HIndexPage = () => {
             disabled={isViewMode}
             error={errors.h_index}
             placeholder="Enter H-index value"
+            min="0"
+          />
+          <FormField
+            label="I Index"
+            name="i_index"
+            type="number"
+            step="0.01"
+            value={formData.i_index}
+            onChange={handleInputChange}
+            required
+            disabled={isViewMode}
+            error={errors.i_index}
+            placeholder="Enter I-index value"
+            min="0"
+          />
+          <FormField
+            label="Google Citations"
+            name="google_citations"
+            type="number"
+            value={formData.google_citations}
+            onChange={handleInputChange}
+            required
+            disabled={isViewMode}
+            error={errors.google_citations}
+            placeholder="Enter Google citations"
+            min="0"
+          />
+          <FormField
+            label="Scopus Citations"
+            name="scopus_citations"
+            type="number"
+            value={formData.scopus_citations}
+            onChange={handleInputChange}
+            required
+            disabled={isViewMode}
+            error={errors.scopus_citations}
+            placeholder="Enter Scopus citations"
             min="0"
           />
         </div>

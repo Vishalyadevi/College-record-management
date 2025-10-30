@@ -1,5 +1,5 @@
 import React, { useState, useCallback, memo } from "react";
-import { FaEdit, FaTrash, FaChevronLeft, FaChevronRight, FaPlus } from "react-icons/fa";
+import { FaEdit, FaTrash, FaChevronLeft, FaChevronRight, FaPlus, FaClock, FaCheckCircle } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { toast } from "react-toastify";
 import { useOrganizedEventContext } from "../../contexts/OrganizedEventContext";
@@ -30,16 +30,32 @@ const Select = memo(({ name, value, onChange, children, required }) => (
   </select>
 ));
 
+// Status Badge Component
+const StatusBadge = ({ status }) => {
+  const isApproved = status === 'Approved';
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
+        isApproved
+          ? 'bg-green-100 text-green-700'
+          : 'bg-yellow-100 text-yellow-700'
+      }`}
+    >
+      {isApproved ? <FaCheckCircle size={12} /> : <FaClock size={12} />}
+      {status}
+    </span>
+  );
+};
+
 const StudentEventOrganized = () => {
   const {
-    events, // Ensure `events` is destructured from the context
+    events,
     loading,
     error,
     addEvent,
     updateEvent,
     deleteEvent,
   } = useOrganizedEventContext();
-  console.log(events)
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingEvent, setEditingEvent] = useState({
@@ -56,16 +72,44 @@ const StudentEventOrganized = () => {
     funding_amount: "",
   });
 
+  // Add custom scrollbar styles
+  React.useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .custom-scrollbar::-webkit-scrollbar {
+        height: 8px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 4px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #555;
+      }
+    `;
+    document.head.appendChild(style);
+    return () => document.head.removeChild(style);
+  }, []);
+
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(5);
 
   // Filter State
-  const [filterRole, setFilterRole] = useState("All"); // "All", "Organizer", "Volunteer"
+  const [filterRole, setFilterRole] = useState("All");
+  const [filterStatus, setFilterStatus] = useState("All");
 
-  // Filter events based on role
-  const filteredEvents = Array.isArray(events) // Use `events` instead of `fetchEvents`
-    ? events.filter((event) => filterRole === "All" ? true : event.role === filterRole)
+  // Filter events based on role and status
+  const filteredEvents = Array.isArray(events)
+    ? events.filter((event) => {
+        const roleMatch = filterRole === "All" || event.role === filterRole;
+        const statusMatch = filterStatus === "All" || event.approval_status === filterStatus;
+        return roleMatch && statusMatch;
+      })
     : [];
 
   // Calculate Paginated Data
@@ -99,7 +143,16 @@ const StudentEventOrganized = () => {
 
   // Handle Edit Click
   const handleEdit = useCallback((event) => {
-    setEditingEvent(event);
+    // Only allow editing of pending events
+    if (event.approval_status === 'Pending') {
+      setEditingEvent({
+        ...event,
+        start_date: event.start_date ? event.start_date.split('T')[0] : '',
+        end_date: event.end_date ? event.end_date.split('T')[0] : '',
+      });
+    } else {
+      toast.warning("Only pending events can be edited.");
+    }
   }, []);
 
   // Handle Form Submission
@@ -132,8 +185,8 @@ const StudentEventOrganized = () => {
         end_date: editingEvent.end_date,
         number_of_participants: editingEvent.number_of_participants,
         mode: editingEvent.mode,
-        funding_agency: editingEvent.funding_agency,
-        funding_amount: editingEvent.funding_amount,
+        funding_agency: editingEvent.funding_agency || "",
+        funding_amount: editingEvent.funding_amount || "",
         Userid: String(decodedData.Userid),
       };
 
@@ -142,7 +195,6 @@ const StudentEventOrganized = () => {
         toast.success("Event updated successfully!");
       } else {
         await addEvent(eventData);
-        toast.success("Event added successfully!");
       }
 
       // Reset form
@@ -176,12 +228,37 @@ const StudentEventOrganized = () => {
     }));
   }, []);
 
+  // Handle Delete with status check
+  const handleDelete = useCallback((event) => {
+    if (event.approval_status === 'Pending') {
+      if (window.confirm('Are you sure you want to delete this pending event?')) {
+        deleteEvent(event.id);
+      }
+    } else {
+      toast.warning("Only pending events can be deleted.");
+    }
+  }, [deleteEvent]);
+
   if (loading) {
-    return <div className="text-center text-gray-700">Loading events...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="text-xl text-gray-700 mb-2">Loading events...</div>
+          <div className="text-sm text-gray-500">Please wait...</div>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="text-center text-red-600">Error: {error}</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="text-xl text-red-600 mb-2">Error: {error}</div>
+          <div className="text-sm text-gray-500">Check console for details</div>
+        </div>
+      </div>
+    );
   }
 
   if (!Array.isArray(events)) {
@@ -207,7 +284,8 @@ const StudentEventOrganized = () => {
           whileTap={{ scale: 0.9 }}
           type="submit"
           onClick={handleSubmit}
-          className="absolute top-4 right-4 p-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full shadow-md hover:shadow-lg transition"
+          disabled={isSubmitting}
+          className="absolute top-4 right-4 p-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full shadow-md hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
           title={editingEvent.id ? "Update" : "Submit"}
         >
           {editingEvent.id ? <FaEdit size={20} /> : <FaPlus size={20} />}
@@ -216,7 +294,7 @@ const StudentEventOrganized = () => {
         <h3 className="text-xl font-semibold text-gray-800 mb-4">
           {editingEvent.id ? "Edit Event" : "Add Event"}
         </h3>
-        <form onSubmit={handleSubmit} className="grid grid-cols-4 gap-4">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Row 1 */}
           <div>
             <Label htmlFor="event_name">Event Name</Label>
@@ -271,7 +349,7 @@ const StudentEventOrganized = () => {
             <FormField
               type="date"
               name="start_date"
-              value={editingEvent.start_date ? editingEvent.start_date.split('T')[0] : ''}
+              value={editingEvent.start_date}
               onChange={handleFieldChange}
               required
             />
@@ -281,7 +359,7 @@ const StudentEventOrganized = () => {
             <FormField
               type="date"
               name="end_date"
-              value={editingEvent.end_date ? editingEvent.end_date.split('T')[0] : ''}
+              value={editingEvent.end_date}
               onChange={handleFieldChange}
               required
             />
@@ -319,7 +397,7 @@ const StudentEventOrganized = () => {
               name="funding_agency"
               value={editingEvent.funding_agency}
               onChange={handleFieldChange}
-              placeholder="Enter funding agency"
+              placeholder="Enter funding agency (optional)"
             />
           </div>
           <div>
@@ -329,23 +407,36 @@ const StudentEventOrganized = () => {
               name="funding_amount"
               value={editingEvent.funding_amount}
               onChange={handleFieldChange}
-              placeholder="Enter funding amount"
+              placeholder="Enter funding amount (optional)"
             />
           </div>
         </form>
       </motion.div>
 
       {/* Filter Controls */}
-      <div className="flex justify-end mb-6">
-        <Select
-          name="filterRole"
-          value={filterRole}
-          onChange={(e) => setFilterRole(e.target.value)}
-        >
-          <option value="All">All Roles</option>
-          <option value="Organizer">Organizer</option>
-          <option value="Volunteer">Volunteer</option>
-        </Select>
+      <div className="flex flex-wrap justify-end gap-4 mb-6">
+        <div className="w-48">
+          <Select
+            name="filterRole"
+            value={filterRole}
+            onChange={(e) => setFilterRole(e.target.value)}
+          >
+            <option value="All">All Roles</option>
+            <option value="Organizer">Organizer</option>
+            <option value="Volunteer">Volunteer</option>
+          </Select>
+        </div>
+        <div className="w-48">
+          <Select
+            name="filterStatus"
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+          >
+            <option value="All">All Status</option>
+            <option value="Approved">Approved</option>
+            <option value="Pending">Pending</option>
+          </Select>
+        </div>
       </div>
 
       {/* Event Details Table */}
@@ -353,66 +444,78 @@ const StudentEventOrganized = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full p-6 bg-white rounded-lg shadow-md"
+        className="w-full p-6 bg-white rounded-lg shadow-md overflow-hidden"
       >
         <h3 className="text-xl font-semibold text-gray-800 mb-4">Event Details</h3>
         {filteredEvents.length === 0 ? (
-          <div className="text-center text-gray-600">No events found.</div>
+          <div className="text-center text-gray-600 py-8">No events found.</div>
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse border border-gray-200">
-                <thead className="bg-gradient-to-r from-purple-600 to-blue-600 text-white">
+            <div className="overflow-x-auto custom-scrollbar" style={{ maxHeight: '600px' }}>
+              <table className="border-collapse border border-gray-200" style={{ minWidth: '2000px', width: '100%' }}>
+                <thead className="bg-gradient-to-r from-purple-600 to-blue-600 text-white sticky top-0 z-10">
                   <tr>
-                    <th className="border border-gray-200 p-3 text-left">Event Name</th>
-                    <th className="border border-gray-200 p-3 text-left">Club Name</th>
-                    <th className="border border-gray-200 p-3 text-left">Role</th>
-                    <th className="border border-gray-200 p-3 text-left">Staff Incharge</th>
-                    <th className="border border-gray-200 p-3 text-left">Start Date</th>
-                    <th className="border border-gray-200 p-3 text-left">End Date</th>
-                    <th className="border border-gray-200 p-3 text-left">Participants</th>
-                    <th className="border border-gray-200 p-3 text-left">Mode</th>
-                    <th className="border border-gray-200 p-3 text-left">Funding Agency</th>
-                    <th className="border border-gray-200 p-3 text-left">Funding Amount</th>
-                    <th className="border border-gray-200 p-3 text-center">Actions</th>
+                    <th className="border border-gray-200 p-3 text-left whitespace-nowrap" style={{ minWidth: '130px' }}>Status</th>
+                    <th className="border border-gray-200 p-3 text-left whitespace-nowrap" style={{ minWidth: '150px' }}>Event Name</th>
+                    <th className="border border-gray-200 p-3 text-left whitespace-nowrap" style={{ minWidth: '130px' }}>Club Name</th>
+                    <th className="border border-gray-200 p-3 text-left whitespace-nowrap" style={{ minWidth: '110px' }}>Role</th>
+                    <th className="border border-gray-200 p-3 text-left whitespace-nowrap" style={{ minWidth: '150px' }}>Staff Incharge</th>
+                    <th className="border border-gray-200 p-3 text-left whitespace-nowrap" style={{ minWidth: '120px' }}>Start Date</th>
+                    <th className="border border-gray-200 p-3 text-left whitespace-nowrap" style={{ minWidth: '120px' }}>End Date</th>
+                    <th className="border border-gray-200 p-3 text-center whitespace-nowrap" style={{ minWidth: '120px' }}>Participants</th>
+                    <th className="border border-gray-200 p-3 text-left whitespace-nowrap" style={{ minWidth: '90px' }}>Mode</th>
+                    <th className="border border-gray-200 p-3 text-left whitespace-nowrap" style={{ minWidth: '150px' }}>Funding Agency</th>
+                    <th className="border border-gray-200 p-3 text-right whitespace-nowrap" style={{ minWidth: '150px' }}>Funding Amount</th>
+                    <th className="border border-gray-200 p-3 text-center whitespace-nowrap" style={{ minWidth: '120px' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {currentEvents.map((event) => (
-                    <tr key={event.id} className="bg-white hover:bg-gray-50 transition">
-                      <td className="border border-gray-200 p-3">{event.event_name}</td>
-                      <td className="border border-gray-200 p-3">{event.club_name}</td>
-                      <td className="border border-gray-200 p-3">{event.role}</td>
-                      <td className="border border-gray-200 p-3">{event.staff_incharge}</td>
-                      <td className="border border-gray-200 p-3">
-                        {new Date(event.start_date).toLocaleDateString()}
+                  {currentEvents.map((event, index) => (
+                    <tr key={event.id || `event-${index}`} className="bg-white hover:bg-gray-50 transition">
+                      <td className="border border-gray-200 p-3 whitespace-nowrap" style={{ minWidth: '130px' }}>
+                        <StatusBadge status={event.approval_status || 'Pending'} />
                       </td>
-                      <td className="border border-gray-200 p-3">
-                        {new Date(event.end_date).toLocaleDateString()}
+                      <td className="border border-gray-200 p-3 whitespace-nowrap" style={{ minWidth: '150px' }}>{event.event_name || '-'}</td>
+                      <td className="border border-gray-200 p-3 whitespace-nowrap" style={{ minWidth: '130px' }}>{event.club_name || '-'}</td>
+                      <td className="border border-gray-200 p-3 whitespace-nowrap" style={{ minWidth: '110px' }}>{event.role || '-'}</td>
+                      <td className="border border-gray-200 p-3 whitespace-nowrap" style={{ minWidth: '150px' }}>{event.staff_incharge || '-'}</td>
+                      <td className="border border-gray-200 p-3 whitespace-nowrap" style={{ minWidth: '120px' }}>
+                        {event.start_date ? new Date(event.start_date).toLocaleDateString() : 'N/A'}
                       </td>
-                      <td className="border border-gray-200 p-3">{event.number_of_participants}</td>
-                      <td className="border border-gray-200 p-3">{event.mode}</td>
-                      <td className="border border-gray-200 p-3">{event.funding_agency}</td>
-                      <td className="border border-gray-200 p-3">{event.funding_amount}</td>
-                      <td className="border border-gray-200 p-3">
-                        <div className="flex justify-center space-x-4">
+                      <td className="border border-gray-200 p-3 whitespace-nowrap" style={{ minWidth: '120px' }}>
+                        {event.end_date ? new Date(event.end_date).toLocaleDateString() : 'N/A'}
+                      </td>
+                      <td className="border border-gray-200 p-3 whitespace-nowrap text-center" style={{ minWidth: '120px' }}>{event.number_of_participants || '-'}</td>
+                      <td className="border border-gray-200 p-3 whitespace-nowrap" style={{ minWidth: '90px' }}>{event.mode || '-'}</td>
+                      <td className="border border-gray-200 p-3 whitespace-nowrap" style={{ minWidth: '150px' }}>{event.funding_agency || '-'}</td>
+                      <td className="border border-gray-200 p-3 whitespace-nowrap text-right" style={{ minWidth: '150px' }}>{event.funding_amount || '-'}</td>
+                      <td className="border border-gray-200 p-3 whitespace-nowrap" style={{ minWidth: '120px' }}>
+                        <div className="flex justify-center space-x-2">
                           <motion.button
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
                             onClick={() => handleEdit(event)}
-                            className="p-2 rounded-full bg-blue-100 hover:bg-blue-200 text-blue-600 transition-all duration-200"
-                            title="Edit"
+                            className={`p-2 rounded-full transition-all duration-200 ${
+                              event.approval_status === 'Pending'
+                                ? 'bg-blue-100 hover:bg-blue-200 text-blue-600 cursor-pointer'
+                                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            }`}
+                            title={event.approval_status === 'Pending' ? 'Edit' : 'Cannot edit approved events'}
                           >
-                            <FaEdit size={18} />
+                            <FaEdit size={16} />
                           </motion.button>
                           <motion.button
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
-                            onClick={() => deleteEvent(event.id)}
-                            className="p-2 rounded-full bg-red-100 hover:bg-red-200 text-red-600 transition-all duration-200"
-                            title="Delete"
+                            onClick={() => handleDelete(event)}
+                            className={`p-2 rounded-full transition-all duration-200 ${
+                              event.approval_status === 'Pending'
+                                ? 'bg-red-100 hover:bg-red-200 text-red-600 cursor-pointer'
+                                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            }`}
+                            title={event.approval_status === 'Pending' ? 'Delete' : 'Cannot delete approved events'}
                           >
-                            <FaTrash size={18} />
+                            <FaTrash size={16} />
                           </motion.button>
                         </div>
                       </td>
@@ -423,7 +526,7 @@ const StudentEventOrganized = () => {
             </div>
 
             {/* Pagination Controls */}
-            <div className="flex justify-between items-center mt-6">
+            <div className="flex flex-wrap justify-between items-center mt-6 gap-4">
               <div className="text-sm text-gray-600">
                 Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredEvents.length)} of {filteredEvents.length} entries
               </div>
@@ -442,7 +545,7 @@ const StudentEventOrganized = () => {
                   <FaChevronLeft size={18} />
                 </motion.button>
                 <span className="text-sm text-gray-700">
-                  Page {currentPage} of {totalPages}
+                  Page {currentPage} of {totalPages || 1}
                 </span>
                 <motion.button
                   whileHover={{ scale: 1.1 }}

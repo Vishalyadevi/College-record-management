@@ -1,4 +1,3 @@
-// AttendedEventContext.js
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -14,7 +13,10 @@ export const AttendedEventProvider = ({ children }) => {
   const UserId = localStorage.getItem("userId");
 
   const fetchEventsAttended = useCallback(async () => {
-    if (!token || !UserId) return toast.error("Unauthorized: No token or user ID found");
+    if (!token || !UserId) {
+      console.warn("No token or user ID found");
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -35,14 +37,19 @@ export const AttendedEventProvider = ({ children }) => {
     } catch (err) {
       console.error("Error fetching attended events:", err);
       setError(err.message);
-      toast.error("Failed to fetch attended events.");
+      if (err.response?.status !== 401) {
+        toast.error("Failed to fetch attended events.");
+      }
     } finally {
       setLoading(false);
     }
-  }, [token, UserId]);
+  }, [token, UserId, backendUrl]);
 
   const addEventAttended = useCallback(async (eventData) => {
-    if (!token) return toast.error("Unauthorized: No token found");
+    if (!token) {
+      toast.error("Unauthorized: No token found");
+      return;
+    }
 
     setLoading(true);
 
@@ -54,19 +61,25 @@ export const AttendedEventProvider = ({ children }) => {
         },
       });
 
-      setEventsAttended((prevEvents) => [...prevEvents, response.data]);
+      // Refresh the events list after adding
+      await fetchEventsAttended();
       toast.success("Event attended added successfully!");
+      return response.data;
     } catch (err) {
       console.error("Error adding attended event:", err);
       setError(err.message);
-      toast.error("Failed to add attended event.");
+      toast.error(err.response?.data?.message || "Failed to add attended event.");
+      throw err;
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, backendUrl, fetchEventsAttended]);
 
   const updateEventAttended = useCallback(async (id, eventData) => {
-    if (!token) return toast.error("Unauthorized: No token found");
+    if (!token) {
+      toast.error("Unauthorized: No token found");
+      return;
+    }
 
     setLoading(true);
 
@@ -81,21 +94,30 @@ export const AttendedEventProvider = ({ children }) => {
           },
         }
       );
-      setEventsAttended((prevEvents) =>
-        prevEvents.map((event) => (event.id === id ? response.data : event))
-      );
+      
+      // Refresh the events list after updating
+      await fetchEventsAttended();
       toast.success("Event attended updated successfully!");
+      return response.data;
     } catch (err) {
       console.error("Error updating attended event:", err);
       setError(err.message);
-      toast.error("Failed to update attended event.");
+      toast.error(err.response?.data?.message || "Failed to update attended event.");
+      throw err;
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, backendUrl, fetchEventsAttended]);
 
   const deleteEventAttended = useCallback(async (id) => {
-    if (!token) return toast.error("Unauthorized: No token found");
+    if (!token) {
+      toast.error("Unauthorized: No token found");
+      return;
+    }
+
+    if (!window.confirm("Are you sure you want to delete this event?")) {
+      return;
+    }
 
     setLoading(true);
 
@@ -111,15 +133,17 @@ export const AttendedEventProvider = ({ children }) => {
     } catch (err) {
       console.error("Error deleting attended event:", err);
       setError(err.message);
-      toast.error("Failed to delete attended event.");
+      toast.error(err.response?.data?.message || "Failed to delete attended event.");
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, backendUrl]);
 
   useEffect(() => {
-    fetchEventsAttended();
-  }, [fetchEventsAttended]);
+    if (token && UserId) {
+      fetchEventsAttended();
+    }
+  }, [fetchEventsAttended, token, UserId]);
 
   return (
     <AttendedEventContext.Provider
@@ -138,4 +162,10 @@ export const AttendedEventProvider = ({ children }) => {
   );
 };
 
-export const useAttendedEventContext = () => useContext(AttendedEventContext);
+export const useAttendedEventContext = () => {
+  const context = useContext(AttendedEventContext);
+  if (!context) {
+    throw new Error("useAttendedEventContext must be used within an AttendedEventProvider");
+  }
+  return context;
+};

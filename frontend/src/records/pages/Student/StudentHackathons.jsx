@@ -315,7 +315,7 @@ const HackathonEvents = () => {
           <p className="text-gray-500">No hackathon events available.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse border border-gray-300">
+            <table className="w-full border-collapse border border-gray-300"style={{ minWidth: '2000px', width: '100%' }}>
               <thead className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
                 <tr>
                   <th className="border border-gray-300 p-3 text-left">Event Name</th>

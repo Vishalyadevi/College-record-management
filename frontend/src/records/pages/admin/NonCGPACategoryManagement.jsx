@@ -492,74 +492,83 @@ const NonCGPACategoryManagement = () => {
               <p className="text-gray-600">No categories found</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gradient-to-r from-blue-500 to-purple-600 text-white">
-                  <tr>
-                    <th className="p-3 text-left">
-                      <input
-                        type="checkbox"
-                        checked={selectedCategories.length === filteredCategories.length}
-                        onChange={handleSelectAll}
-                        className="w-4 h-4"
-                      />
-                    </th>
-                    <th className="p-3 text-left">Category No</th>
-                    <th className="p-3 text-left">Course Code</th>
-                    <th className="p-3 text-left">Course Name</th>
-                    <th className="p-3 text-left">Department</th>
-                    <th className="p-3 text-left">Credits</th>
-                    <th className="p-3 text-left">Semester</th>
-                    <th className="p-3 text-left">Status</th>
-                    <th className="p-3 text-left">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredCategories.map((category, index) => (
-                    <tr
-                      key={category.id}
-                      className={`${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} hover:bg-blue-50 transition`}
-                    >
-                      <td className="p-3">{category.category_no}</td>
-                      <td className="p-3">{category.course_code}</td>
-                      <td className="p-3">{category.course_name}</td>
-                      <td className="p-3">{category.department || 'N/A'}</td>
-                      <td className="p-3">{category.credits}</td>
-                      <td className="p-3">{category.semester ? `Sem ${category.semester}` : 'N/A'}</td>
-                      <td className="p-3">
-                        {category.is_active ? (
-                          <span className="flex items-center gap-1 text-green-600">
-                            <FaCheckCircle /> Active
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1 text-red-600">
-                            <FaTimesCircle /> Inactive
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleEdit(category)}
-                            className="text-blue-600 hover:text-blue-800 transition"
-                            title="Edit"
-                          >
-                            <FaEdit className="text-lg" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(category.id)}
-                            className="text-red-600 hover:text-red-800 transition"
-                            title="Delete"
-                          >
-                            <FaTrash className="text-lg" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+           <div className="overflow-x-auto">
+  <table className="w-full border-collapse text-sm text-gray-800">
+    <thead className="bg-gradient-to-r from-blue-500 to-purple-600 text-white text-left">
+      <tr>
+        <th className="p-3 w-12 text-center">
+          <input
+            type="checkbox"
+            checked={selectedCategories.length === filteredCategories.length}
+            onChange={handleSelectAll}
+            className="w-4 h-4 cursor-pointer"
+          />
+        </th>
+        <th className="p-3 font-semibold">Category No</th>
+        <th className="p-3 font-semibold">Course Code</th>
+        <th className="p-3 font-semibold">Course Name</th>
+        <th className="p-3 font-semibold">Department</th>
+        <th className="p-3 font-semibold">Credits</th>
+        <th className="p-3 font-semibold">Semester</th>
+        <th className="p-3 font-semibold">Status</th>
+        <th className="p-3 font-semibold text-center">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {filteredCategories.map((category, index) => (
+        <tr
+          key={category.id}
+          className={`${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} hover:bg-blue-50 transition-all border-b`}
+        >
+          <td className="p-3 text-center">
+            <input
+              type="checkbox"
+              checked={selectedCategories.includes(category.id)}
+              onChange={() => handleSelectCategory(category.id)}
+              className="w-4 h-4 cursor-pointer"
+            />
+          </td>
+          <td className="p-3">{category.category_no}</td>
+          <td className="p-3">{category.course_code}</td>
+          <td className="p-3">{category.course_name}</td>
+          <td className="p-3">{category.department || 'N/A'}</td>
+          <td className="p-3 text-center">{category.credits}</td>
+          <td className="p-3 text-center">{category.semester ? `Sem ${category.semester}` : 'N/A'}</td>
+          <td className="p-3">
+            {category.is_active ? (
+              <span className="flex items-center gap-1 text-green-600">
+                <FaCheckCircle /> Active
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 text-red-600">
+                <FaTimesCircle /> Inactive
+              </span>
+            )}
+          </td>
+          <td className="p-3 text-center">
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={() => handleEdit(category)}
+                className="text-blue-600 hover:text-blue-800 transition"
+                title="Edit"
+              >
+                <FaEdit className="text-lg" />
+              </button>
+              <button
+                onClick={() => handleDelete(category.id)}
+                className="text-red-600 hover:text-red-800 transition"
+                title="Delete"
+              >
+                <FaTrash className="text-lg" />
+              </button>
             </div>
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
+
           )}
         </div>
 

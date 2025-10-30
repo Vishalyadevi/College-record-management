@@ -506,13 +506,7 @@ const StudentEducation = () => {
               <FaChartBar className="text-blue-600" /> Overall Performance
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
-                <p className="text-sm text-gray-600 mb-2">Average GPA</p>
-                <p className={`text-4xl font-bold ${getCGPAColor(parseFloat(averages.averageGPA))}`}>
-                  {averages.averageGPA}
-                </p>
-                <p className="text-xs text-gray-500 mt-2">Across all semesters</p>
-              </div>
+              
               <div className="p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg">
                 <p className="text-sm text-gray-600 mb-2">CGPA</p>
                 <p className={`text-4xl font-bold ${getCGPAColor(parseFloat(averages.cgpa))}`}>

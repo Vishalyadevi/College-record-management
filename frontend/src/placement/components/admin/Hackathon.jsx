@@ -1,128 +1,148 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import Navbar from "./AdminNavbar";
+import { FaEdit, FaTrash, FaExternalLinkAlt, FaUsers, FaCode } from "react-icons/fa";
 
 const AdminHackathon = () => {
-  const [hackathonData, setHackathonData] = useState({
-    title: "",
-    description: "",
-    link: "",
-    startDate: "",
-    endDate: "",
-    prize: "",
-    tags: []
-  });
   const [hackathons, setHackathons] = useState([]);
   const [showForm, setShowForm] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState("all");
+  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState({
+    total_hackathons: 0,
+    upcoming_hackathons: 0,
+    total_registrations: 0
+  });
+
+  const [formData, setFormData] = useState({
+    contest_name: "",
+    contest_link: "",
+    date: "",
+    host_by: "",
+    eligibility_year: "",
+    department: "",
+    attempt_date: ""
+  });
+
+  const [filters, setFilters] = useState({
+    eligibility_year: "",
+    department: "",
+    search: ""
+  });
+
+  const eligibilityYears = ['1st Year', '2nd Year', '3rd Year', '4th Year', 'All Years'];
+  const departments = ['CSE', 'ECE', 'EEE', 'MECH', 'CIVIL', 'IT', 'All Departments'];
+
+  // Get auth token from localStorage
+  const getAuthToken = () => {
+    return localStorage.getItem('token');
+  };
+
+  // Create axios instance with auth header
+  const axiosInstance = axios.create({
+    baseURL: 'http://localhost:4000',
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  });
+
+  // Add token to every request
+  axiosInstance.interceptors.request.use(
+    (config) => {
+      const token = getAuthToken();
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    },
+    (error) => {
+      return Promise.reject(error);
+    }
+  );
+
+  // Handle auth errors
+  axiosInstance.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        alert('Session expired. Please login again.');
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
+      return Promise.reject(error);
+    }
+  );
+
+  useEffect(() => {
+    fetchHackathons();
+    fetchStats();
+  }, [filters]);
 
   const fetchHackathons = async () => {
-    setLoading(true);
     try {
-      const response = await axios.get("http://localhost:4000/api/placement/hackathons");
-      setHackathons(response.data);
-    } catch (err) {
-      console.error("Error fetching hackathons:", err);
-      alert("Error fetching hackathons");
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (filters.eligibility_year) params.append('eligibility_year', filters.eligibility_year);
+      if (filters.department) params.append('department', filters.department);
+      if (filters.search) params.append('search', filters.search);
+
+      const response = await axiosInstance.get(`/api/placement-hackathons?${params}`);
+      setHackathons(response.data.data || []);
+    } catch (error) {
+      console.error('Error fetching hackathons:', error);
+      alert(error.response?.data?.message || 'Error fetching hackathons');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchHackathons();
-  }, []);
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setHackathonData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleTagInput = (e) => {
-    if (e.key === "Enter" && e.target.value.trim()) {
-      e.preventDefault();
-      const newTag = e.target.value.trim();
-      if (!hackathonData.tags.includes(newTag)) {
-        setHackathonData(prev => ({
-          ...prev,
-          tags: [...prev.tags, newTag]
-        }));
-      }
-      e.target.value = "";
+  const fetchStats = async () => {
+    try {
+      const response = await axiosInstance.get('/api/placement-hackathons/stats/overview');
+      setStats(response.data.data || {
+        total_hackathons: 0,
+        upcoming_hackathons: 0,
+        total_registrations: 0
+      });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
     }
   };
 
-  const removeTag = (index) => {
-    setHackathonData(prev => ({
-      ...prev,
-      tags: prev.tags.filter((_, i) => i !== index)
-    }));
-  };
-
-  const resetForm = () => {
-    setHackathonData({
-      title: "",
-      description: "",
-      link: "",
-      startDate: "",
-      endDate: "",
-      prize: "",
-      tags: []
-    });
-    setIsEditing(false);
-    setEditingId(null);
+  const formatDateForInput = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toISOString().split('T')[0];
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!hackathonData.title.trim() || !hackathonData.link.trim()) {
-      alert("Please enter hackathon title and registration link.");
-      return;
-    }
-
-    const userId = localStorage.getItem("userId") || "1";
-
     try {
       if (isEditing) {
-        await axios.put(`http://localhost:4000/api/placement/hackathons/${editingId}`, {
-          ...hackathonData,
-          updated_by: userId,
-        });
-        alert("Hackathon updated successfully!");
+        await axiosInstance.put(`/api/placement-hackathons/${editingId}`, formData);
+        alert('Hackathon updated successfully!');
       } else {
-        await axios.post("http://localhost:4000/api/placement/hackathons", {
-          ...hackathonData,
-          created_by: userId,
-        });
-        alert("Hackathon posted successfully!");
+        await axiosInstance.post('/api/placement-hackathons', formData);
+        alert('Hackathon created successfully!');
       }
-      
       resetForm();
       fetchHackathons();
-      setShowForm(false);
-    } catch (err) {
-      console.error("Error posting hackathon:", err);
-      alert("Error posting hackathon: " + (err.response?.data?.message || err.message));
+      fetchStats();
+    } catch (error) {
+      console.error('Error saving hackathon:', error);
+      alert(error.response?.data?.message || 'Error saving hackathon');
     }
   };
 
   const handleEdit = (hackathon) => {
-    setHackathonData({
-      title: hackathon.title || "",
-      description: hackathon.content || "",
-      link: hackathon.link || "",
-      startDate: hackathon.startDate || "",
-      endDate: hackathon.endDate || "",
-      prize: hackathon.prize || "",
-      tags: hackathon.tags || []
+    setFormData({
+      contest_name: hackathon.contest_name,
+      contest_link: hackathon.contest_link,
+      date: formatDateForInput(hackathon.date),
+      host_by: hackathon.host_by,
+      eligibility_year: hackathon.eligibility_year,
+      department: hackathon.department,
+      attempt_date: formatDateForInput(hackathon.attempt_date)
     });
     setIsEditing(true);
     setEditingId(hackathon.id);
@@ -130,253 +150,233 @@ const AdminHackathon = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this hackathon?")) return;
-    try {
-      await axios.delete(`http://localhost:4000/api/placement/hackathons/${id}`);
-      alert("Hackathon deleted successfully!");
-      fetchHackathons();
-    } catch (err) {
-      console.error("Error deleting hackathon:", err);
-      alert("Error deleting hackathon: " + (err.response?.data?.message || err.message));
-    }
-  };
-
-  const formatDate = (dateString) =>
-    dateString ? new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    }) : "TBD";
-
-  const isUpcoming = (endDate) => {
-    return new Date(endDate) > new Date();
-  };
-
-  const filteredHackathons = hackathons.filter(hackathon => {
-    const matchesSearch = hackathon.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         hackathon.content?.toLowerCase().includes(searchTerm.toLowerCase());
+    if (!window.confirm('Are you sure you want to delete this hackathon?')) return;
     
-    if (activeTab === "upcoming") {
-      return matchesSearch && isUpcoming(hackathon.endDate);
+    try {
+      await axiosInstance.delete(`/api/placement-hackathons/${id}`);
+      alert('Hackathon deleted successfully!');
+      fetchHackathons();
+      fetchStats();
+    } catch (error) {
+      console.error('Error deleting hackathon:', error);
+      alert(error.response?.data?.message || 'Error deleting hackathon');
     }
-    if (activeTab === "past") {
-      return matchesSearch && !isUpcoming(hackathon.endDate);
-    }
-    return matchesSearch;
-  });
+  };
 
-  const gradientColors = [
-    "from-blue-500 to-purple-600",
-    "from-green-500 to-teal-600",
-    "from-orange-500 to-red-600",
-    "from-purple-500 to-indigo-600",
-    "from-teal-500 to-blue-600",
-    "from-red-500 to-orange-600"
-  ];
+  const resetForm = () => {
+    setFormData({
+      contest_name: "",
+      contest_link: "",
+      date: "",
+      host_by: "",
+      eligibility_year: "",
+      department: "",
+      attempt_date: ""
+    });
+    setIsEditing(false);
+    setEditingId(null);
+    setShowForm(false);
+  };
+
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <br></br>
-      <br></br>
-      <br></br>
-      <div className="pt-20 container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header Section */}
-        <div className="mb-8">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Hackathon</h1>
-            </div>
-            
-            <div className="flex flex-wrap gap-3">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search hackathons..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
-                />
-                {/* <svg className="w-5 h-5 absolute left-3 top-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg> */}
+    <div className="min-h-screen bg-gray-50 p-6"
+          style={{ marginLeft: "250px", padding: "20px" }}
+>
+      <div className="max-w-7xl mx-auto">
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 rounded-xl shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-blue-100 text-sm">Total Hackathons</p>
+                <p className="text-3xl font-bold mt-2">{stats.total_hackathons || 0}</p>
               </div>
-              
-              <button
-                onClick={() => {
-                  resetForm();
-                  setShowForm(true);
-                }}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
-              >
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                New Hackathon
-              </button>
+              <FaCode className="text-4xl opacity-80" />
             </div>
           </div>
+          
+          <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-6 rounded-xl shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-green-100 text-sm">Upcoming Hackathons</p>
+                <p className="text-3xl font-bold mt-2">{stats.upcoming_hackathons || 0}</p>
+              </div>
+              <FaUsers className="text-4xl opacity-80" />
+            </div>
+          </div>
+          
+          <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-6 rounded-xl shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-purple-100 text-sm">Total Registrations</p>
+                <p className="text-3xl font-bold mt-2">{stats.total_registrations || 0}</p>
+              </div>
+              <FaUsers className="text-4xl opacity-80" />
+            </div>
+          </div>
+        </div>
 
-          {/* Tabs */}
-          <div className="flex border-b border-gray-200 mt-6">
+        {/* Header and Filters */}
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+            <h1 className="text-2xl font-bold text-gray-800">Hackathon Management</h1>
             <button
-              className={`px-4 py-2 font-medium text-sm ${activeTab === "all" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500 hover:text-gray-700"}`}
-              onClick={() => setActiveTab("all")}
+              onClick={() => setShowForm(!showForm)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-md"
             >
-              All Hackathons ({hackathons.length})
+              {showForm ? 'Cancel' : 'Add New Hackathon'}
             </button>
-            <button
-              className={`px-4 py-2 font-medium text-sm ${activeTab === "upcoming" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500 hover:text-gray-700"}`}
-              onClick={() => setActiveTab("upcoming")}
-            >
-              Upcoming ({hackathons.filter(h => isUpcoming(h.endDate)).length})
-            </button>
-            <button
-              className={`px-4 py-2 font-medium text-sm ${activeTab === "past" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500 hover:text-gray-700"}`}
-              onClick={() => setActiveTab("past")}
-            >
-              Past ({hackathons.filter(h => !isUpcoming(h.endDate)).length})
-            </button>
+          </div>
+
+          {/* Filters */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
+              <input
+                type="text"
+                placeholder="Search hackathons..."
+                value={filters.search}
+                onChange={(e) => handleFilterChange('search', e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Eligibility Year</label>
+              <select
+                value={filters.eligibility_year}
+                onChange={(e) => handleFilterChange('eligibility_year', e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">All Years</option>
+                {eligibilityYears.map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
+              <select
+                value={filters.department}
+                onChange={(e) => handleFilterChange('department', e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">All Departments</option>
+                {departments.map(dept => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-end">
+              <button
+                onClick={() => setFilters({ eligibility_year: '', department: '', search: '' })}
+                className="w-full bg-gray-500 hover:bg-gray-600 text-white p-3 rounded-lg font-semibold transition-colors"
+              >
+                Clear Filters
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Hackathon Form */}
         {showForm && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-gray-800">
-                {isEditing ? 'Edit Hackathon' : 'Create New Hackathon'}
-              </h2>
-              <button
-                onClick={() => {
-                  setShowForm(false);
-                  resetForm();
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Hackathon Title *</label>
-                  <input
-                    type="text"
-                    name="title"
-                    value={hackathonData.title}
-                    onChange={handleInputChange}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter hackathon title"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Prize Pool</label>
-                  <input
-                    type="text"
-                    name="prize"
-                    value={hackathonData.prize}
-                    onChange={handleInputChange}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="e.g., $10,000"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
-                  <input
-                    type="date"
-                    name="startDate"
-                    value={hackathonData.startDate}
-                    onChange={handleInputChange}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
-                  <input
-                    type="date"
-                    name="endDate"
-                    value={hackathonData.endDate}
-                    onChange={handleInputChange}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Registration Link *</label>
-                  <input
-                    type="url"
-                    name="link"
-                    value={hackathonData.link}
-                    onChange={handleInputChange}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="https://example.com/register"
-                    required
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                  <textarea
-                    name="description"
-                    value={hackathonData.description}
-                    onChange={handleInputChange}
-                    rows="4"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Describe the hackathon theme, rules, and requirements..."
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Tags</label>
-                  <input
-                    type="text"
-                    onKeyDown={handleTagInput}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter tags and press Enter (e.g., AI, Web Development, Blockchain)"
-                  />
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {hackathonData.tags.map((tag, index) => (
-                      <span key={index} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm flex items-center">
-                        {tag}
-                        <button
-                          type="button"
-                          onClick={() => removeTag(index)}
-                          className="ml-2 text-blue-600 hover:text-blue-800"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">
+              {isEditing ? 'Edit Hackathon' : 'Create New Hackathon'}
+            </h2>
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Contest Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.contest_name}
+                  onChange={(e) => setFormData({...formData, contest_name: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
               </div>
-
-              <div className="flex gap-3 pt-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Contest Link *</label>
+                <input
+                  type="url"
+                  required
+                  value={formData.contest_link}
+                  onChange={(e) => setFormData({...formData, contest_link: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Date *</label>
+                <input
+                  type="date"
+                  required
+                  value={formData.date}
+                  onChange={(e) => setFormData({...formData, date: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Hosted By *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.host_by}
+                  onChange={(e) => setFormData({...formData, host_by: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Eligibility Year *</label>
+                <select
+                  required
+                  value={formData.eligibility_year}
+                  onChange={(e) => setFormData({...formData, eligibility_year: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Select Year</option>
+                  {eligibilityYears.map(year => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Department *</label>
+                <select
+                  required
+                  value={formData.department}
+                  onChange={(e) => setFormData({...formData, department: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Select Department</option>
+                  {departments.map(dept => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Attempt Date *</label>
+                <input
+                  type="date"
+                  required
+                  value={formData.attempt_date}
+                  onChange={(e) => setFormData({...formData, attempt_date: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div className="md:col-span-2 flex gap-4">
                 <button
                   type="submit"
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
                 >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
                   {isEditing ? 'Update Hackathon' : 'Create Hackathon'}
                 </button>
-                
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowForm(false);
-                    resetForm();
-                  }}
-                  className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400 transition-colors"
+                  onClick={resetForm}
+                  className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
                 >
                   Cancel
                 </button>
@@ -385,136 +385,88 @@ const AdminHackathon = () => {
           </div>
         )}
 
-        {/* Hackathon Cards Grid */}
+        {/* Hackathons Grid */}
         {loading ? (
-          <div className="flex justify-center items-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          </div>
-        ) : filteredHackathons.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-            <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-            </svg>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No hackathons found</h3>
-            <p className="text-gray-500 mb-4">
-              {searchTerm ? "Try adjusting your search terms" : "Get started by creating your first hackathon"}
-            </p>
-            {!searchTerm && (
-              <button
-                onClick={() => setShowForm(true)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Create Hackathon
-              </button>
-            )}
+          <div className="text-center py-8">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <p className="mt-2 text-gray-600">Loading hackathons...</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredHackathons.map((hackathon, index) => {
-              const gradient = gradientColors[index % gradientColors.length];
-              const isUpcomingHackathon = isUpcoming(hackathon.endDate);
-              
-              return (
-                <div
-                  key={hackathon.id}
-                  className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
-                >
-                  {/* Header with Gradient */}
-                  <div className={`h-3 bg-gradient-to-r ${gradient}`}></div>
+            {hackathons.map((hackathon) => (
+              <div key={hackathon.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
+                <div className="p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-lg font-semibold text-gray-800 truncate">{hackathon.contest_name}</h3>
+                    <a
+                      href={hackathon.contest_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 ml-2"
+                    >
+                      <FaExternalLinkAlt />
+                    </a>
+                  </div>
                   
-                  <div className="p-5">
-                    {/* Status Badge */}
-                    <div className="flex justify-between items-start mb-3">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        isUpcomingHackathon 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {isUpcomingHackathon ? 'Upcoming' : 'Completed'}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {formatDate(hackathon.created_at)}
-                      </span>
+                  <div className="space-y-3 mb-4">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Date:</span>
+                      <span className="font-medium">{new Date(hackathon.date).toLocaleDateString()}</span>
                     </div>
-
-                    {/* Title */}
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
-                      {hackathon.title || 'Hackathon'}
-                    </h3>
-
-                    {/* Description */}
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                      {hackathon.content || hackathon.description}
-                    </p>
-
-                    {/* Tags */}
-                    {hackathon.tags && hackathon.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-4">
-                        {hackathon.tags.slice(0, 3).map((tag, tagIndex) => (
-                          <span key={tagIndex} className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs">
-                            {tag}
-                          </span>
-                        ))}
-                        {hackathon.tags.length > 3 && (
-                          <span className="text-gray-500 text-xs">+{hackathon.tags.length - 3} more</span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Details */}
-                    <div className="grid grid-cols-2 gap-3 text-sm mb-4">
-                      <div className="flex items-center text-gray-600">
-                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        {formatDate(hackathon.endDate)}
-                      </div>
-                      {hackathon.prize && (
-                        <div className="flex items-center text-green-600 font-medium">
-                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          {hackathon.prize}
-                        </div>
-                      )}
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Host:</span>
+                      <span className="font-medium">{hackathon.host_by}</span>
                     </div>
-
-                    {/* Actions */}
-                    <div className="flex justify-between items-center">
-                      <a
-                        href={hackathon.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 bg-blue-600 text-white text-center py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium mr-2"
-                      >
-                        Register Now
-                      </a>
-                      
-                      <div className="flex space-x-1">
-                        <button
-                          onClick={() => handleEdit(hackathon)}
-                          className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-                          title="Edit"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleDelete(hackathon.id)}
-                          className="p-2 text-gray-400 hover:text-red-600 transition-colors"
-                          title="Delete"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Eligibility:</span>
+                      <span className="font-medium">{hackathon.eligibility_year}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Department:</span>
+                      <span className="font-medium">{hackathon.department}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Attempt Date:</span>
+                      <span className="font-medium">{new Date(hackathon.attempt_date).toLocaleDateString()}</span>
                     </div>
                   </div>
+
+                  <div className="flex justify-between items-center mb-4">
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-blue-600">{hackathon.registered_count || 0}</div>
+                      <div className="text-xs text-gray-500">Registered</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-green-600">{hackathon.attempted_count || 0}</div>
+                      <div className="text-xs text-gray-500">Attempted</div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEdit(hackathon)}
+                      className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    >
+                      <FaEdit /> Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(hackathon.id)}
+                      className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    >
+                      <FaTrash /> Delete
+                    </button>
+                  </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {hackathons.length === 0 && !loading && (
+          <div className="text-center py-12 bg-white rounded-xl shadow-lg">
+            <FaCode className="text-6xl text-gray-300 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-600 mb-2">No Hackathons Found</h3>
+            <p className="text-gray-500">Get started by creating your first hackathon.</p>
           </div>
         )}
       </div>

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-route
 import './index.css';
 
 // Context Providers
+
 import { StudentProvider } from './records/contexts/StudentContext.jsx';
 import { StaffProvider } from './records/contexts/StaffContext.jsx';
 import { UserProvider } from './records/contexts/UserContext.jsx';
@@ -26,12 +27,14 @@ import { PublicationProvider } from "./records/contexts/PublicationContext.jsx";
 import { StudentEducationProvider } from "./records/contexts/StudentEducationContext.jsx"; // NEW
 import { NonCGPAProvider } from "./records/contexts/NonCGPAContext.jsx"; // NEW
 import { NonCGPACategoryProvider } from "./records/contexts/NonCGPACategoryContext.jsx"; // NEW
+import { CertificateProvider } from "./records/contexts/CertificateContext.jsx";
 
 
 
 
 // Main Website Components (from project/src/)
 import Navbar from './components/Navbar';
+import Sidebar from './records/components/Sidebar';
 import Hero from './components/Hero';
 import QuickLinks from './components/QuickLinks';
 import AcademicsOverview from './components/AcademicsOverview';
@@ -100,10 +103,12 @@ import AdminHackathon from './placement/components/admin/Hackathon';
 import StudentHackathon from './placement/components/student/Hackathon';
 import EditCompany from './placement/components/admin/company/EditCompanyDetails';
 import StaffHackathon from './placement/components/staff/staffhackathon';
-import PlacementFeedback from './placement/components/student/PlacementFeedback';
-import EligibleStudents from './placement/components/admin/ElegibleStudents';
+import PlacementFeedback from './placement/components/student/placementFeedback';
+import EligibleStudents from './placement/components/admin/elegibleStudents';
 import AdminFeedback from './placement/components/admin/feedback';
 import StaffEligibleStudents from './placement/components/staff/eligiblestudents';
+import HackathonReport from './placement/components/admin/exportHackathon.jsx';
+
 
 // Records System Components (from records/src/)
 import RecordsLogin from './records/pages/Login';
@@ -461,6 +466,11 @@ const AppRoutes: React.FC = () => {
           <AdminNavbar /><AdminHackathon />
         </ProtectedRoute>
       } />
+      <Route path="/placement/admin-hackathon-report" element={
+        <ProtectedRoute allowedRoles={['Admin']}>
+          <AdminNavbar /><HackathonReport />
+        </ProtectedRoute>
+      } />
       <Route path="/placement/admin/edit-company/:companyName" element={
         <ProtectedRoute allowedRoles={['Admin']}>
           <AdminNavbar /><EditCompany />
@@ -470,74 +480,74 @@ const AppRoutes: React.FC = () => {
       {/* Student Routes */}
       <Route path="/placement/home" element={
         <ProtectedRoute allowedRoles={['Student']}>
-          <PlacementLayout><StudentHome /></PlacementLayout>
+           <Sidebar /><StudentHome />
         </ProtectedRoute>
       } />
       <Route path="/placement/recruiters" element={
         <ProtectedRoute allowedRoles={['Student']}>
-          <PlacementLayout><StudentRecruiter /></PlacementLayout>
+           <Sidebar /><StudentRecruiter />
         </ProtectedRoute>
       } />
       <Route path="/placement/feedback" element={
         <ProtectedRoute allowedRoles={['Student']}>
-          <PlacementLayout><PlacementFeedback /></PlacementLayout>
+           <Sidebar /><PlacementFeedback />
         </ProtectedRoute>
       } />
       <Route path="/placement/upcoming-drive" element={
         <ProtectedRoute allowedRoles={['Student']}>
-          <PlacementLayout><UpcomingDrives /></PlacementLayout>
+           <Sidebar /><UpcomingDrives />
         </ProtectedRoute>
       } />
       <Route path="/placement/status" element={
         <ProtectedRoute allowedRoles={['Student']}>
-          <PlacementLayout><Status /></PlacementLayout>
+           <Sidebar /><Status />
         </ProtectedRoute>
       } />
       <Route path="/placement/studentprofile" element={
         <ProtectedRoute allowedRoles={['Student']}>
-          <PlacementLayout><StudentProfile /></PlacementLayout>
+          <Sidebar /><StudentProfile />
         </ProtectedRoute>
       } />
       <Route path="/placement/hackathon" element={
         <ProtectedRoute allowedRoles={['Student']}>
-          <StudentNavbar /><StudentHackathon />
+           <Sidebar /><StudentHackathon />
         </ProtectedRoute>
       } />
 
       {/* Staff Routes */}
       <Route path="/placement/staff-home" element={
         <ProtectedRoute allowedRoles={['Staff']}>
-          <StaffNavbar /><StaffHome />
+          <Sidebar /><StaffHome />
         </ProtectedRoute>
       } />
-      <Route path="/placement/staff-recruiters" element={
+      <Route path="/records/staff-recruiters" element={
         <ProtectedRoute allowedRoles={['Staff']}>
-          <StaffNavbar /><StaffRecruiter />
+          <Sidebar /><StaffRecruiter />
         </ProtectedRoute>
       } />
-      <Route path="/placement/staff-upcomingdrive" element={
+      <Route path="/records/staff-upcomingdrive" element={
         <ProtectedRoute allowedRoles={['Staff']}>
-          <StaffNavbar /><StaffUpcommingDrive />
+          <Sidebar /><StaffUpcommingDrive />
         </ProtectedRoute>
       } />
-      <Route path="/placement/eligible-staff-students" element={
+      <Route path="/records/eligible-staff-students" element={
         <ProtectedRoute allowedRoles={['Staff']}>
-          <StaffNavbar /><StaffEligibleStudents/>
+          <Sidebar /><StaffEligibleStudents/>
         </ProtectedRoute>
       } />
-      <Route path="/placement/staff-feedback" element={
+      <Route path="/records/staff-feedback" element={
         <ProtectedRoute allowedRoles={['Staff']}>
-          <StaffNavbar /><StaffFeedback/>
+          <Sidebar /><StaffFeedback/>
         </ProtectedRoute>
       } />
-      <Route path="/placement/staff-tutorward" element={
+      <Route path="/records/staff-tutorward" element={
         <ProtectedRoute allowedRoles={['Staff']}>
-          <StaffNavbar /><Tutorward />
+          <Sidebar /><Tutorward />
         </ProtectedRoute>
       } />
-      <Route path="/placement/staff-hackathon" element={
+      <Route path="/records/staff-hackathon" element={
         <ProtectedRoute allowedRoles={['Staff']}>
-          <StaffNavbar /><StaffHackathon />
+          <Sidebar /><StaffHackathon />
         </ProtectedRoute>
       } />
 
@@ -935,6 +945,8 @@ function App() {
 
   return (
     <StudentDataProvider>
+          <CertificateProvider>
+
       <CourseProvider>
         <NonCGPACategoryProvider>
         <NonCGPAProvider>
@@ -982,6 +994,8 @@ function App() {
 </NonCGPAProvider>
 </NonCGPACategoryProvider>
       </CourseProvider>
+          </CertificateProvider>
+
     </StudentDataProvider>
   );
 }

@@ -3,7 +3,6 @@ import {
   Search, 
   GraduationCap, 
   RotateCcw, 
-  Eye, 
   FileSpreadsheet, 
   Users, 
   Calendar, 
@@ -12,7 +11,8 @@ import {
   Medal, 
   School, 
   Filter, 
-  ChevronDown 
+  ChevronDown,
+  AlertCircle 
 } from "lucide-react";
 
 const backendUrl = "http://localhost:4000";
@@ -41,6 +41,7 @@ function StudentActivities() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [viewMode, setViewMode] = useState('student');
+  const [fieldsFetchError, setFieldsFetchError] = useState(null);
 
   // Student activities from studentPanel.js
   const studentActivityList = [
@@ -50,7 +51,13 @@ function StudentActivities() {
     { name: 'Achievements', table: 'achievements' },
     { name: 'Internships', table: 'internships' },
     { name: 'Scholarships', table: 'scholarships' },
-    { name: 'Student Details', table: 'student_details' }
+    { name: 'Student Details', table: 'student_details' },
+    { name: 'Hackathon Event Details', table: 'hackathon_events'},
+    { name: 'Extracurricular Details', table: 'extracurricular_activities' },
+    { name: 'Project Details', table: 'student_projects' },
+    { name: 'Competency Coding Details', table: 'competency_coding' },
+    { name: 'Student Publication Details', table: 'student_publications' },
+    { name: 'Student Non-CGPA Details', table: 'student_noncgpa' }
   ];
 
   // Helper function to ensure data is always an array
@@ -60,7 +67,7 @@ function StudentActivities() {
     return [data];
   };
 
-  // Fetch departments from studentPanel.js
+  // Fetch departments
   const fetchDepartments = async () => {
     console.log('Fetching departments...');
     try {
@@ -75,16 +82,14 @@ function StudentActivities() {
     }
   };
 
-  // Fetch batches from backend
+  // Fetch batches
   const fetchBatches = async () => {
     try {
       console.log('Fetching batches from API...');
       const response = await fetch(`${backendUrl}/api/student-admin-panel/batches`);
-      console.log('Batches response:', response);
       if (!response.ok) throw new Error('Failed to fetch batches');
       const data = await response.json();
       
-      // Transform the data to match the expected format
       const batchArray = ensureArray(data);
       const formattedBatches = batchArray.map((batch, index) => ({
         id: index + 1,
@@ -99,7 +104,7 @@ function StudentActivities() {
     }
   };
 
-  // Fetch student data from studentPanel.js
+  // Fetch student data
   const fetchStudentData = async (departmentId = null) => {
     try {
       const response = await fetch(`${backendUrl}/api/student-admin-panel/students-with-activities`);
@@ -118,27 +123,43 @@ function StudentActivities() {
 
   // Fetch activity fields for selected activity
   const fetchActivityFields = async (activityName) => {
+    setFieldsFetchError(null);
     try {
-      const response = await fetch(`${backendUrl}/api/student-admin-panel/activity-fields/${activityName}`);
-      if (!response.ok) throw new Error('Failed to fetch activity fields');
+      console.log('Fetching fields for activity:', activityName);
+      const encodedActivityName = encodeURIComponent(activityName);
+      const response = await fetch(`${backendUrl}/api/student-admin-panel/activity-fields/${encodedActivityName}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch activity fields: ${errorText}`);
+      }
       
       const fields = await response.json();
+      console.log('Received fields:', fields);
+      
       const cols = Array.isArray(fields) ? fields : [];
+      console.log('Processed fields array:', cols);
+      
+      if (cols.length === 0) {
+        setFieldsFetchError(`No fields available for ${activityName}`);
+      }
       
       // Define default fields that should always be displayed
-      const defaultFields = ['S.NO', 'ID', 'Department', 'Student Name', 'student_name', 'department', 'id', 's_no'];
+      const defaultFields = ['S.NO', 'ID', 'Department', 'Student Name', 'student_name', 'department', 'id', 's_no', 'Userid', 'userid'];
       
       // Filter out default fields from available fields for selection
       const selectableFields = cols.filter(field => 
         !defaultFields.some(defaultField => 
-          field.toLowerCase().includes(defaultField.toLowerCase())
+          field.toLowerCase() === defaultField.toLowerCase()
         )
       );
       
+      console.log('Selectable fields:', selectableFields);
       setAvailableActivityFields(selectableFields);
       setSelectedActivityFields([]);
     } catch (error) {
       console.error(`Error fetching ${activityName} fields:`, error);
+      setFieldsFetchError(error.message);
       setAvailableActivityFields([]);
       setSelectedActivityFields([]);
     }
@@ -147,6 +168,7 @@ function StudentActivities() {
   // Handle activity change
   const handleActivityChange = (activityName) => {
     setSearchActivity(activityName);
+    setFieldsFetchError(null);
     if (activityName) {
       fetchActivityFields(activityName);
     } else {
@@ -181,7 +203,7 @@ function StudentActivities() {
     }
   };
 
-  // Fetch activity-specific data with selected fields
+  // Fetch activity-specific data
   const fetchActivityData = async (activityName, departmentId = null, studentName = null, fields = null) => {
     try {
       const activity = studentActivityList.find(act => act.name === activityName);
@@ -306,6 +328,7 @@ function StudentActivities() {
     setViewMode('student');
     setActivityColumns([]);
     setError(null);
+    setFieldsFetchError(null);
     setIsActivityFieldsDropdownOpen(false);
     
     setLoading(true);
@@ -370,7 +393,6 @@ function StudentActivities() {
     }
   };
 
-  // Ensure filteredData is always an array before slicing
   const safeFilteredData = ensureArray(filteredData);
   
   // Pagination logic
@@ -481,23 +503,19 @@ function StudentActivities() {
   const formatColumnValue = (value, columnName) => {
     if (value === null || value === undefined) return "N/A";
     
-    // Format dates
     if (columnName && columnName.includes('date') && value) {
       const date = new Date(value);
       return date.toLocaleDateString();
     }
     
-    // Format amounts
     if (columnName && columnName.includes('amount') && value) {
       return `₹${parseFloat(value).toLocaleString()}`;
     }
     
-    // Format boolean values
     if (typeof value === 'boolean') {
       return value ? 'Yes' : 'No';
     }
     
-    // Handle long text
     if (typeof value === 'string' && value.length > 50) {
       return (
         <span title={value}>
@@ -510,33 +528,36 @@ function StudentActivities() {
   };
 
   const renderActivityTable = () => {
-    // Define default fields that should always be displayed
     const defaultFields = ['S.NO', 'ID', 'Department', 'Student Name', 'student_name', 'department', 'id', 's_no'];
     
-    // Get default columns that exist in the data
     const existingDefaultColumns = activityColumns.filter(column => 
       defaultFields.some(defaultField => 
         column.toLowerCase().includes(defaultField.toLowerCase())
       )
     );
     
-    // Combine default columns with selected fields
     const displayColumns = [
       ...existingDefaultColumns,
       ...selectedActivityFields
     ];
     
-    // Remove duplicates while preserving order
     const uniqueDisplayColumns = [...new Set(displayColumns)];
     
     return (
-      <table className="min-w-full">
+      <table className="min-w-full" style={{ tableLayout: 'fixed' }}>
         <thead className="bg-gradient-to-r from-purple-500 to-blue-500">
           <tr>
             {uniqueDisplayColumns.map((column, index) => (
               <th
                 key={index}
-                className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider"
+                className="px-3 py-3 text-left text-[12px] font-semibold text-white uppercase tracking-wide align-middle whitespace-nowrap"
+                style={{
+                  minWidth: '220px',
+                  maxWidth: '320px',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }}
+                title={column.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
               >
                 {column.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
               </th>
@@ -547,10 +568,18 @@ function StudentActivities() {
           {currentItems.map((item, index) => (
             <tr key={item.id || index} className="hover:bg-gray-50 transition-colors">
               {uniqueDisplayColumns.map((column, colIndex) => (
-                <td key={colIndex} className="px-6 py-4 text-sm text-gray-900">
-                  <div className="max-w-xs">
-                    {formatColumnValue(item[column], column)}
-                  </div>
+                <td
+                  key={colIndex}
+                  className="px-3 py-3 text-xs text-gray-900 align-top whitespace-nowrap"
+                  style={{
+                    minWidth: '220px',
+                    maxWidth: '320px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis'
+                  }}
+                  title={String(item[column] ?? '')}
+                >
+                  {formatColumnValue(item[column], column)}
                 </td>
               ))}
             </tr>
@@ -579,10 +608,18 @@ function StudentActivities() {
                 : selectedActivityFields.length === 0 
                   ? "Select fields to display" 
                   : `${selectedActivityFields.length} field(s) selected`
+                  
             }
           </span>
           <ChevronDown className={`w-4 h-4 transition-transform ${isActivityFieldsDropdownOpen ? 'rotate-180' : ''}`} />
         </button>
+        
+        {fieldsFetchError && (
+          <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800 flex items-start">
+            <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
+            <span>{fieldsFetchError}</span>
+          </div>
+        )}
         
         {isActivityFieldsDropdownOpen && availableActivityFields.length > 0 && (
           <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">

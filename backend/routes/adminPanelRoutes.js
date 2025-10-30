@@ -356,6 +356,13 @@ const activityMappings = {
       JOIN department d ON u.Deptid = d.Deptid
     `,
   },
+  // MOU mapping for Staff Activities
+  'MOU': { 
+  table: 'mou', 
+  alias: 'm', 
+  columns: ['id','Userid','company_name','signed_on','mou_copy_link','created_at','updated_at'], 
+  joinQuery: `SELECT m.*, u.username as staff_name, d.Deptacronym as department FROM mou m JOIN users u ON m.Userid = u.Userid JOIN department d ON u.Deptid = d.Deptid` 
+  }
 };
 
 router.get('/admin-panel/departments', async (req, res) => {
