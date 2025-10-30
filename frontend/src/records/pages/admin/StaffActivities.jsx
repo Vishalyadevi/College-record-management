@@ -44,7 +44,8 @@ function AdminPanel() {
     { name: 'Patent/Product Development', table: 'patent_product' },
     { name: 'Project Mentors', table: 'project_mentors' },
     { name: 'Education', table: 'education' },
-    { name: 'Personal Information', table: 'personal_information' }
+    { name: 'Personal Information', table: 'personal_information' },
+    { name: 'MOU', table: 'mou' }
   ];
 
   // Helper function to ensure data is always an array

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FaEnvelope, FaInfoCircle, FaCheck, FaTimes, FaPaperPlane, FaBell } from "react-icons/fa";
+import { Mail, Info, Check, X, Send, Bell } from "lucide-react";
 import { useDashboardContext } from "../../contexts/DashboardContext.jsx";
 import { toast } from "react-toastify";
 
@@ -12,6 +12,12 @@ const Dashboard = () => {
     eventsAttended = [],
     onlineCourses = [],
     achievements = [],
+    publications = [],
+    competencyCoding = [],
+    nonCGPA = [],
+    projects = [],
+    hackathons = [],
+    extracurricular = [],
     selectedItem,
     showCommonMessage,
     email,
@@ -36,7 +42,13 @@ const Dashboard = () => {
     { id: "events", name: "Pending Events", data: Array.isArray(events) ? events : [] },
     { id: "eventsAttended", name: "Pending Events Attended", data: Array.isArray(eventsAttended) ? eventsAttended : [] },
     { id: "onlineCourses", name: "Pending Online Courses", data: Array.isArray(onlineCourses) ? onlineCourses : [] },
-    { id: "achievements", name: "Pending Achievements", data: Array.isArray(achievements) ? achievements : [] }
+    { id: "achievements", name: "Pending Achievements", data: Array.isArray(achievements) ? achievements : [] },
+    { id: "publications", name: "Pending Publications", data: Array.isArray(publications) ? publications : [] },
+    { id: "competencyCoding", name: "Pending Coding Competency", data: Array.isArray(competencyCoding) ? competencyCoding : [] },
+    { id: "nonCGPA", name: "Pending Non-CGPA Courses", data: Array.isArray(nonCGPA) ? nonCGPA : [] },
+    { id: "projects", name: "Pending Projects", data: Array.isArray(projects) ? projects : [] },
+    { id: "hackathons", name: "Pending Hackathons", data: Array.isArray(hackathons) ? hackathons : [] },
+    { id: "extracurricular", name: "Pending Extracurricular", data: Array.isArray(extracurricular) ? extracurricular : [] }
   ];
 
   const handleTabChange = (tab) => {
@@ -80,7 +92,6 @@ const Dashboard = () => {
   const renderItemDetails = (item) => {
     if (!item) return <p className="text-sm text-gray-500">No details available</p>;
 
-    // Determine upload path based on item type
     const getUploadPath = () => {
       switch (item.approvetype) {
         case 'internship': return 'uploads/';
@@ -93,7 +104,6 @@ const Dashboard = () => {
     };
     const baseUploadPath = getUploadPath();
 
-    // Fields to exclude from display
     const excludedFields = [
       "id", "_id", "_v", "__v", "created_at", "updated_at", "createdAt", "updatedAt",
       "Userid", "Created_by", "Updated_by", "pending", "tutor_approval_status", 
@@ -101,7 +111,6 @@ const Dashboard = () => {
       "approvetype", "approved_by", "staffId", "status", "studentId", "userId","stateID","districtID"
     ];
 
-    // Document fields configuration
     const documentFieldsConfig = {
       'internship': ['document', 'certificate'],
       'scholarship': ['document', 'proof'],
@@ -116,7 +125,6 @@ const Dashboard = () => {
       if (!value) return "Not Provided";
       
       try {
-        // Handle array of files
         if (Array.isArray(value)) {
           if (value.length === 0) return "Not Provided";
           
@@ -146,7 +154,6 @@ const Dashboard = () => {
           );
         }
         
-        // Handle single file
         const stringValue = String(value);
         if (!stringValue.trim()) return "Not Provided";
         
@@ -169,6 +176,7 @@ const Dashboard = () => {
         return "Invalid Document";
       }
     };
+
     const renderField = (key) => {
       const value = item[key];
       const displayKey = formatFieldName(key);
@@ -194,12 +202,11 @@ const Dashboard = () => {
                 const isSubDocField = ['memento_proof', 'cash_prize_proof', 'certificate_file'].includes(subKey);
       
                 if (isSubDocField) {
-                  // Handle cases where the value might be an object instead of string
                   const getDocumentValue = (val) => {
                     if (!val) return null;
                     if (typeof val === 'string') return val;
-                    if (val.path) return val.path; // If it's a file object with path property
-                    if (val.url) return val.url;   // If it's a file object with url property
+                    if (val.path) return val.path;
+                    if (val.url) return val.url;
                     return null;
                   };
       
@@ -289,7 +296,6 @@ const Dashboard = () => {
       );
     };
 
-    // Priority fields configuration
     const priorityFields = {
       'internship': ['username', 'regno', 'company', 'position', 'duration', 'description'],
       'scholarship': ['username', 'regno', 'institution_name', 'amount', 'duration', 'reason'],
@@ -300,7 +306,6 @@ const Dashboard = () => {
       'achievement': ['username', 'regno', 'title', 'description', 'category', 'date', 'achievement_details']
     };
 
-    // Get all fields except excluded ones
     const allFields = Object.keys(item)
       .filter(key => !excludedFields.includes(key))
       .sort((a, b) => {
@@ -313,7 +318,6 @@ const Dashboard = () => {
         return a.localeCompare(b);
       });
 
-    // Group fields into categories
     const basicInfoFields = [];
     const documentFields = [];
     const otherFields = [];
@@ -330,7 +334,6 @@ const Dashboard = () => {
 
     return (
       <div className="space-y-4">
-        {/* Basic Information Section */}
         {basicInfoFields.length > 0 && (
           <div className="bg-gray-50 p-4 rounded-lg">
             <h3 className="font-semibold text-gray-800 mb-3 border-b pb-1">Basic Information</h3>
@@ -338,7 +341,6 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* Documents Section */}
         {documentFields.length > 0 && (
           <div className="bg-gray-50 p-4 rounded-lg">
             <h3 className="font-semibold text-gray-800 mb-3 border-b pb-1">Documents & Achievements</h3>
@@ -346,7 +348,6 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* Additional Information Section */}
         {otherFields.length > 0 && (
           <div className="bg-gray-50 p-4 rounded-lg">
             <h3 className="font-semibold text-gray-800 mb-3 border-b pb-1">Additional Information</h3>
@@ -403,19 +404,19 @@ const Dashboard = () => {
               onClick={() => setState(prev => ({ ...prev, selectedItem: item, actionType: "info" }))}
               className="bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600 transition-colors"
             >
-              <FaInfoCircle />
+              <Info size={16} />
             </button>
             <button
               onClick={() => setState(prev => ({ ...prev, selectedItem: item, actionType: "approve" }))}
               className="bg-green-500 text-white p-2 rounded-md hover:bg-green-600 transition-colors"
             >
-              <FaCheck />
+              <Check size={16} />
             </button>
             <button
               onClick={() => setState(prev => ({ ...prev, selectedItem: item, actionType: "reject" }))}
               className="bg-red-500 text-white p-2 rounded-md hover:bg-red-600 transition-colors"
             >
-              <FaTimes />
+              <X size={16} />
             </button>
           </div>
         </div>
@@ -432,7 +433,7 @@ const Dashboard = () => {
         <h1 className="text-2xl font-bold text-gray-800">Approval Dashboard</h1>
         <div className="flex space-x-4">
           <div className="relative">
-            <FaBell
+            <Bell
               onClick={() => addNotification(`You have ${currentTabData.length} pending ${activeTab} to approve/reject.`)}
               className="text-gray-600 text-xl cursor-pointer hover:text-blue-500 transition-colors"
             />
@@ -442,7 +443,7 @@ const Dashboard = () => {
               </span>
             )}
           </div>
-          <FaEnvelope
+          <Mail
             onClick={() => setState(prev => ({ ...prev, showCommonMessage: !prev.showCommonMessage }))}
             className="text-gray-600 text-xl cursor-pointer hover:text-blue-500 transition-colors"
           />
@@ -524,7 +525,7 @@ const Dashboard = () => {
       </div>
 
       {selectedItem && (
-        <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center">
+        <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg w-11/12 max-w-2xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold text-gray-800 mb-4">
               {actionType === "info" ? "Details" : actionType === "approve" ? "Approve" : "Reject"}
@@ -558,8 +559,9 @@ const Dashboard = () => {
                     onChange={(e) => setState(prev => ({ ...prev, commonMessage: e.target.value }))}
                     className="flex-1 bg-transparent outline-none px-2 text-sm"
                   />
-                  <FaPaperPlane
-                    className="text-blue-500 text-lg cursor-pointer hover:text-blue-600 transition-colors"
+                  <Send
+                    size={20}
+                    className="text-blue-500 cursor-pointer hover:text-blue-600 transition-colors"
                     onClick={() => handleAction(selectedItem, actionType)}
                   />
                 </div>

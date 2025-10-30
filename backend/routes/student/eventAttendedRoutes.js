@@ -5,9 +5,8 @@ import {
   deleteEventAttended,
   getPendingEventsAttended,
   getApprovedEventsAttended,
-} from "../../controllers/student/EventAttendedController.js"; // Adjust the path as needed
-import { authenticate } from "../../middlewares/auth.js"; // Authentication middleware
-import upload from "../../utils/upload.js"; // File upload utility
+} from "../../controllers/student/EventAttendedController.js";
+import { authenticate } from "../../middlewares/auth.js";
 
 const router = express.Router();
 
@@ -15,7 +14,8 @@ const router = express.Router();
 router.post("/add-event-attended", authenticate, addEventAttended);
 
 // Route to update an event attended (requires authentication and file upload)
-router.put("/update-event-attended/:id", authenticate, updateEventAttended);
+// FIXED: Added :eventId parameter
+router.put("/update-event-attended/:eventId", authenticate, updateEventAttended);
 
 // Route to delete an event attended (requires authentication)
 router.delete("/delete-event-attended/:id", authenticate, deleteEventAttended);

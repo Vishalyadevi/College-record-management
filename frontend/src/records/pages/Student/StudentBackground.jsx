@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useStudentData } from '../../contexts/studentDataContext';
 import { useNavigate } from 'react-router-dom';
-import { 
+import {
   FaBook, FaBriefcase, FaCalendarAlt, FaTrophy, FaGraduationCap,
   FaUser, FaChartLine, FaCertificate, FaHistory, FaUserTie,
-  FaLaptop, FaUserCircle, FaCheckCircle, FaRunning, FaChalkboardTeacher
+  FaLaptop, FaUserCircle, FaCheckCircle, FaRunning, FaChalkboardTeacher,
+  FaEye, FaDownload
 } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import { 
@@ -13,6 +14,7 @@ import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
 } from 'recharts';
 import { toast } from 'react-toastify';
+import axios from 'axios';
 
 const StudentDashboard = () => {
   const userId = localStorage.getItem('userId');
@@ -44,6 +46,136 @@ const StudentDashboard = () => {
         });
     }
   }, [userId, fetchAllData]);
+
+  // Fix API base URLs for data fetching to match backend routes
+  // For example, user courses API should be /api/user-courses/:userId
+  // Ensure fetchAllData uses correct URLs for all endpoints
+    // Replace the handlePreview and handleDownload functions in StudentDashboard.jsx
+
+const handlePreview = async () => {
+  try {
+    console.log('Preview PDF clicked for userId:', userId);
+    
+    // Show loading state
+    const loadingToast = toast.loading('Generating PDF preview...');
+
+    const response = await axios.get(
+      `http://localhost:4000/api/student/view-pdf/${userId}`,
+      {
+        responseType: 'blob',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        timeout: 30000 // 30 second timeout
+      }
+    );
+
+    toast.dismiss(loadingToast);
+
+    // Check if we got a valid PDF
+    if (response.data.size === 0) {
+      toast.error('PDF is empty. Please ensure you have data to display.');
+      return;
+    }
+
+    // Create blob URL and open in new window
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    
+    const newWindow = window.open(url, '_blank');
+    
+    if (!newWindow) {
+      toast.error('Please allow pop-ups to view the PDF');
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    // Clean up the URL after window loads
+    newWindow.onload = () => {
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+
+    toast.success('PDF opened successfully!');
+    
+  } catch (error) {
+    console.error('Error generating PDF preview:', error);
+    
+    if (error.code === 'ECONNABORTED') {
+      toast.error('PDF generation timed out. Please try again.');
+    } else if (error.response) {
+      const errorMsg = error.response.data?.error || error.response.data?.message || 'Failed to generate PDF';
+      toast.error(errorMsg);
+    } else if (error.request) {
+      toast.error('Cannot connect to server. Please check your connection.');
+    } else {
+      toast.error('Failed to generate PDF preview. Please try again.');
+    }
+  }
+};
+
+const handleDownload = async () => {
+  try {
+    console.log('Download PDF clicked for userId:', userId);
+    
+    // Show loading state
+    const loadingToast = toast.loading('Generating PDF for download...');
+
+    const response = await axios.get(
+      `http://localhost:4000/api/student/generate-pdf/${userId}`,
+      {
+        responseType: 'blob',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        timeout: 30000 // 30 second timeout
+      }
+    );
+
+    toast.dismiss(loadingToast);
+
+    // Check if we got a valid PDF
+    if (response.data.size === 0) {
+      toast.error('PDF is empty. Please ensure you have data to display.');
+      return;
+    }
+
+    // Create blob and download
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    
+    // Generate filename with timestamp
+    const timestamp = new Date().toISOString().split('T')[0];
+    const regno = studentData?.regno || userId;
+    link.download = `student_report_${regno}_${timestamp}.pdf`;
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Clean up
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+    toast.success('PDF downloaded successfully!');
+    
+  } catch (error) {
+    console.error('Error downloading PDF:', error);
+    
+    if (error.code === 'ECONNABORTED') {
+      toast.error('PDF generation timed out. Please try again.');
+    } else if (error.response) {
+      const errorMsg = error.response.data?.error || error.response.data?.message || 'Failed to download PDF';
+      toast.error(errorMsg);
+    } else if (error.request) {
+      toast.error('Cannot connect to server. Please check your connection.');
+    } else {
+      toast.error('Failed to download PDF. Please try again.');
+    }
+  }
+};
+  
 
   // Performance metrics calculations based on provided models
   const performanceMetrics = useMemo(() => {
@@ -207,7 +339,7 @@ const StudentDashboard = () => {
             </div>
           </div>
           
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-center gap-4">
             <div className="relative">
               <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-white bg-opacity-20 flex items-center justify-center shadow-inner">
                 <div className="text-2xl md:text-3xl font-bold text-white">{performanceScore}</div>
@@ -215,6 +347,22 @@ const StudentDashboard = () => {
               <div className="absolute -bottom-4 left-0 right-0 text-center text-xs font-semibold bg-indigo-700 rounded-full px-2 py-1 mx-auto w-3/4">
                 Performance Score
               </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handlePreview}
+                className="flex items-center gap-2 px-4 py-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 transition-colors"
+              >
+                <FaEye />
+                Preview PDF
+              </button>
+              <button
+                onClick={handleDownload}
+                className="flex items-center gap-2 px-4 py-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 transition-colors"
+              >
+                <FaDownload />
+                Download PDF
+              </button>
             </div>
           </div>
         </div>

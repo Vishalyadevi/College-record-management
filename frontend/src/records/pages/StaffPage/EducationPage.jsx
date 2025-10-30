@@ -519,19 +519,19 @@ const EducationPage = () => {
     },
     {
       title: 'Undergraduate',
-      fields: educationFields.slice(12, 22)
+      fields: educationFields.slice(12, 20)
     },
     {
       title: 'Postgraduate',
-      fields: educationFields.slice(22, 30)
+      fields: educationFields.slice(21, 28)
     },
     {
       title: 'MPhil',
-      fields: educationFields.slice(30, 38)
+      fields: educationFields.slice(28, 36)
     },
     {
       title: 'PhD',
-      fields: educationFields.slice(38, 48)
+      fields: educationFields.slice(36, 48)
     }
   ];
 

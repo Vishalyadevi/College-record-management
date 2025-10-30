@@ -84,7 +84,7 @@ const Dashboard = () => {
       gradient: 'bg-gradient-to-br from-indigo-500 to-indigo-700',
       hoverGradient: 'hover:from-indigo-600 hover:to-indigo-800',
       icon: <FileText size={24} />,
-      path: '/seed-money'
+      path: '/records/seed-money'
     },
     { 
       key: 'scholars', 
@@ -92,7 +92,7 @@ const Dashboard = () => {
       gradient: 'bg-gradient-to-br from-purple-500 to-purple-700',
       hoverGradient: 'hover:from-purple-600 hover:to-purple-800',
       icon: <Users size={24} />,
-      path: '/scholars'
+      path: '/records/scholars'
     },
     { 
       key: 'proposals', 
@@ -100,7 +100,7 @@ const Dashboard = () => {
       gradient: 'bg-gradient-to-br from-green-500 to-green-700',
       hoverGradient: 'hover:from-green-600 hover:to-green-800',
       icon: <Briefcase size={24} />,
-      path: '/proposals'
+      path: '/records/proposals'
     },
     { 
       key: 'projectProposals', 
@@ -108,7 +108,7 @@ const Dashboard = () => {
       gradient: 'bg-gradient-to-br from-emerald-500 to-emerald-700',
       hoverGradient: 'hover:from-emerald-600 hover:to-emerald-800',
       icon: <FileSpreadsheet size={24} />,
-      path: '/project-proposal'
+      path: '/records/project-proposal'
     },
     { 
       key: 'events', 
@@ -116,7 +116,7 @@ const Dashboard = () => {
       gradient: 'bg-gradient-to-br from-yellow-500 to-yellow-700',
       hoverGradient: 'hover:from-yellow-600 hover:to-yellow-800',
       icon: <Calendar size={24} />,
-      path: '/events'
+      path: '/records/events'
     },
     { 
       key: 'industry', 
@@ -124,7 +124,7 @@ const Dashboard = () => {
       gradient: 'bg-gradient-to-br from-orange-500 to-orange-700',
       hoverGradient: 'hover:from-orange-600 hover:to-orange-800',
       icon: <Briefcase size={24} />,
-      path: '/industry'
+      path: '/records/industry'
     },
     { 
       key: 'certifications', 
@@ -132,7 +132,7 @@ const Dashboard = () => {
       gradient: 'bg-gradient-to-br from-red-500 to-red-700',
       hoverGradient: 'hover:from-red-600 hover:to-red-800',
       icon: <Award size={24} />,
-      path: '/certifications'
+      path: '/records/certifications'
     },
     { 
       key: 'publications', 
@@ -140,7 +140,7 @@ const Dashboard = () => {
       gradient: 'bg-gradient-to-br from-pink-500 to-pink-700',
       hoverGradient: 'hover:from-pink-600 hover:to-pink-800',
       icon: <BookOpen size={24} />,
-      path: '/book-chapters'
+      path: '/records/book-chapters'
     },
     { 
       key: 'eventsOrganized', 
@@ -148,7 +148,7 @@ const Dashboard = () => {
       gradient: 'bg-gradient-to-br from-rose-500 to-rose-700',
       hoverGradient: 'hover:from-rose-600 hover:to-rose-800',
       icon: <BookMarked size={24} />,
-      path: '/events-organized'
+      path: '/records/events-organized'
     },
     { 
       key: 'hIndex', 
@@ -156,7 +156,7 @@ const Dashboard = () => {
       gradient: 'bg-gradient-to-br from-cyan-500 to-cyan-700',
       hoverGradient: 'hover:from-cyan-600 hover:to-cyan-800',
       icon: <FileText size={24} />,
-      path: '/h-index'
+      path: '/records/h-index'
     },
     { 
       key: 'resourcePerson', 
@@ -164,7 +164,7 @@ const Dashboard = () => {
       gradient: 'bg-gradient-to-br from-teal-500 to-teal-700',
       hoverGradient: 'hover:from-teal-600 hover:to-teal-800',
       icon: <Users size={24} />,
-      path: '/resource-person'
+      path: '/records/resource-person'
     },
     { 
       key: 'recognition', 
@@ -172,7 +172,7 @@ const Dashboard = () => {
       gradient: 'bg-gradient-to-br from-slate-500 to-slate-700',
       hoverGradient: 'hover:from-slate-600 hover:to-slate-800',
       icon: <Award size={24} />,
-      path: '/recognition'
+      path: '/records/recognition'
     },
     { 
       key: 'patents', 
@@ -180,7 +180,7 @@ const Dashboard = () => {
       gradient: 'bg-gradient-to-br from-gray-500 to-gray-700',
       hoverGradient: 'hover:from-gray-600 hover:to-gray-800',
       icon: <FileText size={24} />,
-      path: '/patent-product'
+      path: '/records/patent-product'
     },
     { 
       key: 'projectMentors', 
@@ -188,7 +188,7 @@ const Dashboard = () => {
       gradient: 'bg-gradient-to-br from-violet-500 to-violet-700',
       hoverGradient: 'hover:from-violet-600 hover:to-violet-800',
       icon: <Users size={24} />,
-      path: '/project-mentors'
+      path: '/records/project-mentors'
     }
   ];
 

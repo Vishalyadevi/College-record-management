@@ -1,530 +1,669 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import * as XLSX from 'xlsx';
+import React, { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import * as XLSX from "xlsx";
 import Navbar from "./AdminNavbar";
-import '../../styles/UpcomingDrives.css';
 
-// Set axios base URL
-axios.defaults.baseURL = "http://localhost:4000";
+const AdminPlacementDrives = () => {
+  const [driveData, setDriveData] = useState({
+    company_name: "",
+    batch: "",
+    departments: "",
+    tenth_percentage: "",
+    twelfth_percentage: "",
+    cgpa: "",
+    history_of_arrears: "",
+    standing_arrears: "",
+    drive_date: "",
+    drive_time: "",
+    venue: "",
+    salary: "",
+    roles: "",
+  });
 
-const UpcomingDrives = () => {
-    const [drives, setDrives] = useState([]);
-    const [filteredDrives, setFilteredDrives] = useState([]);
-    const [showForm, setShowForm] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-    const [formData, setFormData] = useState({
-        company_name: '',
-        eligibility: '',
-        date: '',
-        time: '',
-        venue: '',
-        roles: '',
-        salary: ''
+  const navigate = useNavigate();
+  const [placementDrives, setPlacementDrives] = useState([]);
+  const [showForm, setShowForm] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingDriveId, setEditingDriveId] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: "ascending" });
+  const [filterText, setFilterText] = useState("");
+  const [filterField, setFilterField] = useState("all");
+  const [statistics, setStatistics] = useState({
+    total_drives: 0,
+    unique_companies: 0,
+    upcoming_drives: 0,
+  });
+
+  // Get token from localStorage
+  const token = localStorage.getItem("token");
+
+  // Fetch placement drives when component mounts
+  useEffect(() => {
+    fetchPlacementDrives();
+    fetchStatistics();
+  }, []);
+
+  const fetchPlacementDrives = async () => {
+    try {
+      const response = await axios.get("http://localhost:4000/api/placement-drives", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      console.log("Fetched placement drives:", response.data);
+      setPlacementDrives(response.data.data || []);
+    } catch (error) {
+      console.error("Error fetching placement drives:", error.response ? error.response.data : error.message);
+      if (error.response?.status === 401) {
+        alert("Session expired. Please login again.");
+        navigate("/login");
+      }
+      setPlacementDrives([]);
+    }
+  };
+
+  const fetchStatistics = async () => {
+    try {
+      const response = await axios.get("http://localhost:4000/api/placement-drives/stats/overview", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setStatistics(response.data.data || {});
+    } catch (error) {
+      console.error("Error fetching statistics:", error);
+    }
+  };
+
+  // Handle text input changes
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setDriveData({ ...driveData, [name]: value });
+  };
+
+  // Validate form data
+  const validateForm = () => {
+    const errors = [];
+    if (!driveData.company_name.trim()) errors.push("Company Name");
+    if (!driveData.drive_date) errors.push("Drive Date");
+    if (!driveData.drive_time) errors.push("Drive Time");
+
+    // Validate percentages
+    if (driveData.tenth_percentage && (parseFloat(driveData.tenth_percentage) < 0 || parseFloat(driveData.tenth_percentage) > 100)) {
+      errors.push("10th Percentage (must be between 0-100)");
+    }
+    if (driveData.twelfth_percentage && (parseFloat(driveData.twelfth_percentage) < 0 || parseFloat(driveData.twelfth_percentage) > 100)) {
+      errors.push("12th Percentage (must be between 0-100)");
+    }
+    if (driveData.cgpa && (parseFloat(driveData.cgpa) < 0 || parseFloat(driveData.cgpa) > 10)) {
+      errors.push("CGPA (must be between 0-10)");
+    }
+
+    return errors;
+  };
+
+  // Handle form submission
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+
+    const validationErrors = validateForm();
+    if (validationErrors.length > 0) {
+      alert(`Please fix the following errors:\n• ${validationErrors.join("\n• ")}`);
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    const submitData = {
+      company_name: driveData.company_name.trim(),
+      batch: driveData.batch.trim() || null,
+      departments: driveData.departments.trim() || null,
+      tenth_percentage: driveData.tenth_percentage ? parseFloat(driveData.tenth_percentage) : null,
+      twelfth_percentage: driveData.twelfth_percentage ? parseFloat(driveData.twelfth_percentage) : null,
+      cgpa: driveData.cgpa ? parseFloat(driveData.cgpa) : null,
+      history_of_arrears: driveData.history_of_arrears.trim() || null,
+      standing_arrears: driveData.standing_arrears.trim() || null,
+      drive_date: driveData.drive_date,
+      drive_time: driveData.drive_time,
+      venue: driveData.venue.trim() || null,
+      salary: driveData.salary ? parseFloat(driveData.salary) : null,
+      roles: driveData.roles.trim() || null,
+    };
+
+    try {
+      let response;
+      if (isEditing) {
+        response = await axios.put(
+          `http://localhost:4000/api/placement-drives/${editingDriveId}`,
+          submitData,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        alert("Placement drive updated successfully!");
+        setIsEditing(false);
+        setEditingDriveId(null);
+      } else {
+        response = await axios.post(
+          "http://localhost:4000/api/placement-drives",
+          submitData,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        alert("Placement drive created successfully!");
+      }
+
+      await fetchPlacementDrives();
+      await fetchStatistics();
+      resetForm();
+      setShowForm(false);
+    } catch (error) {
+      console.error("Error with placement drive operation:", error);
+      let errorMessage = `Error ${isEditing ? "updating" : "creating"} placement drive: `;
+      if (error.response) {
+        errorMessage += error.response.data?.message || error.response.data || "Server error";
+      } else if (error.request) {
+        errorMessage += "No response from server. Please check your connection.";
+      } else {
+        errorMessage += error.message;
+      }
+      alert(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Reset form data
+  const resetForm = () => {
+    setDriveData({
+      company_name: "",
+      batch: "",
+      departments: "",
+      tenth_percentage: "",
+      twelfth_percentage: "",
+      cgpa: "",
+      history_of_arrears: "",
+      standing_arrears: "",
+      drive_date: "",
+      drive_time: "",
+      venue: "",
+      salary: "",
+      roles: "",
     });
-    const [postFile, setPostFile] = useState(null);
-    const [filters, setFilters] = useState({
-        companyName: '',
-        fromDate: '',
-        toDate: ''
+  };
+
+  // Toggle form visibility
+  const toggleForm = () => {
+    if (showForm) {
+      resetForm();
+      setIsEditing(false);
+      setEditingDriveId(null);
+    }
+    setShowForm(!showForm);
+  };
+
+  // Edit placement drive
+  const handleEdit = (drive, e) => {
+    e.preventDefault();
+    setDriveData({
+      company_name: drive.company_name || "",
+      batch: drive.batch || "",
+      departments: drive.departments || "",
+      tenth_percentage: drive.tenth_percentage || "",
+      twelfth_percentage: drive.twelfth_percentage || "",
+      cgpa: drive.cgpa || "",
+      history_of_arrears: drive.history_of_arrears || "",
+      standing_arrears: drive.standing_arrears || "",
+      drive_date: drive.drive_date ? drive.drive_date.split('T')[0] : "",
+      drive_time: drive.drive_time || "",
+      venue: drive.venue || "",
+      salary: drive.salary || "",
+      roles: drive.roles || "",
     });
+    setIsEditing(true);
+    setEditingDriveId(drive.id);
+    setShowForm(true);
+  };
 
-    // Get user ID from localStorage
-    const userId = localStorage.getItem('userId') || localStorage.getItem('Userid') || '1';
+  // Delete placement drive
+  const handleDelete = async (driveId, e) => {
+    e.preventDefault();
+    const confirmDelete = window.confirm("Are you sure you want to delete this placement drive? This action cannot be undone.");
+    if (!confirmDelete) return;
 
-    useEffect(() => {
-        fetchDrives();
-    }, []);
+    try {
+      await axios.delete(`http://localhost:4000/api/placement-drives/${driveId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setPlacementDrives((prev) => prev.filter((drive) => drive.id !== driveId));
+      await fetchStatistics();
+      alert("Placement drive deleted successfully.");
+    } catch (error) {
+      console.error("Error deleting placement drive:", error.response?.data || error.message);
+      alert("Error deleting placement drive. Please try again.");
+    }
+  };
 
-    const fetchDrives = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const response = await axios.get('/api/placement/upcoming-drives');
-            console.log('Fetched drives:', response.data);
-            setDrives(response.data);
-            setFilteredDrives(response.data); // Initialize filtered drives
-        } catch (error) {
-            console.error('Error fetching drives:', error);
-            setError('Failed to fetch upcoming drives');
-        } finally {
-            setLoading(false);
+  // Download as Excel
+  const handleDownloadExcel = () => {
+    const data = placementDrives.map((drive) => ({
+      "Company Name": drive.company_name || "",
+      "Batch": drive.batch || "",
+      "Departments": drive.departments || "",
+      "10th %": drive.tenth_percentage || "",
+      "12th %": drive.twelfth_percentage || "",
+      "CGPA": drive.cgpa || "",
+      "History of Arrears": drive.history_of_arrears || "",
+      "Standing Arrears": drive.standing_arrears || "",
+      "Drive Date": drive.drive_date ? new Date(drive.drive_date).toLocaleDateString() : "",
+      "Drive Time": drive.drive_time || "",
+      "Venue": drive.venue || "",
+      "Salary (LPA)": drive.salary || "",
+      "Roles": drive.roles || "",
+      "Created By": drive.username || "",
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Placement Drives");
+    XLSX.writeFile(workbook, "PlacementDrives.xlsx");
+  };
+
+  // Handle sorting
+  const requestSort = (key) => {
+    let direction = "ascending";
+    if (sortConfig.key === key && sortConfig.direction === "ascending") {
+      direction = "descending";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Filtered and sorted placement drives
+  const filteredAndSortedDrives = useMemo(() => {
+    let filtered = [...placementDrives];
+
+    if (filterText) {
+      filtered = filtered.filter((drive) => {
+        if (filterField === "all") {
+          return Object.values(drive).some((value) =>
+            value && value.toString().toLowerCase().includes(filterText.toLowerCase())
+          );
+        } else {
+          const value = drive[filterField];
+          return value && value.toString().toLowerCase().includes(filterText.toLowerCase());
         }
-    };
+      });
+    }
 
-    const handleFilterChange = (e) => {
-        const { name, value } = e.target;
-        setFilters((prev) => ({
-            ...prev,
-            [name]: value
-        }));
-    };
+    if (sortConfig.key) {
+      filtered.sort((a, b) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
 
-    useEffect(() => {
-        // Apply filters
-        let filtered = drives;
+        if (aValue == null) aValue = "";
+        if (bValue == null) bValue = "";
 
-        // Filter by company name
-        if (filters.companyName) {
-            filtered = filtered.filter((drive) =>
-                drive.company_name?.toLowerCase().includes(filters.companyName.toLowerCase())
-            );
-        }
+        if (aValue < bValue) return sortConfig.direction === "ascending" ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === "ascending" ? 1 : -1;
+        return 0;
+      });
+    }
 
-        // Filter by date range
-        if (filters.fromDate) {
-            filtered = filtered.filter((drive) => new Date(drive.date) >= new Date(filters.fromDate));
-        }
-        if (filters.toDate) {
-            filtered = filtered.filter((drive) => new Date(drive.date) <= new Date(filters.toDate));
-        }
+    return filtered;
+  }, [placementDrives, filterText, filterField, sortConfig]);
 
-        setFilteredDrives(filtered);
-    }, [filters, drives]);
+  return (
+    <div 
+      className="min-h-screen bg-white text-gray-800" 
+      style={{ marginLeft: "250px", padding: "20px" }}
+    >
+      
+      <div style={{ width: "100%" }}>
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-lg shadow-md">
+            <h4 className="text-sm font-medium opacity-90">Total Drives</h4>
+            <p className="text-3xl font-bold mt-2">{statistics.total_drives}</p>
+          </div>
+          <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-4 rounded-lg shadow-md">
+            <h4 className="text-sm font-medium opacity-90">Unique Companies</h4>
+            <p className="text-3xl font-bold mt-2">{statistics.unique_companies}</p>
+          </div>
+          <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-4 rounded-lg shadow-md">
+            <h4 className="text-sm font-medium opacity-90">Upcoming Drives</h4>
+            <p className="text-3xl font-bold mt-2">{statistics.upcoming_drives}</p>
+          </div>
+        </div>
 
-    const handleDownloadExcel = () => {
-        const data = filteredDrives.map((drive) => ({
-            'Company Name': drive.company_name || 'N/A',
-            'Eligibility': drive.eligibility || 'N/A',
-            'Date': formatDate(drive.date),
-            'Time': formatTime(drive.time),
-            'Venue': drive.venue || 'N/A',
-            'Package': drive.salary || 'Not specified',
-            'Roles': drive.roles || 'Not specified',
-            'Posted': formatDate(drive.created_at)
-        }));
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-2xl font-bold text-gray-800">Placement Drives</h3>
+          <div className="space-x-4">
+            <button
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-md"
+              onClick={toggleForm}
+            >
+              {showForm ? "Hide Form" : "Add New Drive"}
+            </button>
+            <button
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition shadow-md"
+              onClick={handleDownloadExcel}
+            >
+              Download as Excel
+            </button>
+          </div>
+        </div>
 
-        const worksheet = XLSX.utils.json_to_sheet(data);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Upcoming Drives');
-        XLSX.writeFile(workbook, 'UpcomingDrives.xlsx');
-    };
-
-    const handleDeleteDrive = async (id) => {
-        if (!window.confirm("Are you sure you want to delete this drive?")) {
-            return;
-        }
-
-        setLoading(true);
-        try {
-            await axios.delete(`/api/placement/upcoming-drives/${id}`);
-            alert("Drive deleted successfully!");
-            fetchDrives(); // Refresh the list
-        } catch (error) {
-            console.error("Error deleting drive:", error);
-            alert("Failed to delete the drive: " + (error.response?.data?.message || error.message));
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleChange = (e) => {
-        setFormData({ 
-            ...formData, 
-            [e.target.name]: e.target.value 
-        });
-    };
-
-    const handleFileChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            // Validate file type
-            const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
-            if (!allowedTypes.includes(file.type)) {
-                alert('Only JPEG, PNG, and PDF files are allowed.');
-                e.target.value = ''; // Clear the input
-                return;
-            }
-            // Check file size (optional - limit to 5MB)
-            if (file.size > 5 * 1024 * 1024) {
-                alert('File size should not exceed 5MB.');
-                e.target.value = '';
-                return;
-            }
-        }
-        setPostFile(file);
-    };
-
-    const resetForm = () => {
-        setFormData({
-            company_name: '',
-            eligibility: '',
-            date: '',
-            time: '',
-            venue: '',
-            roles: '',
-            salary: ''
-        });
-        setPostFile(null);
-        // Clear file input
-        const fileInput = document.querySelector('input[type="file"]');
-        if (fileInput) fileInput.value = '';
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        
-        // Validation
-        if (!formData.company_name || !formData.eligibility || !formData.date || 
-            !formData.time || !formData.venue) {
-            alert('Please fill in all required fields.');
-            return;
-        }
-
-        if (!userId) {
-            alert('User session not found. Please login again.');
-            return;
-        }
-
-        setLoading(true);
-        setError(null);
-        
-        const formPayload = new FormData();
-        
-        // Add file if selected
-        if (postFile) {
-            formPayload.append('post', postFile);
-        }
-        
-        // Add all form data
-        Object.keys(formData).forEach((key) => {
-            formPayload.append(key, formData[key]);
-        });
-        
-        // Add created_by from localStorage
-        formPayload.append('created_by', userId);
-        
-        console.log("Submitting Data:");
-        for (let [key, value] of formPayload.entries()) {
-            console.log(key, value);
-        }
-
-        try {
-            const response = await axios.post('/api/placement/upcoming-drives', formPayload, {
-                headers: { 
-                    'Content-Type': 'multipart/form-data'
-                },
-            });
-            
-            console.log('Response:', response.data);
-            alert('Drive added successfully!');
-            setShowForm(false);
-            resetForm();
-            fetchDrives(); // Refresh the drives list
-        } catch (error) {
-            console.error('Error adding drive:', error);
-            const errorMessage = error.response?.data?.message || error.message || 'Unknown error occurred';
-            alert('Error adding drive: ' + errorMessage);
-            setError('Failed to add drive: ' + errorMessage);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const formatDate = (dateString) => {
-        if (!dateString) return 'N/A';
-        try {
-            const date = new Date(dateString);
-            return date.toLocaleDateString();
-        } catch {
-            return dateString;
-        }
-    };
-
-    const formatTime = (timeString) => {
-        if (!timeString) return 'N/A';
-        try {
-            // If it's already in HH:MM format, return as is
-            if (timeString.match(/^\d{2}:\d{2}$/)) {
-                return timeString;
-            }
-            // Otherwise try to format it
-            const time = new Date(`1970-01-01T${timeString}`);
-            return time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        } catch {
-            return timeString;
-        }
-    };
-
-    return (
-        <>
-            <Navbar />
-            <br></br>
-      <br></br>
-      <br></br>
-            <div className="upcoming-drives-container">
-                <h1 className="title">Upcoming Drives</h1>
-
-                {error && (
-                    <div className="error-message" style={{
-                        backgroundColor: '#ffebee',
-                        color: '#c62828',
-                        padding: '10px',
-                        borderRadius: '4px',
-                        margin: '10px 0'
-                    }}>
-                        {error}
-                    </div>
-                )}
-
-                {loading && (
-                    <div className="loading" style={{
-                        textAlign: 'center',
-                        padding: '20px',
-                        color: '#666'
-                    }}>
-                        Loading...
-                    </div>
-                )}
-
-                {/* Filters Section */}
-                <div className="filters" style={{
-                    margin: '20px 0',
-                    padding: '15px',
-                    backgroundColor: '#f5f5f5',
-                    borderRadius: '4px',
-                    display: 'flex',
-                    gap: '15px',
-                    flexWrap: 'wrap'
-                }}>
-                    <div>
-                        <label>Company Name:</label>
-                        <input
-                            type="text"
-                            name="companyName"
-                            value={filters.companyName}
-                            onChange={handleFilterChange}
-                            placeholder="Filter by company name"
-                            style={{ padding: '8px', width: '200px' }}
-                        />
-                    </div>
-                    <div>
-                        <label>From Date:</label>
-                        <input
-                            type="date"
-                            name="fromDate"
-                            value={filters.fromDate}
-                            onChange={handleFilterChange}
-                            style={{ padding: '8px' }}
-                        />
-                    </div>
-                    <div>
-                        <label>To Date:</label>
-                        <input
-                            type="date"
-                            name="toDate"
-                            value={filters.toDate}
-                            onChange={handleFilterChange}
-                            style={{ padding: '8px' }}
-                        />
-                    </div>
-                    <button
-                        onClick={handleDownloadExcel}
-                        style={{
-                            padding: '8px 16px',
-                            backgroundColor: '#4CAF50',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        Download as Excel
-                    </button>
-                </div>
-
-                {/* Toggle Button */}
-                <button 
-                    className="toggle-form-btn" 
-                    onClick={() => setShowForm(!showForm)}
-                    disabled={loading}
-                >
-                    {showForm ? 'Cancel' : 'Add Drive'}
-                </button>
-
-                {/* Add Drive Form */}
-                {showForm && (
-                    <div className="form-card">
-                        <h3>Add New Drive</h3>
-                        <form onSubmit={handleSubmit}>
-                            <label>Upload File (Image or PDF):</label>
-                            <input 
-                                type="file" 
-                                name="post" 
-                                onChange={handleFileChange}
-                                accept=".jpg,.jpeg,.png,.pdf"
-                                disabled={loading}
-                            />
-                            <small style={{ color: '#666', fontSize: '12px' }}>
-                                Accepted formats: JPEG, PNG, PDF (Max 5MB)
-                            </small>
-
-                            <label>Company Name: <span style={{color: 'red'}}>*</span></label>
-                            <input 
-                                type="text" 
-                                name="company_name" 
-                                value={formData.company_name}
-                                onChange={handleChange} 
-                                required 
-                                disabled={loading}
-                                placeholder="Enter company name"
-                            />
-
-                            <label>Eligibility: <span style={{color: 'red'}}>*</span></label>
-                            <input 
-                                type="text" 
-                                name="eligibility" 
-                                value={formData.eligibility}
-                                onChange={handleChange} 
-                                required 
-                                disabled={loading}
-                                placeholder="e.g., B.Tech CSE/IT with 70%+ marks"
-                            />
-
-                            <label>Date: <span style={{color: 'red'}}>*</span></label>
-                            <input 
-                                type="date" 
-                                name="date" 
-                                value={formData.date}
-                                onChange={handleChange} 
-                                required 
-                                disabled={loading}
-                                min={new Date().toISOString().split('T')[0]} // Prevent past dates
-                            />
-
-                            <label>Time: <span style={{color: 'red'}}>*</span></label>
-                            <input 
-                                type="time" 
-                                name="time" 
-                                value={formData.time}
-                                onChange={handleChange} 
-                                required 
-                                disabled={loading}
-                            />
-
-                            <label>Venue: <span style={{color: 'red'}}>*</span></label>
-                            <input 
-                                type="text" 
-                                name="venue" 
-                                value={formData.venue}
-                                onChange={handleChange} 
-                                required 
-                                disabled={loading}
-                                placeholder="e.g., Seminar Hall, Online"
-                            />
-
-                            <label>Package/Salary:</label>
-                            <input 
-                                type="text" 
-                                name="salary" 
-                                value={formData.salary}
-                                onChange={handleChange} 
-                                disabled={loading}
-                                placeholder="e.g., 5-8 LPA, Not disclosed"
-                            />
-
-                            <label>Roles:</label>
-                            <input 
-                                type="text" 
-                                name="roles" 
-                                value={formData.roles}
-                                onChange={handleChange} 
-                                disabled={loading}
-                                placeholder="e.g., Software Developer, Data Analyst"
-                            />
-
-                            <button id="up-sub" type="submit" disabled={loading}>
-                                {loading ? 'Submitting...' : 'Submit'}
-                            </button>
-                        </form>
-                    </div>
-                )}
-
-                {/* Display Upcoming Drives */}
-                <div className="admin-drives-list">
-                    {filteredDrives.length > 0 ? (
-                        filteredDrives.map((drive) => (
-                            <div key={drive.id} className="admin-drive-card">
-                                {drive.post && (
-                                    <>
-                                        {drive.post.toLowerCase().endsWith(".pdf") ? (
-                                            <div className="pdf-container">
-                                                <a 
-                                                    href={`http://localhost:4000/Uploads/${drive.post}`} 
-                                                    target="_blank" 
-                                                    rel="noopener noreferrer" 
-                                                    className="admin-drive-pdf"
-                                                    style={{
-                                                        display: 'inline-block',
-                                                        padding: '10px 20px',
-                                                        backgroundColor: '#2196F3',
-                                                        color: 'white',
-                                                        textDecoration: 'none',
-                                                        borderRadius: '4px',
-                                                        marginBottom: '10px'
-                                                    }}
-                                                >
-                                                    📄 View PDF
-                                                </a>
-                                            </div>
-                                        ) : (
-                                            <img 
-                                                src={`http://localhost:4000/Uploads/${drive.post}`} 
-                                                alt="Drive Post" 
-                                                className="admin-drive-img"
-                                                onError={(e) => {
-                                                    e.target.style.display = 'none';
-                                                    console.error('Failed to load image:', drive.post);
-                                                }}
-                                                style={{
-                                                    maxWidth: '100%',
-                                                    height: 'auto',
-                                                    borderRadius: '4px',
-                                                    marginBottom: '10px'
-                                                }}
-                                            />
-                                        )}
-                                    </>
-                                )}
-                                
-                                <div className="drive-details">
-                                    <p><strong>Company:</strong> {drive.company_name || 'N/A'}</p>
-                                    <p><strong>Eligibility:</strong> {drive.eligibility || 'N/A'}</p>
-                                    <p><strong>Date:</strong> {formatDate(drive.date)}</p>
-                                    <p><strong>Time:</strong> {formatTime(drive.time)}</p>
-                                    <p><strong>Venue:</strong> {drive.venue || 'N/A'}</p>
-                                    <p><strong>Package:</strong> {drive.salary || 'Not specified'}</p>
-                                    <p><strong>Roles:</strong> {drive.roles || 'Not specified'}</p>
-                                    {drive.created_at && (
-                                        <p><strong>Posted:</strong> {formatDate(drive.created_at)}</p>
-                                    )}
-                                </div>
-                                
-                                <button 
-                                    className="delete-btn" 
-                                    onClick={() => handleDeleteDrive(drive.id)}
-                                    disabled={loading}
-                                    style={{
-                                        backgroundColor: '#f44336',
-                                        color: 'white',
-                                        border: 'none',
-                                        padding: '8px 16px',
-                                        borderRadius: '4px',
-                                        cursor: loading ? 'not-allowed' : 'pointer',
-                                        marginTop: '10px'
-                                    }}
-                                >
-                                    {loading ? 'Deleting...' : 'Delete'}
-                                </button>
-                            </div>
-                        ))
-                    ) : (
-                        !loading && <p className="no-drives">No upcoming drives match the filters.</p>
-                    )}
-                </div>
+        {/* Filter and Sort Section */}
+        <div className="bg-white p-4 mb-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+              <input
+                type="text"
+                placeholder="Search by company, venue, roles..."
+                value={filterText}
+                onChange={(e) => setFilterText(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+              />
             </div>
-        </>
-    );
+            <div className="w-full md:w-48">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Filter By</label>
+              <select
+                value={filterField}
+                onChange={(e) => setFilterField(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+              >
+                <option value="all">All Fields</option>
+                <option value="company_name">Company Name</option>
+                <option value="batch">Batch</option>
+                <option value="venue">Venue</option>
+                <option value="departments">Departments</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {showForm && (
+          <div className="bg-white p-6 mb-6">
+            <h2 className="text-xl font-semibold text-gray-700 mb-4">
+              {isEditing ? "Edit Placement Drive" : "Add New Placement Drive"}
+            </h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Company Name *</label>
+                  <input
+                    type="text"
+                    name="company_name"
+                    placeholder="Company Name"
+                    value={driveData.company_name}
+                    onChange={handleChange}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Batch</label>
+                  <input
+                    type="text"
+                    name="batch"
+                    placeholder="e.g., 2024, 2025"
+                    value={driveData.batch}
+                    onChange={handleChange}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Departments</label>
+                  <input
+                    type="text"
+                    name="departments"
+                    placeholder="e.g., CSE, ECE, MECH"
+                    value={driveData.departments}
+                    onChange={handleChange}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">10th Percentage</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    name="tenth_percentage"
+                    placeholder="Minimum 10th %"
+                    value={driveData.tenth_percentage}
+                    onChange={handleChange}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">12th Percentage</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    name="twelfth_percentage"
+                    placeholder="Minimum 12th %"
+                    value={driveData.twelfth_percentage}
+                    onChange={handleChange}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">CGPA</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="10"
+                    name="cgpa"
+                    placeholder="Minimum CGPA"
+                    value={driveData.cgpa}
+                    onChange={handleChange}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">History of Arrears</label>
+                  <input
+                    type="text"
+                    name="history_of_arrears"
+                    placeholder="e.g., No arrears, Max 2 arrears"
+                    value={driveData.history_of_arrears}
+                    onChange={handleChange}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Standing Arrears</label>
+                  <input
+                    type="text"
+                    name="standing_arrears"
+                    placeholder="e.g., 0, Not allowed"
+                    value={driveData.standing_arrears}
+                    onChange={handleChange}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Drive Date *</label>
+                  <input
+                    type="date"
+                    name="drive_date"
+                    value={driveData.drive_date}
+                    onChange={handleChange}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Drive Time *</label>
+                  <input
+                    type="time"
+                    name="drive_time"
+                    value={driveData.drive_time}
+                    onChange={handleChange}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Venue</label>
+                  <input
+                    type="text"
+                    name="venue"
+                    placeholder="Drive Location"
+                    value={driveData.venue}
+                    onChange={handleChange}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Salary (LPA)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    name="salary"
+                    placeholder="Package in LPA"
+                    value={driveData.salary}
+                    onChange={handleChange}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Roles</label>
+                <textarea
+                  name="roles"
+                  placeholder="Job roles offered (e.g., Software Engineer, Data Analyst)"
+                  value={driveData.roles}
+                  onChange={handleChange}
+                  rows="2"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition shadow-md disabled:opacity-50"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? "Processing..." : isEditing ? "Update Drive" : "Create Drive"}
+                </button>
+                {isEditing && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetForm();
+                      setIsEditing(false);
+                      setEditingDriveId(null);
+                      setShowForm(false);
+                    }}
+                    className="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition shadow-md"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </form>
+          </div>
+        )}
+
+        <div className="bg-white overflow-x-auto">
+          <table className="min-w-full table-auto">
+            <thead className="bg-gradient-to-r from-blue-900 to-blue-600 text-white">
+              <tr>
+                <th className="px-4 py-3 text-left cursor-pointer" onClick={() => requestSort("company_name")}>
+                  Company {sortConfig.key === "company_name" ? (sortConfig.direction === "ascending" ? "↑" : "↓") : ""}
+                </th>
+                <th className="px-4 py-3 text-left cursor-pointer" onClick={() => requestSort("batch")}>
+                  Batch {sortConfig.key === "batch" ? (sortConfig.direction === "ascending" ? "↑" : "↓") : ""}
+                </th>
+                <th className="px-4 py-3 text-left">Eligibility</th>
+                <th className="px-4 py-3 text-left cursor-pointer" onClick={() => requestSort("drive_date")}>
+                  Date {sortConfig.key === "drive_date" ? (sortConfig.direction === "ascending" ? "↑" : "↓") : ""}
+                </th>
+                <th className="px-4 py-3 text-left cursor-pointer" onClick={() => requestSort("drive_time")}>
+                  Time {sortConfig.key === "drive_time" ? (sortConfig.direction === "ascending" ? "↑" : "↓") : ""}
+                </th>
+                <th className="px-4 py-3 text-left">Venue</th>
+                <th className="px-4 py-3 text-left cursor-pointer" onClick={() => requestSort("salary")}>
+                  Package {sortConfig.key === "salary" ? (sortConfig.direction === "ascending" ? "↑" : "↓") : ""}
+                </th>
+                <th className="px-4 py-3 text-left">Roles</th>
+                <th className="px-4 py-3 text-left">Created By</th>
+                <th className="px-4 py-3 text-left">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredAndSortedDrives.length > 0 ? (
+                filteredAndSortedDrives.map((drive) => (
+                  <tr key={drive.id} className="border-b hover:bg-gray-50 transition">
+                    <td className="px-4 py-3 font-medium">{drive.company_name}</td>
+                    <td className="px-4 py-3">{drive.batch || "-"}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <div>
+                        {drive.tenth_percentage && <div>10th: {drive.tenth_percentage}%</div>}
+                        {drive.twelfth_percentage && <div>12th: {drive.twelfth_percentage}%</div>}
+                        {drive.cgpa && <div>CGPA: {drive.cgpa}</div>}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {drive.drive_date ? new Date(drive.drive_date).toLocaleDateString() : "-"}
+                    </td>
+                    <td className="px-4 py-3">{drive.drive_time || "-"}</td>
+                    <td className="px-4 py-3">{drive.venue || "-"}</td>
+                    <td className="px-4 py-3">{drive.salary ? `${drive.salary} LPA` : "-"}</td>
+                    <td className="px-4 py-3">{drive.roles || "-"}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{drive.username || "-"}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2">
+                        <button
+                          className="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 transition shadow-sm text-sm"
+                          onClick={(e) => handleEdit(drive, e)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition shadow-sm text-sm"
+                          onClick={(e) => handleDelete(drive.id, e)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="10" className="px-4 py-6 text-center text-gray-500">
+                    No placement drives available
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
 };
 
-export default UpcomingDrives;
+export default AdminPlacementDrives;

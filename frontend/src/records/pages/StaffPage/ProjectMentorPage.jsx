@@ -168,7 +168,8 @@ const ProjectMentorPage = () => {
   return (
     <div>
       <div className="mb-6 flex justify-between items-center">
-        <button onClick={handleAddNew}           className="btn flex items-center gap-2 text-white bg-gradient-to-r from-pink-500 to-purple-400 hover:from-pink-800 hover:to-purple-500 px-4 py-2 rounded-md shadow-md"
+        <button onClick={handleAddNew}                     className="btn flex items-center gap-2 text-white bg-gradient-to-r from-blue-600 to-purple-400 hover:from-blue-800 hover:to-purple-500 px-4 py-2 rounded-md shadow-md"
+
 >
           <Plus size={16} />
           Add New Project Mentor

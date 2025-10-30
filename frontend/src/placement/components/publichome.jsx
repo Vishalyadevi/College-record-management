@@ -14,14 +14,19 @@ import {
 } from "recharts";
 
 const Home = () => {
-  const [stats, setStats] = useState({ total_students: 0, avg_salary: 0, highest_salary: 0 });
+  const [stats, setStats] = useState({ 
+    total_registrations: 0, 
+    placed_count: 0, 
+    avg_package: 0,
+    highest_package: 0 
+  });
   const [companies, setCompanies] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState("");
   const [studentDetails, setStudentDetails] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [selectedYear, setSelectedYear] = useState("");
+  const [selectedDepartment, setSelectedDepartment] = useState("");
   const [yearWiseData, setYearWiseData] = useState([]);
-  const [recruiterCount, setRecruiterCount] = useState(0);
 
   const images = [
     "https://nec.edu.in/wp-content/uploads/2024/05/IMG_20220915_145123-scaled-e1715150167202.jpg",
@@ -32,109 +37,160 @@ const Home = () => {
     "https://nec.edu.in/wp-content/uploads/elementor/thumbs/placement_19_20-copy-qio64bkkyw4f2pkj6yj4us996x3orssw1my20umf1i.webp"
   ];
 
-  // Fetch stats
+  // Get admin token (you might need to adjust this based on your auth setup)
+  const getAdminToken = () => {
+    return localStorage.getItem("token") || "";
+  };
+
+  // Fetch registration statistics
   useEffect(() => {
-    fetch("http://localhost:4000/api/placement/stats")
+    const token = getAdminToken();
+    
+    fetch("http://localhost:4000/api/registrations/statistics", {
+      headers: { 
+        "Authorization": `Bearer ${token}`
+      }
+    })
       .then(res => res.json())
       .then(data => {
-        setStats({
-          total_students: data.total_students || 0,
-          avg_salary: parseFloat(data.avg_salary) || 0,
-          highest_salary: parseFloat(data.highest_salary) || 0,
-        });
+        if (data.success && data.data.overview) {
+          setStats({
+            total_registrations: data.data.overview.total_registrations || 0,
+            placed_count: data.data.overview.placed_count || 0,
+            avg_package: parseFloat(data.data.overview.avg_package) || 0,
+            highest_package: 0 // Will be calculated from student data
+          });
+        }
       })
       .catch(err => console.error("Error fetching stats:", err));
   }, []);
 
-  // Fetch all placed students
+  // Fetch all registered students (placed students)
   useEffect(() => {
-    fetch("http://localhost:4000/api/placement/placed-students")
+    const token = getAdminToken();
+    
+    fetch("http://localhost:4000/api/registrations/registered-students", {
+      headers: { 
+        "Authorization": `Bearer ${token}`
+      }
+    })
       .then(res => res.json())
       .then(data => {
-        if (Array.isArray(data)) {
-          setStudentDetails(data);
-          setFilteredData(data);
+        if (data.success && Array.isArray(data.data)) {
+          // Filter only placed students
+          const placedStudents = data.data.filter(student => student.placed === true || student.placed === 1);
+          
+          setStudentDetails(placedStudents);
+          setFilteredData(placedStudents);
 
-          // group by year
+          // Calculate highest package
+          if (placedStudents.length > 0) {
+            const maxPackage = Math.max(...placedStudents.map(s => parseFloat(s.placement_package) || 0));
+            setStats(prev => ({ ...prev, highest_package: maxPackage }));
+          }
+
+          // Extract unique companies
+          const uniqueCompanies = [...new Set(placedStudents.map(s => s.company_name))].filter(Boolean);
+          setCompanies(uniqueCompanies.map(name => ({ company_name: name })));
+
+          // Group by year (extract from batch or created_at)
           const yearCount = {};
-          data.forEach(student => {
-            const year = student.year;
+          placedStudents.forEach(student => {
+            // Try to extract year from batch field or use current year
+            const year = student.batch || new Date(student.created_at).getFullYear();
             yearCount[year] = (yearCount[year] || 0) + 1;
           });
 
           const formattedData = Object.entries(yearCount).map(([year, count]) => ({
-            year,
+            year: year.toString(),
             count
           }));
 
-          formattedData.sort((a, b) => a.year - b.year);
+          formattedData.sort((a, b) => a.year.localeCompare(b.year));
           setYearWiseData(formattedData);
         }
       })
       .catch(err => console.error("Error fetching students:", err));
   }, []);
 
-  // Fetch companies
-  useEffect(() => {
-    fetch("http://localhost:4000/api/placement/placed-student-companies")
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setCompanies(data.map(company => ({
-            company_name: company.company_name || "Unnamed Company"
-          })));
-        }
-      })
-      .catch(() => setCompanies([]));
-  }, []);
-
-  // Fetch recruiter count
-  useEffect(() => {
-    fetch("http://localhost:4000/api/placement/recruiterscount")
-      .then(res => res.json())
-      .then(data => setRecruiterCount(data.total || 0))
-      .catch(err => console.error("Error fetching recruiter count:", err));
-  }, []);
-
   const handleCompanyChange = (e) => {
     setSelectedCompany(e.target.value);
   };
 
+  const handleYearChange = (e) => {
+    setSelectedYear(e.target.value);
+  };
+
+  const handleDepartmentChange = (e) => {
+    setSelectedDepartment(e.target.value);
+  };
+
   const handleSubmit = () => {
-    let filteredResults = studentDetails;
+    let filteredResults = [...studentDetails];
 
     if (selectedCompany) {
-      filteredResults = filteredResults.filter(student => student.company_name === selectedCompany);
-    }
-    if (selectedYear) {
-      filteredResults = filteredResults.filter(student => student.year.toString() === selectedYear);
+      filteredResults = filteredResults.filter(student => 
+        student.company_name === selectedCompany
+      );
     }
 
-    filteredResults.sort((a, b) => a.year - b.year);
+    if (selectedYear) {
+      filteredResults = filteredResults.filter(student => 
+        student.batch === selectedYear || 
+        new Date(student.created_at).getFullYear().toString() === selectedYear
+      );
+    }
+
+    if (selectedDepartment) {
+      filteredResults = filteredResults.filter(student => 
+        student.department && student.department.toLowerCase().includes(selectedDepartment.toLowerCase())
+      );
+    }
+
+    // Sort by package (highest first)
+    filteredResults.sort((a, b) => 
+      (parseFloat(b.placement_package) || 0) - (parseFloat(a.placement_package) || 0)
+    );
+
     setFilteredData(filteredResults);
   };
+
+  const handleReset = () => {
+    setSelectedCompany("");
+    setSelectedYear("");
+    setSelectedDepartment("");
+    setFilteredData(studentDetails);
+  };
+
+  // Get unique years from student data
+  const uniqueYears = [...new Set(studentDetails.map(s => 
+    s.batch || new Date(s.created_at).getFullYear().toString()
+  ))].sort();
+
+  // Get unique departments
+  const uniqueDepartments = [...new Set(studentDetails.map(s => s.department))].filter(Boolean).sort();
 
   return (
     <>
       <Navbar />
       <div className="home-container">
-        <h3 className="section-title">2025 Statistics</h3>
+        <h3 className="section-title">2025 Placement Statistics</h3>
         <div className="stats-container">
           <div className="stat-box">
             <h3>Students Placed</h3>
-            <p>{stats.total_students}</p>
+            <p>{stats.placed_count}</p>
           </div>
           <div className="stat-box">
-            <h3>Recruiters</h3>
-            <p>{recruiterCount}</p>
+            <h3>Total Registrations</h3>
+            <p>{stats.total_registrations}</p>
           </div>
           <div className="stat-box">
-            <h3>Highest Salary</h3>
-            <p>₹{Number(stats.highest_salary).toFixed(2)} LPA</p>
+            <h3>Highest Package</h3>
+            <p>₹{Number(stats.highest_package).toFixed(2)} LPA</p>
           </div>
           <div className="stat-box">
-            <h3>Average Salary</h3>
-            <p>₹{Number(stats.avg_salary).toFixed(2)} LPA</p>
+            <h3>Average Package</h3>
+            <p>₹{Number(stats.avg_package).toFixed(2)} LPA</p>
           </div>
         </div>
 
@@ -170,7 +226,7 @@ const Home = () => {
         </ul>
 
         <div className="chart-container">
-          <h2 className="chart-title">Year-wise Placement Statistic</h2>
+          <h2 className="chart-title">Year-wise Placement Statistics</h2>
           <ResponsiveContainer width="100%" height={400}>
             <LineChart data={yearWiseData} margin={{ top: 20, right: 30, left: 20, bottom: 2 }}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -178,63 +234,115 @@ const Home = () => {
               <YAxis allowDecimals={false} />
               <Tooltip />
               <Legend />
-              <Line type="linear" dataKey="count" stroke="#2375f0" strokeWidth={3} dot={{ r: 5 }} activeDot={{ r: 7 }} />
+              <Line 
+                type="linear" 
+                dataKey="count" 
+                stroke="#2375f0" 
+                strokeWidth={3} 
+                dot={{ r: 5 }} 
+                activeDot={{ r: 7 }}
+                name="Students Placed"
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Dropdowns */}
+        {/* Enhanced Filter Section */}
         <div className="dropdown-container">
+          <h3 style={{ width: '100%', marginBottom: '15px' }}>Filter Placed Students</h3>
+          
           <label>Select Company: </label>
           <select value={selectedCompany} onChange={handleCompanyChange}>
-            <option value="">-- Show All Companies --</option>
+            <option value="">-- All Companies --</option>
             {companies.map((comp, index) => (
-              <option key={index} value={comp.company_name}>{comp.company_name}</option>
+              <option key={index} value={comp.company_name}>
+                {comp.company_name}
+              </option>
             ))}
           </select>
 
-          <label>Select Year: </label>
-          <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)}>
-            <option value="">-- Show All Years --</option>
-            {Array.from(new Set(studentDetails.map(s => s.year))).sort().map((year, idx) => (
+          <label>Select Year/Batch: </label>
+          <select value={selectedYear} onChange={handleYearChange}>
+            <option value="">-- All Years --</option>
+            {uniqueYears.map((year, idx) => (
               <option key={idx} value={year}>{year}</option>
             ))}
           </select>
 
-          <button className="submit-btn" onClick={handleSubmit}>Filter</button>
+          <label>Select Department: </label>
+          <select value={selectedDepartment} onChange={handleDepartmentChange}>
+            <option value="">-- All Departments --</option>
+            {uniqueDepartments.map((dept, idx) => (
+              <option key={idx} value={dept}>{dept}</option>
+            ))}
+          </select>
+
+          <button className="submit-btn" onClick={handleSubmit}>Apply Filters</button>
+          <button className="submit-btn" onClick={handleReset} style={{ marginLeft: '10px', background: '#666' }}>
+            Reset
+          </button>
         </div>
 
         {/* Student Table */}
         {filteredData.length > 0 ? (
           <div className="student-details">
-            <h3>Student Details {selectedCompany ? `for ${selectedCompany}` : "(All Companies)"}</h3>
+            <h3>
+              Placed Students 
+              {selectedCompany && ` - ${selectedCompany}`}
+              {selectedYear && ` - Batch ${selectedYear}`}
+              {selectedDepartment && ` - ${selectedDepartment}`}
+            </h3>
+            <p style={{ marginBottom: '15px', color: '#666' }}>
+              Showing {filteredData.length} of {studentDetails.length} placed students
+            </p>
             <table>
               <thead>
                 <tr>
-                  <th>Name</th>
                   <th>Reg No</th>
+                  <th>Name</th>
+                  <th>Year/Batch</th>
+                  <th>Department</th>
                   <th>Company</th>
                   <th>Role</th>
                   <th>Package (LPA)</th>
-                  <th>Year</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredData.map((student, index) => (
                   <tr key={index}>
-                    <td>{student.name}</td>
-                    <td>{student.regno}</td>
-                    <td>{student.company_name}</td>
-                    <td>{student.role}</td>
-                    <td>{student.package} LPA</td>
-                    <td>{student.year}</td>
+                    <td>{student.regno || 'N/A'}</td>
+                    <td>{student.username || 'N/A'}</td>
+                    <td>{student.batch || new Date(student.created_at).getFullYear()}</td>
+                    <td>{student.department || 'N/A'}</td>
+                    <td>{student.company_name || 'N/A'}</td>
+                    <td>{student.placement_role || 'N/A'}</td>
+                    <td>
+                      <strong style={{ color: '#2375f0' }}>
+                        ₹{parseFloat(student.placement_package || 0).toFixed(2)}
+                      </strong>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         ) : (
-          <p>No students found for the selected filters.</p>
+          <div style={{ textAlign: 'center', padding: '40px', background: '#f5f5f5', borderRadius: '8px', margin: '20px 0' }}>
+            <p style={{ fontSize: '18px', color: '#666' }}>
+              {studentDetails.length === 0 
+                ? 'No placement data available yet.' 
+                : 'No students found matching the selected filters.'}
+            </p>
+            {(selectedCompany || selectedYear || selectedDepartment) && (
+              <button 
+                className="submit-btn" 
+                onClick={handleReset}
+                style={{ marginTop: '15px' }}
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
         )}
 
         {/* Placement Images */}

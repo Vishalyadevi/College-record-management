@@ -369,7 +369,7 @@ const StudentScholarship = () => {
       >
         <h3 className="text-xl font-semibold text-gray-800 mb-4">Scholarship Details</h3>
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse border border-gray-200">
+          <table className="w-full border-collapse border border-gray-200"style={{ minWidth: '1700px', width: '100%' }}>
             <thead className="bg-gradient-to-r from-purple-600 to-blue-600 text-white">
               <tr>
                 <th className="border border-gray-200 p-3 text-left">Scholarship Name</th>

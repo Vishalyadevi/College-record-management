@@ -1,11 +1,10 @@
-import uploadEvent from "../../utils/uploadEvent.js"; // Import the file upload utility
-import { User, StudentDetails, EventAttended,City,District,State } from "../../models/index.js"; // Import models
-import { sendEmail } from "../../utils/emailService.js"; // Import email service
+import uploadEvent from "../../utils/uploadEvent.js";
+import { User, StudentDetails, EventAttended, City, District, State } from "../../models/index.js";
+import { sendEmail } from "../../utils/emailService.js";
 import fs from "fs";
 import path from "path";
 
 // Add a new event attended
-
 export const addEventAttended = [
   uploadEvent,
   async (req, res) => {
@@ -34,22 +33,22 @@ export const addEventAttended = [
       } = req.body;
 
       console.log("Received files:", req.files);
+      console.log("Location IDs:", { stateID, districtID, cityID });
 
       const cerFile = req.files?.cer_file?.[0]?.path.replace(/\\/g, "/") || null;
-    const achievementCertFile = req.files?.achievement_certificate_file?.[0]?.path.replace(/\\/g, "/") || null;
-    const cashPrizeProof = req.files?.cash_prize_proof?.[0]?.path.replace(/\\/g, "/") || null;
-    const mementoProof = req.files?.memento_proof?.[0]?.path.replace(/\\/g, "/") || null;
+      const achievementCertFile = req.files?.achievement_certificate_file?.[0]?.path.replace(/\\/g, "/") || null;
+      const cashPrizeProof = req.files?.cash_prize_proof?.[0]?.path.replace(/\\/g, "/") || null;
+      const mementoProof = req.files?.memento_proof?.[0]?.path.replace(/\\/g, "/") || null;
 
-    // Log received files for debugging
-    console.log("Received files:", {
-      cerFile,
-      achievementCertFile,
-      cashPrizeProof,
-      mementoProof,
-    });
+      console.log("Received files:", {
+        cerFile,
+        achievementCertFile,
+        cashPrizeProof,
+        mementoProof,
+      });
 
+      // Validate required fields
       if (!Userid) {
-        // Clean up uploaded files if validation fails
         if (cerFile) fs.unlinkSync(cerFile);
         if (achievementCertFile) fs.unlinkSync(achievementCertFile);
         if (cashPrizeProof) fs.unlinkSync(cashPrizeProof);
@@ -57,9 +56,17 @@ export const addEventAttended = [
         return res.status(400).json({ message: "User ID is required" });
       }
 
+      // Validate location IDs
+      if (!stateID || !districtID || !cityID) {
+        if (cerFile) fs.unlinkSync(cerFile);
+        if (achievementCertFile) fs.unlinkSync(achievementCertFile);
+        if (cashPrizeProof) fs.unlinkSync(cashPrizeProof);
+        if (mementoProof) fs.unlinkSync(mementoProof);
+        return res.status(400).json({ message: "State, District, and City are required" });
+      }
+
       const user = await User.findByPk(Userid);
       if (!user || !user.email) {
-        // Clean up uploaded files if user not found
         if (cerFile) fs.unlinkSync(cerFile);
         if (achievementCertFile) fs.unlinkSync(achievementCertFile);
         if (cashPrizeProof) fs.unlinkSync(cashPrizeProof);
@@ -69,7 +76,6 @@ export const addEventAttended = [
 
       const student = await StudentDetails.findOne({ where: { Userid } });
       if (!student || !student.tutorEmail) {
-        // Clean up uploaded files if tutor email not found
         if (cerFile) fs.unlinkSync(cerFile);
         if (achievementCertFile) fs.unlinkSync(achievementCertFile);
         if (cashPrizeProof) fs.unlinkSync(cashPrizeProof);
@@ -77,7 +83,6 @@ export const addEventAttended = [
         return res.status(404).json({ message: "Tutor email not found" });
       }
 
-      // Parse team_members and achievement_details if they are valid JSON strings
       const parsedTeamMembers = team_members && typeof team_members === "string" ? JSON.parse(team_members) : team_members;
       const parsedAchievementDetails =
         achievement_details && typeof achievement_details === "string" ? JSON.parse(achievement_details) : achievement_details;
@@ -91,9 +96,9 @@ export const addEventAttended = [
         other_event_type,
         institution_name,
         mode,
-        cityID,
-        districtID,
-        stateID,
+        cityID: parseInt(cityID),
+        districtID: parseInt(districtID),
+        stateID: parseInt(stateID),
         from_date,
         to_date,
         team_size,
@@ -156,7 +161,6 @@ Note: If you have any issues, feel free to contact the system administrator at t
     } catch (error) {
       console.error("❌ Error adding event attended:", error);
 
-      // Clean up uploaded files if an error occurs
       if (req.files) {
         for (const fileField of Object.values(req.files)) {
           if (fileField && fileField[0] && fileField[0].path) {
@@ -165,10 +169,11 @@ Note: If you have any issues, feel free to contact the system administrator at t
         }
       }
 
-      res.status(500).json({ message: "Error adding event attended", error });
+      res.status(500).json({ message: "Error adding event attended", error: error.message });
     }
   },
 ];
+
 // Update an event attended
 export const updateEventAttended = [
   uploadEvent,
@@ -178,29 +183,35 @@ export const updateEventAttended = [
     const Userid = req.user?.Userid || updateData.Userid;
 
     try {
-      // Validate required fields
       if (!Userid) {
         return res.status(400).json({ message: "User ID is required" });
       }
 
-      // Find the existing event
+      if (!eventId) {
+        return res.status(400).json({ message: "Event ID is required" });
+      }
+
       const existingEvent = await EventAttended.findByPk(eventId);
       if (!existingEvent) {
         return res.status(404).json({ message: "Event not found" });
       }
 
-      // Process file uploads
+      console.log("Update data received:", updateData);
+      console.log("Location IDs:", { 
+        stateID: updateData.stateID, 
+        districtID: updateData.districtID, 
+        cityID: updateData.cityID 
+      });
+
       const fileUpdates = {};
       const filesToCleanup = [];
 
-      // Helper function to process files
       const processFile = (fieldName, destProperty) => {
         if (req.files?.[fieldName]?.[0]) {
           const newPath = req.files[fieldName][0].path.replace(/\\/g, "/");
           fileUpdates[destProperty] = newPath;
           filesToCleanup.push(newPath);
           
-          // Clean up old file if it exists
           if (existingEvent[destProperty]) {
             try {
               fs.unlinkSync(existingEvent[destProperty]);
@@ -211,13 +222,8 @@ export const updateEventAttended = [
         }
       };
 
-      // Process each possible file upload
       processFile('cer_file', 'certificate_file');
-      processFile('achievement_certificate_file', 'achievement_details.certificate_file');
-      processFile('cash_prize_proof', 'achievement_details.cash_prize_proof');
-      processFile('memento_proof', 'achievement_details.memento_proof');
 
-      // Parse JSON fields if they exist
       if (updateData.team_members) {
         updateData.team_members = typeof updateData.team_members === 'string' 
           ? JSON.parse(updateData.team_members) 
@@ -230,10 +236,12 @@ export const updateEventAttended = [
           : updateData.achievement_details;
       }
 
-      // Prepare the update object
       const updatePayload = {
         ...updateData,
         ...fileUpdates,
+        cityID: updateData.cityID ? parseInt(updateData.cityID) : existingEvent.cityID,
+        districtID: updateData.districtID ? parseInt(updateData.districtID) : existingEvent.districtID,
+        stateID: updateData.stateID ? parseInt(updateData.stateID) : existingEvent.stateID,
         Updated_by: Userid,
         pending: true,
         tutor_approval_status: false,
@@ -241,13 +249,10 @@ export const updateEventAttended = [
         approved_at: null
       };
 
-      // Perform the update
       await existingEvent.update(updatePayload);
 
-      // Get updated event data
       const updatedEvent = await EventAttended.findByPk(eventId);
 
-      // Send success response
       res.status(200).json({
         message: "Event updated successfully",
         eventAttended: updatedEvent
@@ -256,7 +261,6 @@ export const updateEventAttended = [
     } catch (error) {
       console.error("Error updating event:", error);
 
-      // Clean up any uploaded files on error
       filesToCleanup.forEach(filePath => {
         try {
           if (fs.existsSync(filePath)) {
@@ -274,6 +278,7 @@ export const updateEventAttended = [
     }
   }
 ];
+
 // Get pending events attended
 export const getPendingEventsAttended = async (req, res) => {
   try {
@@ -313,17 +318,14 @@ export const getPendingEventsAttended = async (req, res) => {
     const formattedEvents = pendingEvents.map((event) => {
       const { eventUser, city, district, state, ...rest } = event.get({ plain: true });
 
-      // Format dates to a more readable format (e.g., "YYYY-MM-DD")
       const fromDate = new Date(rest.from_date).toISOString().split("T")[0];
       const toDate = new Date(rest.to_date).toISOString().split("T")[0];
 
-      // Handle "Not Provided" fields
       const isOtherStateEvent = rest.is_other_state_event === null ? "Not Provided" : rest.is_other_state_event;
       const isOtherCountryEvent = rest.is_other_country_event === null ? "Not Provided" : rest.is_other_country_event;
       const isCertificateAvailable = rest.is_certificate_available === null ? "Not Provided" : rest.is_certificate_available;
       const certificateFile = rest.certificate_file === null ? "Not Provided" : rest.certificate_file;
 
-      // Format achievement details
       const achievementDetails = rest.achievement_details || {
         is_memento: false,
         is_cash_prize: false,
@@ -361,6 +363,7 @@ export const getPendingEventsAttended = async (req, res) => {
     res.status(500).json({ success: false, message: "Error fetching pending events" });
   }
 };
+
 // Get approved events attended
 export const getApprovedEventsAttended = async (req, res) => {
   try {
@@ -372,6 +375,23 @@ export const getApprovedEventsAttended = async (req, res) => {
 
     const approvedEvents = await EventAttended.findAll({
       where: { tutor_approval_status: true, Userid: userId },
+      include: [
+        {
+          model: City,
+          as: "city",
+          attributes: ["id", "name"],
+        },
+        {
+          model: District,
+          as: "district",
+          attributes: ["id", "name"],
+        },
+        {
+          model: State,
+          as: "state",
+          attributes: ["id", "name"],
+        },
+      ],
       order: [["approved_at", "DESC"]],
     });
 
@@ -407,7 +427,6 @@ export const deleteEventAttended = async (req, res) => {
 
     await EventAttended.destroy({ where: { id } });
 
-    // Notify student and tutor
     await sendEmail({
       to: user.email,
       subject: "Event Attended Deleted Notification",

@@ -7,13 +7,12 @@ import {
   FaChartLine,
   FaClipboardList,
   FaClock,
-  FaBell,
-  FaCog,
   FaSearch,
   FaChevronDown,
   FaChevronUp,
   FaChevronLeft,
   FaChevronRight,
+  FaBuilding,
 } from "react-icons/fa";
 import { useUser } from "../../contexts/UserContext";
 import { useStaff } from "../../contexts/StaffContext";
@@ -30,6 +29,7 @@ const AdminPanel = () => {
     uploadHistory = [],
     fetchBulkHistory = async () => {},
     fetchUploadHistory = async () => {},
+    user = null, // Get current user to check deptId
   } = userContext;
 
   const staffContext = useStaff() || {};
@@ -49,6 +49,10 @@ const AdminPanel = () => {
   const [expandedDownloadId, setExpandedDownloadId] = useState(null);
   const [currentDeptIndex, setCurrentDeptIndex] = useState(0);
   const itemsPerPage = 3;
+
+  // Check if user is super admin (deptId is null)
+  const isSuperAdmin = !user?.deptId;
+  const userDeptId = user?.deptId;
 
   // Format timestamp
   const formatTimestampToLocal = (timestamp) => {
@@ -87,36 +91,69 @@ const AdminPanel = () => {
     fetchData();
   }, [fetchBulkHistory, fetchUploadHistory]);
 
-  // Staff chart data
-  const staffChartData = useMemo(() => {
-    return Object.entries(departmentWiseCounts.deptStaffCounts || {}).map(([dept, staffCount]) => ({
-      department: dept,
-      staff: staffCount,
-    }));
-  }, [departmentWiseCounts]);
+  // Filter data based on admin role
+  const filteredStaffs = useMemo(() => {
+    if (isSuperAdmin) return staffs;
+    return staffs.filter(staff => staff.deptId === userDeptId);
+  }, [staffs, isSuperAdmin, userDeptId]);
 
-  // Student chart data
+  const filteredStudents = useMemo(() => {
+    if (isSuperAdmin) return students;
+    return students.filter(student => student.deptId === userDeptId);
+  }, [students, isSuperAdmin, userDeptId]);
+
+  // Staff chart data - filtered by department
+  const staffChartData = useMemo(() => {
+    if (isSuperAdmin) {
+      // Show all departments
+      return Object.entries(departmentWiseCounts.deptStaffCounts || {}).map(([dept, staffCount]) => ({
+        department: dept,
+        staff: staffCount,
+      }));
+    } else {
+      // Show only user's department
+      const deptName = Object.keys(departmentWiseCounts.deptStaffCounts || {}).find(
+        dept => departmentWiseCounts.deptStaffCounts[dept] && staffs.some(s => s.deptId === userDeptId && s.department === dept)
+      );
+      if (!deptName) return [];
+      return [{
+        department: deptName,
+        staff: departmentWiseCounts.deptStaffCounts[deptName] || 0,
+      }];
+    }
+  }, [departmentWiseCounts, isSuperAdmin, userDeptId, staffs]);
+
+  // Student chart data - filtered by department
+  const availableDepartments = useMemo(() => {
+    if (isSuperAdmin) {
+      return Object.keys(departmentWiseCounts.deptStudentCounts || {});
+    } else {
+      // Find user's department name
+      const deptName = Object.keys(departmentWiseCounts.deptStudentCounts || {}).find(
+        dept => students.some(s => s.deptId === userDeptId && s.department === dept)
+      );
+      return deptName ? [deptName] : [];
+    }
+  }, [departmentWiseCounts, isSuperAdmin, userDeptId, students]);
+
   const studentChartData = useMemo(() => {
-    const deptKeys = Object.keys(departmentWiseCounts.deptStudentCounts || {});
-    if (deptKeys.length === 0) return [];
-    const currentDept = deptKeys[currentDeptIndex];
+    if (availableDepartments.length === 0) return [];
+    const currentDept = availableDepartments[currentDeptIndex];
     const batchData = batchWiseCounts[currentDept] || {};
     return Object.entries(batchData).map(([batch, studentCount]) => ({
       batch: `Batch ${batch}`,
       students: studentCount,
     }));
-  }, [batchWiseCounts, departmentWiseCounts, currentDeptIndex]);
+  }, [batchWiseCounts, availableDepartments, currentDeptIndex]);
 
   // Next/Previous Department
   const handleNext = () => {
-    const deptKeys = Object.keys(departmentWiseCounts.deptStudentCounts || {});
-    if (deptKeys.length === 0) return;
-    setCurrentDeptIndex((prev) => (prev + 1) % deptKeys.length);
+    if (availableDepartments.length === 0) return;
+    setCurrentDeptIndex((prev) => (prev + 1) % availableDepartments.length);
   };
   const handlePrevious = () => {
-    const deptKeys = Object.keys(departmentWiseCounts.deptStudentCounts || {});
-    if (deptKeys.length === 0) return;
-    setCurrentDeptIndex((prev) => (prev - 1 + deptKeys.length) % deptKeys.length);
+    if (availableDepartments.length === 0) return;
+    setCurrentDeptIndex((prev) => (prev - 1 + availableDepartments.length) % availableDepartments.length);
   };
 
   // Filter & paginate history
@@ -157,16 +194,20 @@ const AdminPanel = () => {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold mb-2 flex items-center">
-              <FaChartLine className="mr-3 text-yellow-300" /> Admin Dashboard
+              <FaChartLine className="mr-3 text-yellow-300" /> 
+              {isSuperAdmin ? "Super Admin Dashboard" : "Department Admin Dashboard"}
             </h1>
             <p className="text-gray-100 flex items-center">
-              <FaClipboardList className="mr-2 text-yellow-300" /> Manage your system and track activities
+              <FaClipboardList className="mr-2 text-yellow-300" /> 
+              {isSuperAdmin ? "Manage all departments and track activities" : `Manage ${availableDepartments[0] || "your department"}`}
             </p>
           </div>
-          <div className="flex items-center space-x-4">
-            <FaBell className="text-2xl cursor-pointer hover:text-yellow-300" />
-            <FaCog className="text-2xl cursor-pointer hover:text-yellow-300" />
-          </div>
+          {!isSuperAdmin && (
+            <div className="bg-white bg-opacity-20 px-4 py-2 rounded-lg flex items-center">
+              <FaBuilding className="mr-2 text-yellow-300" />
+              <span className="font-semibold">{availableDepartments[0] || "Department"}</span>
+            </div>
+          )}
         </div>
         <div className="mt-2 text-gray-200 text-sm flex items-center">
           <FaClock className="mr-2 text-yellow-300" /> Last Updated: {formatTimestampToLocal(lastUpdated)}
@@ -183,8 +224,8 @@ const AdminPanel = () => {
         >
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold">Total Staff</h2>
-              <p className="text-3xl font-semibold">{staffs.length}</p>
+              <h2 className="text-xl font-bold">{isSuperAdmin ? "Total Staff" : "Department Staff"}</h2>
+              <p className="text-3xl font-semibold">{filteredStaffs.length}</p>
             </div>
             <FaUsers className="text-4xl opacity-80" />
           </div>
@@ -204,8 +245,8 @@ const AdminPanel = () => {
         >
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold">Total Students</h2>
-              <p className="text-3xl font-semibold">{students.length}</p>
+              <h2 className="text-xl font-bold">{isSuperAdmin ? "Total Students" : "Department Students"}</h2>
+              <p className="text-3xl font-semibold">{filteredStudents.length}</p>
             </div>
             <FaUserGraduate className="text-4xl opacity-80" />
           </div>
@@ -248,109 +289,93 @@ const AdminPanel = () => {
         </motion.div>
       </div>
 
-      {/* Department-wise Student and Staff Counts */}
+      {/* Department-wise Staff Counts */}
       <motion.div
-  whileHover={{ scale: 1.02 }}
-  className="bg-white p-6 rounded-lg shadow-lg mb-8"
->
-  <h2 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">
-    <FaUsers className="mr-3 text-purple-600" /> Total Staff in Each Department
-  </h2>
-  <ResponsiveContainer width="100%" height={400}>
-    <BarChart
-      data={staffChartData}
-      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-    >
-      {/* Define gradients */}
-      <defs>
-        {/* Pink gradient (from-pink-400 to-pink-600) */}
-        <linearGradient id="pinkGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#f472b6" /> {/* pink-400 */}
-          <stop offset="100%" stopColor="#db2777" /> {/* pink-600 */}
-        </linearGradient>
+        whileHover={{ scale: 1.02 }}
+        className="bg-white p-6 rounded-lg shadow-lg mb-8"
+      >
+        <h2 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">
+          <FaUsers className="mr-3 text-purple-600" /> 
+          {isSuperAdmin ? "Total Staff in Each Department" : `Staff in ${availableDepartments[0] || "Department"}`}
+        </h2>
+        <ResponsiveContainer width="100%" height={400}>
+          <BarChart
+            data={staffChartData}
+            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+          >
+            <defs>
+              <linearGradient id="pinkGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#f472b6" />
+                <stop offset="100%" stopColor="#db2777" />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="department" />
+            <YAxis />
+            <Tooltip />
+            <Legend />
+            <Bar
+              dataKey="staff"
+              fill="url(#pinkGradient)"
+              radius={[4, 4, 0, 0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </motion.div>
 
-        {/* Teal gradient (from-teal-400 to-teal-600) */}
-        <linearGradient id="tealGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#2dd4bf" /> {/* teal-400 */}
-          <stop offset="100%" stopColor="#0d9488" /> {/* teal-600 */}
-        </linearGradient>
-
-        {/* Orange gradient (from-orange-400 to-orange-600) */}
-        <linearGradient id="orangeGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#fb923c" /> {/* orange-400 */}
-          <stop offset="100%" stopColor="#ea580c" /> {/* orange-600 */}
-        </linearGradient>
-
-        {/* Blue to Purple gradient (from-blue-50 to-purple-50) */}
-        <linearGradient id="bluePurpleGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#eff6ff" /> {/* blue-50 */}
-          <stop offset="100%" stopColor="#faf5ff" /> {/* purple-50 */}
-        </linearGradient>
-      </defs>
-
-      <CartesianGrid strokeDasharray="3 3" />
-      <XAxis dataKey="department" />
-      <YAxis />
-      <Tooltip />
-      <Legend />
-      {/* Apply the gradient to the bars */}
-      <Bar
-        dataKey="staff"
-        fill="url(#pinkGradient)" // Use the pink gradient
-        radius={[4, 4, 0, 0]}
-      />
-    </BarChart>
-  </ResponsiveContainer>
-</motion.div>
       {/* Batch-wise Students Chart */}
       <motion.div
-  whileHover={{ scale: 1.02 }}
-  className="bg-white p-6 rounded-lg shadow-lg mb-8"
->
-  <h2 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">
-    <FaUserGraduate className="mr-3 text-purple-600" /> Batch-wise Students in{" "}
-    {Object.keys(departmentWiseCounts.deptStudentCounts)[currentDeptIndex]}
-  </h2>
-  <div className="flex justify-between items-center mb-4">
-    <button
-      onClick={handlePrevious}
-      className="p-2 bg-purple-100 rounded-full hover:bg-purple-200 transition-colors"
-    >
-      <FaChevronLeft className="text-purple-600" />
-    </button>
-    <button
-      onClick={handleNext}
-      className="p-2 bg-purple-100 rounded-full hover:bg-purple-200 transition-colors"
-    >
-      <FaChevronRight className="text-purple-600" />
-    </button>
-  </div>
-  <ResponsiveContainer width="100%" height={400}>
-    <BarChart
-      data={studentChartData}
-      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-    >
-      {/* Define the gradient */}
-      <defs>
-        <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#8b5cf6" /> {/* Start color (purple-500) */}
-          <stop offset="100%" stopColor="#ec4899" /> {/* End color (pink-500) */}
-        </linearGradient>
-      </defs>
-      <CartesianGrid strokeDasharray="3 3" />
-      <XAxis dataKey="batch" />
-      <YAxis />
-      <Tooltip />
-      <Legend />
-      {/* Apply the gradient to the bars */}
-      <Bar
-        dataKey="students"
-        fill="url(#barGradient)" // Reference the gradient
-        radius={[4, 4, 0, 0]}
-      />
-    </BarChart>
-  </ResponsiveContainer>
-</motion.div>
+        whileHover={{ scale: 1.02 }}
+        className="bg-white p-6 rounded-lg shadow-lg mb-8"
+      >
+        <h2 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">
+          <FaUserGraduate className="mr-3 text-purple-600" /> 
+          Batch-wise Students in {availableDepartments[currentDeptIndex] || "Department"}
+        </h2>
+        {isSuperAdmin && availableDepartments.length > 1 && (
+          <div className="flex justify-between items-center mb-4">
+            <button
+              onClick={handlePrevious}
+              className="p-2 bg-purple-100 rounded-full hover:bg-purple-200 transition-colors"
+            >
+              <FaChevronLeft className="text-purple-600" />
+            </button>
+            <span className="text-gray-600 font-medium">
+              Department {currentDeptIndex + 1} of {availableDepartments.length}
+            </span>
+            <button
+              onClick={handleNext}
+              className="p-2 bg-purple-100 rounded-full hover:bg-purple-200 transition-colors"
+            >
+              <FaChevronRight className="text-purple-600" />
+            </button>
+          </div>
+        )}
+        <ResponsiveContainer width="100%" height={400}>
+          <BarChart
+            data={studentChartData}
+            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+          >
+            <defs>
+              <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#8b5cf6" />
+                <stop offset="100%" stopColor="#ec4899" />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="batch" />
+            <YAxis />
+            <Tooltip />
+            <Legend />
+            <Bar
+              dataKey="students"
+              fill="url(#barGradient)"
+              radius={[4, 4, 0, 0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </motion.div>
+
       {/* Bulk Upload and Download History Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Bulk Upload History */}

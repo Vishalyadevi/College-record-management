@@ -246,13 +246,13 @@ const StudentInternship = () => {
   const renderTable = (data, showActions = true) => (
     <div className="overflow-x-auto">
       <div className="max-h-[400px] overflow-y-auto">
-        <table className="min-w-full bg-white border border-gray-200 rounded-lg shadow-sm">
+        <table className="min-w-full bg-white border border-gray-200 rounded-lg shadow-sm"style={{ minWidth: '2200px', width: '100%' }}>
           <thead>
             <tr className="bg-[#4f46e5] text-white">
               <th className="py-3 px-4 text-left font-medium">Provider</th>
               <th className="py-3 px-4 text-left font-medium">Domain</th>
               <th className="py-3 px-4 text-left font-medium">Mode</th>
-              <th className="py-3 px-4 text-left font-medium">Duration</th>
+              <th className="py-3 px-4 text-left font-medium"style={{ minWidth: '800px'}}>Duration</th>
               <th className="py-3 px-4 text-left font-medium">Stipend</th>
               <th className="py-3 px-4 text-left font-medium">Certificate</th>
               <th className="py-3 px-4 text-left font-medium">Status</th>

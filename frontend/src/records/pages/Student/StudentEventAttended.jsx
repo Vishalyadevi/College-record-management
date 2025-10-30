@@ -7,7 +7,6 @@ import { motion } from "framer-motion";
 
 const token = localStorage.getItem("token");
 
-// Reusable InputField Component
 const InputField = ({ label, name, value, onChange, type = "text", required = false, placeholder = "" }) => (
   <div className="flex flex-col mb-4">
     <label className="font-medium text-gray-700 mb-1">{label}</label>
@@ -23,7 +22,6 @@ const InputField = ({ label, name, value, onChange, type = "text", required = fa
   </div>
 );
 
-// Reusable SelectField Component
 const SelectField = ({ label, name, value, onChange, options, required = false, placeholder = "" }) => (
   <div className="flex flex-col mb-4">
     <label className="font-medium text-gray-700 mb-1">{label}</label>
@@ -101,18 +99,26 @@ const StudentEventAttended = () => {
     if (type === "checkbox") {
       setFormData((prev) => ({ ...prev, [name]: checked }));
     } else if (name === "stateID") {
+      console.log("State changed to:", value);
       setFormData((prev) => ({ ...prev, [name]: value, districtID: "", cityID: "" }));
-      try {
-        await fetchDistrictsByState(value);
-      } catch (error) {
-        toast.error("Failed to fetch districts for the selected state.");
+      if (value) {
+        try {
+          await fetchDistrictsByState(value);
+        } catch (error) {
+          console.error("Error fetching districts:", error);
+          toast.error("Failed to fetch districts for the selected state.");
+        }
       }
     } else if (name === "districtID") {
+      console.log("District changed to:", value);
       setFormData((prev) => ({ ...prev, [name]: value, cityID: "" }));
-      try {
-        await fetchCitiesByDistrict(value);
-      } catch (error) {
-        toast.error("Failed to fetch cities for the selected district.");
+      if (value) {
+        try {
+          await fetchCitiesByDistrict(value);
+        } catch (error) {
+          console.error("Error fetching cities:", error);
+          toast.error("Failed to fetch cities for the selected district.");
+        }
       }
     } else if (name === "team_size") {
       const newTeamSize = Math.max(1, parseInt(value, 10));
@@ -189,20 +195,24 @@ const StudentEventAttended = () => {
       return null;
     }
 
+    // Validate location fields
+    if (!formData.stateID || !formData.districtID || !formData.cityID) {
+      toast.error("Please select State, District, and City");
+      return null;
+    }
+
     const formDataWithUserId = new FormData();
 
-    // Append non-file fields
     for (const key in formData) {
       if (key === "team_members" || key === "achievement_details") {
         formDataWithUserId.append(key, JSON.stringify(formData[key]));
       } else if (key === "certificate_file" && formData[key]) {
         formDataWithUserId.append("cer_file", formData[key]);
-      } else {
+      } else if (key !== "achievement_details") {
         formDataWithUserId.append(key, formData[key]);
       }
     }
 
-    // Append achievement details files
     if (formData.achievement_details) {
       const { achievement_details } = formData;
       if (achievement_details.certificate_file) {
@@ -217,6 +227,12 @@ const StudentEventAttended = () => {
     }
 
     formDataWithUserId.append("Userid", String(decodedData.Userid));
+
+    console.log("Form data being sent:", {
+      stateID: formData.stateID,
+      districtID: formData.districtID,
+      cityID: formData.cityID
+    });
 
     return formDataWithUserId;
   };
@@ -246,6 +262,7 @@ const StudentEventAttended = () => {
       resetForm();
       fetchEventsAttended();
     } catch (error) {
+      console.error("Error submitting event:", error);
       toast.error(`Failed to ${isEditing ? "update" : "submit"} event. Please try again.`);
     } finally {
       setIsSubmitting(false);
@@ -253,15 +270,14 @@ const StudentEventAttended = () => {
   };
 
   const handleEdit = async (event) => {
+    console.log("Editing event:", event);
     setCurrentEventId(event.id);
     setIsEditing(true);
     
-    // Convert team_members array to the correct format if it's a string
     const teamMembers = typeof event.team_members === 'string' 
       ? JSON.parse(event.team_members) 
       : event.team_members || [];
     
-    // Convert achievement_details to the correct format if it's a string
     const achievementDetails = typeof event.achievement_details === 'string' 
       ? JSON.parse(event.achievement_details) 
       : event.achievement_details || {
@@ -274,18 +290,24 @@ const StudentEventAttended = () => {
           memento_proof: null,
         };
 
-    // Format dates for input fields (YYYY-MM-DD)
     const formatDateForInput = (dateString) => {
       if (!dateString) return "";
       const date = new Date(dateString);
       return date.toISOString().split('T')[0];
     };
 
-    // Fetch districts and cities for the selected state/district
+    // Fetch districts and cities sequentially
     if (event.stateID) {
-      await fetchDistrictsByState(event.stateID);
-      if (event.districtID) {
-        await fetchCitiesByDistrict(event.districtID);
+      console.log("Fetching districts for state:", event.stateID);
+      try {
+        await fetchDistrictsByState(event.stateID);
+        if (event.districtID) {
+          console.log("Fetching cities for district:", event.districtID);
+          await fetchCitiesByDistrict(event.districtID);
+        }
+      } catch (error) {
+        console.error("Error loading location data:", error);
+        toast.error("Failed to load location data");
       }
     }
 
@@ -306,14 +328,13 @@ const StudentEventAttended = () => {
       team_members: teamMembers,
       participation_status: event.participation_status || "Participation",
       is_certificate_available: event.is_certificate_available || false,
-      certificate_file: null, // Reset file input
+      certificate_file: null,
       is_other_state_event: event.is_other_state_event || false,
       is_other_country_event: event.is_other_country_event || false,
       achievement_details: achievementDetails,
     });
 
-    // Scroll to form
-    document.getElementById("event-form").scrollIntoView({ behavior: "smooth" });
+    document.getElementById("event-form")?.scrollIntoView({ behavior: "smooth" });
   };
 
   const resetForm = () => {
@@ -443,8 +464,8 @@ const StudentEventAttended = () => {
     if (!event) return null;
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl relative">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl relative max-h-[90vh] overflow-y-auto">
           <button
             onClick={onClose}
             className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
@@ -477,7 +498,7 @@ const StudentEventAttended = () => {
             <p><strong>Status:</strong> {event.participation_status}</p>
             <p><strong>Team Size:</strong> {event.team_size}</p>
             <p><strong>Certificate Available:</strong> {event.is_certificate_available ? "Yes" : "No"}</p>
-            {event.is_certificate_available && (
+            {event.is_certificate_available && event.certificate_file && (
               <p>
                 <strong>Certificate:</strong>{" "}
                 <a
@@ -559,7 +580,6 @@ const StudentEventAttended = () => {
         Events Attended
       </h2>
 
-      {/* Form Section */}
       <motion.div
         id="event-form"
         initial={{ opacity: 0, y: 20 }}
@@ -581,7 +601,6 @@ const StudentEventAttended = () => {
           )}
         </div>
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Form Fields */}
           {formFields.map((row, rowIndex) => (
             <div key={rowIndex} className="grid grid-cols-1 md:grid-cols-4 gap-6">
               {row.map((field) => (
@@ -612,7 +631,6 @@ const StudentEventAttended = () => {
             </div>
           ))}
 
-          {/* Team Members Section */}
           {formData.team_size > 1 && (
             <div className="space-y-4">
               <label className="font-medium text-gray-700">Team Members (Excluding You)</label>
@@ -639,7 +657,6 @@ const StudentEventAttended = () => {
             </div>
           )}
 
-          {/* Other State/Country Event Checkboxes */}
           <div className="space-y-4">
             <label className="font-medium text-gray-700">Event Location</label>
             <div className="flex items-center space-x-4">
@@ -666,7 +683,6 @@ const StudentEventAttended = () => {
             </div>
           </div>
 
-          {/* Certificate Section */}
           {formData.participation_status === "Participation" && (
             <div className="space-y-4">
               <label className="font-medium text-gray-700">Certificate Details</label>
@@ -693,7 +709,6 @@ const StudentEventAttended = () => {
             </div>
           )}
 
-          {/* Achievement Details Section */}
           {formData.participation_status === "Achievement" && (
             <div className="space-y-4">
               <label className="font-medium text-gray-700">Achievement Details</label>
@@ -772,7 +787,6 @@ const StudentEventAttended = () => {
             </div>
           )}
 
-          {/* Submit Button */}
           <div className="flex space-x-4">
             <button
               type="submit"
@@ -794,7 +808,6 @@ const StudentEventAttended = () => {
         </form>
       </motion.div>
 
-      {/* Table Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -811,7 +824,6 @@ const StudentEventAttended = () => {
         )}
       </motion.div>
 
-      {/* Event Details Modal */}
       {selectedEvent && (
         <EventDetailsModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />
       )}

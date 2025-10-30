@@ -1,626 +1,469 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { Search, Download, Filter, X, ChevronDown, FileSpreadsheet } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import Navbar from "./StaffNavbar"; // Changed to StaffNavbar
-import "../../styles/eligibleStudents.css";
 
-axios.defaults.baseURL = "http://localhost:4000";
-
-const EligibleStudents = () => {
-  const [students, setStudents] = useState([]);
-  const [companies, setCompanies] = useState([]);
-  const [departments, setDepartments] = useState([]);
-  const [currentStaffId, setCurrentStaffId] = useState(null);
+const StudentFilterPage = () => {
   const [filters, setFilters] = useState({
-    dept: '',
     batch: '',
     year: '',
-    semester: '',
-    companyName: ''
+    minTenth: '',
+    maxTenth: '',
+    minTwelfth: '',
+    maxTwelfth: '',
+    minCgpa: '',
+    maxCgpa: '',
+    hasArrearsHistory: '',
+    hasStandingArrears: '',
   });
-  const [filteredStudents, setFilteredStudents] = useState([]);
+
+  const [filterOptions, setFilterOptions] = useState({
+    batches: [],
+    years: [1, 2, 3, 4],
+  });
+
+  const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [showFilters, setShowFilters] = useState(true);
+  const [staffInfo, setStaffInfo] = useState(null);
 
-  // Get current staff ID from token or context
   useEffect(() => {
-    const getCurrentStaff = async () => {
-      try {
-        const token = localStorage.getItem('authToken');
-        console.log('Token found:', !!token, 'Token value:', token?.substring(0, 20) + '...'); // Debug log
-        
-        if (!token) {
-          setError('Authentication token not found. Please login again.');
-          return;
-        }
-
-        console.log('Making API call to /api/auth/profile'); // Debug log
-        
-        // Make the API call with better error handling
-        const response = await axios.get('/api/auth/profile', {
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 5000 // 5 second timeout
-        });
-        
-        console.log('Profile response:', response.data); // Debug log
-        
-        if (!response.data) {
-          throw new Error('No data received from profile endpoint');
-        }
-        
-        // Try different possible field names for staff ID
-        const staffId = response.data.Userid || response.data.userId || response.data.id || response.data.staffId || response.data.staff_id;
-        
-        if (!staffId) {
-          console.error('Available fields in response:', Object.keys(response.data));
-          throw new Error('No valid staff ID field found in profile data');
-        }
-        
-        setCurrentStaffId(staffId);
-        console.log('Staff ID set:', staffId); // Debug log
-        
-      } catch (err) {
-        console.error('Error getting current staff info:', err);
-        
-        if (err.code === 'ECONNABORTED') {
-          setError('Request timeout. Please check if the backend server is running on http://localhost:4000');
-        } else if (err.response?.status === 401) {
-          setError('Session expired. Please login again.');
-          localStorage.removeItem('authToken');
-        } else if (err.response?.status === 404) {
-          setError('Profile endpoint not found. Please check backend configuration.');
-        } else if (err.response) {
-          setError(`Server error: ${err.response.status} - ${err.response.data?.message || err.response.statusText}`);
-        } else if (err.request) {
-          setError('Cannot connect to server. Please check if backend is running on http://localhost:4000');
-        } else {
-          setError(`Error: ${err.message}`);
-        }
-      }
-    };
-
-    // Add a timeout to prevent infinite loading
-    const timeoutId = setTimeout(() => {
-      if (!currentStaffId) {
-        setError('Loading timeout. Please refresh the page or login again.');
-      }
-    }, 10000); // 10 second timeout
-
-    getCurrentStaff();
-
-    return () => clearTimeout(timeoutId);
+    fetchStaffInfo();
+    fetchFilterOptions();
   }, []);
 
-  // Fetch departments, companies, and students assigned to current staff
-  useEffect(() => {
-    if (!currentStaffId) return;
-
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        console.log('Fetching data for staff ID:', currentStaffId); // Debug log
-
-        // Fetch departments
-        const deptResponse = await axios.get('/api/departments').catch(err => {
-          throw new Error(`Failed to fetch departments: ${err.response?.status} ${err.response?.statusText}`);
-        });
-        console.log('Departments response:', deptResponse.data); // Debug log
-        
-        if (!Array.isArray(deptResponse.data)) {
-          throw new Error('Departments data is not an array');
-        }
-        setDepartments(deptResponse.data);
-
-        // Fetch companies
-        const companyResponse = await axios.get('/api/placement/upcoming-drives').catch(err => {
-          throw new Error(`Failed to fetch companies: ${err.response?.status} ${err.response?.statusText}`);
-        });
-        console.log('Companies response:', companyResponse.data); // Debug log
-        
-        if (!Array.isArray(companyResponse.data)) {
-          throw new Error('Companies data is not an array');
-        }
-        setCompanies(companyResponse.data);
-
-        // Fetch student details for current staff only
-        const studentDetailsResponse = await axios.get(`/api/student-details/staff/${currentStaffId}`).catch(err => {
-          throw new Error(`Failed to fetch student details: ${err.response?.status} ${err.response?.statusText}`);
-        });
-        console.log('Student details response:', studentDetailsResponse.data); // Debug log
-        
-        if (!Array.isArray(studentDetailsResponse.data)) {
-          throw new Error('Student details data is not an array');
-        }
-
-        // Fetch users data to get names
-        const userResponse = await axios.get('/api/users').catch(err => {
-          throw new Error(`Failed to fetch users: ${err.response?.status} ${err.response?.statusText}`);
-        });
-        console.log('Users response length:', userResponse.data?.length); // Debug log
-        
-        if (!Array.isArray(userResponse.data)) {
-          throw new Error('Users data is not an array');
-        }
-
-        // Fetch all student education records
-        const educationResponse = await axios.get('/api/student-education').catch(err => {
-          throw new Error(`Failed to fetch student education data: ${err.response?.status} ${err.response?.statusText}`);
-        });
-        console.log('Education response length:', educationResponse.data?.length); // Debug log
-        
-        if (!Array.isArray(educationResponse.data)) {
-          throw new Error('Student education data is not an array');
-        }
-
-        // Combine student details with user info and education data
-        const studentsWithEducation = studentDetailsResponse.data.map(studentDetail => {
-          const userInfo = userResponse.data.find(user => user.Userid === studentDetail.Userid);
-          const educationRecord = educationResponse.data.find(edu => edu.userid === studentDetail.Userid);
-          
-          if (!userInfo) {
-            console.warn(`No user info found for student ID: ${studentDetail.Userid}`);
-            return null;
-          }
-          
-          if (!educationRecord) {
-            console.warn(`No education record found for student ID: ${studentDetail.Userid}`);
-            // Don't skip students without education records, just use default values
-          }
-          
-          return {
-            id: studentDetail.id,
-            userid: studentDetail.Userid,
-            regno: studentDetail.regno,
-            name: userInfo.name,
-            email: userInfo.email,
-            personal_email: studentDetail.personal_email,
-            Deptid: studentDetail.Deptid,
-            batch: studentDetail.batch,
-            semester: studentDetail.Semester,
-            staffId: studentDetail.staffId,
-            student_type: studentDetail.student_type,
-            tutor_email: studentDetail.tutorEmail,
-            section: studentDetail.section,
-            // Education data from student_education table (with defaults)
-            tenth_percentage: educationRecord?.tenth_percentage || 0,
-            twelfth_percentage: educationRecord?.twelfth_percentage || 0,
-            ug_sem1_gpa: educationRecord?.ug_sem1_gpa || 0,
-            ug_sem2_gpa: educationRecord?.ug_sem2_gpa || 0,
-            ug_sem3_gpa: educationRecord?.ug_sem3_gpa || 0,
-            ug_sem4_gpa: educationRecord?.ug_sem4_gpa || 0,
-            ug_sem5_gpa: educationRecord?.ug_sem5_gpa || 0,
-            ug_sem6_gpa: educationRecord?.ug_sem6_gpa || 0,
-            ug_sem7_gpa: educationRecord?.ug_sem7_gpa || 0,
-            ug_sem8_gpa: educationRecord?.ug_sem8_gpa || 0,
-            ug_cgpa: educationRecord?.ug_cgpa || 0,
-            has_arrears: educationRecord?.has_arrears || 'No',
-            no_of_arrears: educationRecord?.no_of_arrears || 0,
-            has_pg: educationRecord?.has_pg || 'No',
-            pg_cgpa: educationRecord?.pg_cgpa || 0
-          };
-        }).filter(student => student !== null); // Remove students without user info
-
-        console.log('Students with education:', studentsWithEducation.length); // Debug log
-
-        // Calculate eligibility for each student
-        const eligibleStudents = studentsWithEducation.map(student => {
-          const eligibleCompanies = companyResponse.data.filter(company => 
-            isStudentEligible(student, company.eligibility)
-          ).map(company => company.company_name);
-          return { ...student, eligibleCompanies };
-        });
-
-        console.log('Final eligible students:', eligibleStudents.length); // Debug log
-        setStudents(eligibleStudents);
-        setFilteredStudents(eligibleStudents);
-      } catch (err) {
-        console.error('Error fetching data:', err);
-        setError(err.message || 'Failed to fetch data. Please check the backend APIs.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [currentStaffId]);
-
-  // Parse eligibility criteria and check if student meets them
-  const isStudentEligible = (student, eligibility) => {
-    if (!eligibility || typeof eligibility !== 'string') {
-      console.warn('Invalid eligibility format:', eligibility);
-      return false;
-    }
-
-    // Default criteria
-    const criteria = {
-      sslc: 0,
-      hsc: 0,
-      cgpa: 0,
-      noStandingArrears: false
-    };
-
-    // Parse eligibility text (more robust handling)
+  const fetchStaffInfo = async () => {
     try {
-      const sslcMatch = eligibility.match(/10th\s*>=?\s*(\d+\.?\d*)%/i);
-      const hscMatch = eligibility.match(/12th\s*>=?\s*(\d+\.?\d*)%/i);
-      const cgpaMatch = eligibility.match(/CGPA\s*>=?\s*(\d+\.?\d*)/i);
-      const arrearsMatch = eligibility.match(/No standing arrears|No arrears/i);
-
-      if (sslcMatch) criteria.sslc = parseFloat(sslcMatch[1]);
-      if (hscMatch) criteria.hsc = parseFloat(hscMatch[1]);
-      if (cgpaMatch) criteria.cgpa = parseFloat(cgpaMatch[1]);
-      if (arrearsMatch) criteria.noStandingArrears = true;
-    } catch (err) {
-      console.warn('Error parsing eligibility:', err, eligibility);
-      return false;
+      const response = await fetch('/api/staff/profile', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+      const data = await response.json();
+      if (data.success) {
+        setStaffInfo(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching staff info:', error);
     }
-
-    // Use CGPA from database or calculate from semester GPAs
-    let studentCgpa = student.ug_cgpa;
-    if (!studentCgpa || studentCgpa === 0) {
-      const semesters = [
-        student.ug_sem1_gpa, student.ug_sem2_gpa, student.ug_sem3_gpa, student.ug_sem4_gpa,
-        student.ug_sem5_gpa, student.ug_sem6_gpa, student.ug_sem7_gpa, student.ug_sem8_gpa
-      ].filter(gpa => gpa !== null && gpa !== undefined && gpa > 0);
-      
-      studentCgpa = semesters.length > 0 
-        ? (semesters.reduce((sum, gpa) => sum + gpa, 0) / semesters.length)
-        : 0;
-    }
-
-    // Check eligibility
-    const tenthPercentage = student.tenth_percentage || 0;
-    const twelfthPercentage = student.twelfth_percentage || 0;
-    const hasArrears = student.has_arrears === 'Yes' || student.no_of_arrears > 0;
-
-    return (
-      tenthPercentage >= criteria.sslc &&
-      twelfthPercentage >= criteria.hsc &&
-      studentCgpa >= criteria.cgpa &&
-      (!criteria.noStandingArrears || !hasArrears)
-    );
   };
 
-  // Handle filter changes
+  const fetchFilterOptions = async () => {
+    try {
+      const response = await fetch('/api/students/filter-options', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+      const data = await response.json();
+      if (data.success) {
+        setFilterOptions(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching filter options:', error);
+    }
+  };
+
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
     setFilters(prev => ({ ...prev, [name]: value }));
   };
 
-  // Apply filters
-  useEffect(() => {
-    let filtered = students;
-
-    if (filters.dept) {
-      filtered = filtered.filter(student => {
-        const dept = departments.find(d => d.Deptid === student.Deptid);
-        return dept && dept.Deptacronym === filters.dept;
+  const handleSearch = async () => {
+    setLoading(true);
+    try {
+      const queryParams = new URLSearchParams();
+      
+      // Add staff's department ID automatically
+      if (staffInfo?.deptId) {
+        queryParams.append('deptId', staffInfo.deptId);
+      }
+      
+      // Add other filters
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== '' && value !== null) {
+          queryParams.append(key, value);
+        }
       });
-    }
-    if (filters.batch) {
-      filtered = filtered.filter(student => student.batch === parseInt(filters.batch));
-    }
-    if (filters.year) {
-      filtered = filtered.filter(student => {
-        const currentYear = new Date().getFullYear();
-        const batchYear = parseInt(student.batch);
-        const yearDiff = currentYear - batchYear + 1;
-        return yearDiff.toString() === filters.year;
+
+      const response = await fetch(`/api/students/eligible-students?${queryParams}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
       });
+      const data = await response.json();
+      if (data.success) {
+        setStudents(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching students:', error);
+    } finally {
+      setLoading(false);
     }
-    if (filters.semester) {
-      filtered = filtered.filter(student => student.semester === filters.semester);
-    }
-    if (filters.companyName) {
-      filtered = filtered.filter(student => 
-        student.eligibleCompanies.some(name => 
-          name.toLowerCase().includes(filters.companyName.toLowerCase())
-        )
-      );
-    }
-
-    setFilteredStudents(filtered);
-  }, [filters, students, departments]);
-
-  // Download as Excel
-  const handleDownloadExcel = () => {
-    const data = filteredStudents.map((student, index) => ({
-      'S.N': index + 1,
-      'Reg No': student.regno,
-      'Name': student.name,
-      'Email': student.email,
-      'Personal Email': student.personal_email,
-      'Department': departments.find(d => d.Deptid === student.Deptid)?.Deptacronym || 'N/A',
-      'Batch': student.batch,
-      'Year': calculateYear(student.batch),
-      'Semester': student.semester,
-      'Section': student.section,
-      'Student Type': student.student_type,
-      '10th (%)': student.tenth_percentage || 'N/A',
-      '12th (%)': student.twelfth_percentage || 'N/A',
-      'UG CGPA': calculateCgpa(student),
-      'Has Arrears': student.has_arrears,
-      'No. of Arrears': student.no_of_arrears || 0,
-      'Has PG': student.has_pg,
-      'PG CGPA': student.pg_cgpa || 'N/A',
-      'Eligible Companies': student.eligibleCompanies.join(', ') || 'None'
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'My Students - Eligible');
-    XLSX.writeFile(workbook, `MyStudents_Eligible_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  // Helper functions
-  const calculateYear = (batch) => {
-    const currentYear = new Date().getFullYear();
-    const batchYear = parseInt(batch);
-    return batchYear ? (currentYear - batchYear + 1).toString() : 'N/A';
+  const clearFilters = () => {
+    setFilters({
+      batch: '',
+      year: '',
+      minTenth: '',
+      maxTenth: '',
+      minTwelfth: '',
+      maxTwelfth: '',
+      minCgpa: '',
+      maxCgpa: '',
+      hasArrearsHistory: '',
+      hasStandingArrears: '',
+    });
+    setStudents([]);
   };
 
-  const calculateCgpa = (student) => {
-    // Use stored CGPA if available
-    if (student.ug_cgpa && student.ug_cgpa > 0) {
-      return student.ug_cgpa.toFixed(2);
-    }
+  const exportToCSV = () => {
+    const headers = ['Reg No', 'Name', 'Email', 'Department', 'Batch', 'Semester', '10th %', '12th %', 'CGPA', 'Arrears History', 'Standing Arrears'];
+    const rows = students.map(s => [
+      s.regno,
+      s.username,
+      s.email,
+      s.department,
+      s.batch,
+      s.semester,
+      s.tenth_percentage || 'N/A',
+      s.twelfth_percentage || 'N/A',
+      s.cgpa || 'N/A',
+      s.has_arrears_history ? 'Yes' : 'No',
+      s.has_standing_arrears ? 'Yes' : 'No',
+    ]);
 
-    // Calculate from semester GPAs
-    const semesters = [
-      student.ug_sem1_gpa, student.ug_sem2_gpa, student.ug_sem3_gpa, student.ug_sem4_gpa,
-      student.ug_sem5_gpa, student.ug_sem6_gpa, student.ug_sem7_gpa, student.ug_sem8_gpa
-    ].filter(gpa => gpa !== null && gpa !== undefined && gpa > 0);
-    
-    return semesters.length > 0 
-      ? (semesters.reduce((sum, gpa) => sum + gpa, 0) / semesters.length).toFixed(2)
-      : 'N/A';
+    const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `eligible_students_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
   };
 
-  const formatArrears = (student) => {
-    if (student.has_arrears === 'No' || student.no_of_arrears === 0) {
-      return 'No Arrears';
-    }
-    return `${student.no_of_arrears} Arrears`;
+  const exportToExcel = () => {
+    const wsData = [
+      ['Reg No', 'Name', 'Email', 'Department', 'Batch', 'Semester', 'Section', '10th %', '10th Board', '12th %', '12th Board', 'CGPA', 'GPA', 'Arrears History', 'Arrears Count', 'Standing Arrears', 'Standing Count', 'Gender', 'Blood Group', 'Phone', 'Personal Email'],
+      ...students.map(s => [
+        s.regno,
+        s.username,
+        s.email,
+        s.department,
+        s.batch,
+        s.semester,
+        s.section || 'N/A',
+        s.tenth_percentage || 'N/A',
+        s.tenth_board || 'N/A',
+        s.twelfth_percentage || 'N/A',
+        s.twelfth_board || 'N/A',
+        s.cgpa || 'N/A',
+        s.gpa || 'N/A',
+        s.has_arrears_history ? 'Yes' : 'No',
+        s.arrears_history_count || 0,
+        s.has_standing_arrears ? 'Yes' : 'No',
+        s.standing_arrears_count || 0,
+        s.gender || 'N/A',
+        s.blood_group || 'N/A',
+        s.personal_phone || 'N/A',
+        s.personal_email || 'N/A',
+      ])
+    ];
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    ws['!cols'] = [
+      { wch: 12 }, { wch: 20 }, { wch: 25 }, { wch: 20 }, { wch: 8 }, { wch: 10 },
+      { wch: 10 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 8 },
+      { wch: 8 }, { wch: 15 }, { wch: 12 }, { wch: 16 }, { wch: 14 }, { wch: 10 },
+      { wch: 12 }, { wch: 15 }, { wch: 25 }
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Eligible Students');
+
+    const fileName = `eligible_students_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(wb, fileName);
   };
-
-  // Unique filter options (from current staff's students only)
-  const uniqueDepts = [...new Set(departments.filter(d => 
-    students.some(s => s.Deptid === d.Deptid)
-  ).map(d => d.Deptacronym).filter(Boolean))];
-  
-  const uniqueBatches = [...new Set(students.map(s => s.batch).filter(Boolean))];
-  const uniqueYears = [...new Set(students.map(s => calculateYear(s.batch)).filter(Boolean))];
-  const uniqueSemesters = [...new Set(students.map(s => s.semester).filter(Boolean))];
-  const uniqueCompanies = [...new Set(companies.map(c => c.company_name))];
-
-  // For testing purposes - UNCOMMENT ONE OF THESE TO BYPASS AUTHENTICATION:
-  
-  // Option 1: Use a hardcoded staff ID for testing
-  // useEffect(() => {
-  //   setCurrentStaffId('STAFF001'); // Replace with actual staff ID
-  // }, []);
-
-  // Option 2: Try to get staff ID from localStorage directly
-  // useEffect(() => {
-  //   const staffId = localStorage.getItem('staffId') || localStorage.getItem('userId');
-  //   if (staffId) {
-  //     setCurrentStaffId(staffId);
-  //   } else {
-  //     setError('No staff ID found in localStorage');
-  //   }
-  // }, []);
-
-  // Option 3: Skip authentication and use demo data
-  // useEffect(() => {
-  //   setCurrentStaffId('DEMO_STAFF');
-  // }, []);
-
-  if (!currentStaffId && !error) {
-    return (
-      <>
-        <Navbar />
-        <div className="eligible-students-container">
-          <div className="loading">
-            <div className="loading-spinner"></div>
-            Loading staff information...
-            <br />
-            <small>If this persists, check console for errors</small>
-          </div>
-        </div>
-      </>
-    );
-  }
 
   return (
-    <>
-      <Navbar />
-      <br></br>
-      <br></br>
-      <br></br>
-      <div className="eligible-students-container">
-        <div className="main-container">
-          <div className="header-section">
-            <h1 className="title">My Students - Eligible for Placements</h1>
-            <p className="subtitle">
-              Students assigned to you with company eligibility status
-              {currentStaffId && <span> (Staff ID: {currentStaffId})</span>}
-            </p>
-          </div>
-
-          {error && (
-            <div className="error-message">
-              <strong>Error:</strong> {error}
-              <br />
-              <small>Check browser console for more details</small>
+    <div className="min-h-screen bg-gray-50 p-6"
+          style={{ marginLeft: "250px", padding: "20px" }}
+>
+      <div className="max-w-7xl mx-auto">
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-800">Student Eligibility Filter</h1>
+              {staffInfo && (
+                <p className="text-sm text-gray-600 mt-2">
+                  Showing students from: <span className="font-semibold">{staffInfo.departmentName}</span>
+                </p>
+              )}
             </div>
-          )}
-
-          {loading && (
-            <div className="loading">
-              <div className="loading-spinner"></div>
-              Loading your students and education data...
-            </div>
-          )}
-
-          {/* Filters Section */}
-          <div className="filters">
-            <div className="filter-group">
-              <label className="filter-label">Department</label>
-              <select name="dept" value={filters.dept} onChange={handleFilterChange} aria-label="Filter by department">
-                <option value="">All Departments</option>
-                {uniqueDepts.map(dept => (
-                  <option key={dept} value={dept}>{dept}</option>
-                ))}
-              </select>
-            </div>
-            <div className="filter-group">
-              <label className="filter-label">Batch</label>
-              <select name="batch" value={filters.batch} onChange={handleFilterChange} aria-label="Filter by batch">
-                <option value="">All Batches</option>
-                {uniqueBatches.map(batch => (
-                  <option key={batch} value={batch}>{batch}</option>
-                ))}
-              </select>
-            </div>
-            <div className="filter-group">
-              <label className="filter-label">Year</label>
-              <select name="year" value={filters.year} onChange={handleFilterChange} aria-label="Filter by year">
-                <option value="">All Years</option>
-                {uniqueYears.map(year => (
-                  <option key={year} value={year}>{year}</option>
-                ))}
-              </select>
-            </div>
-            <div className="filter-group">
-              <label className="filter-label">Semester</label>
-              <select name="semester" value={filters.semester} onChange={handleFilterChange} aria-label="Filter by semester">
-                <option value="">All Semesters</option>
-                {uniqueSemesters.map(sem => (
-                  <option key={sem} value={sem}>{sem}</option>
-                ))}
-              </select>
-            </div>
-            <div className="filter-group">
-              <label className="filter-label">Company Name</label>
-              <input
-                type="text"
-                name="companyName"
-                value={filters.companyName}
-                onChange={handleFilterChange}
-                placeholder="Filter by company name"
-                aria-label="Filter by company name"
-              />
-            </div>
-            <button 
-              className="download-btn" 
-              onClick={handleDownloadExcel} 
-              disabled={filteredStudents.length === 0}
-              aria-label="Download as Excel"
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
             >
-              Download My Students ({filteredStudents.length} records)
+              <Filter size={20} />
+              {showFilters ? 'Hide Filters' : 'Show Filters'}
             </button>
           </div>
 
-          {/* Students Table */}
-          <div className="table-container">
-            {filteredStudents.length > 0 ? (
-              <div className="table-wrapper">
-                <table className="students-table">
-                  <thead>
-                    <tr>
-                      <th>S.N</th>
-                      <th>Reg No</th>
-                      <th>Name</th>
-                      <th>Department</th>
-                      <th>Batch</th>
-                      <th>Semester</th>
-                      <th>Section</th>
-                      <th>Student Type</th>
-                      <th>10th (%)</th>
-                      <th>12th (%)</th>
-                      <th>UG CGPA</th>
-                      <th>Arrears</th>
-                      <th>Eligible Companies</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredStudents.map((student, index) => (
-                      <tr key={student.userid}>
-                        <td>{index + 1}</td>
-                        <td>{student.regno}</td>
-                        <td>{student.name}</td>
-                        <td>{departments.find(d => d.Deptid === student.Deptid)?.Deptacronym || 'N/A'}</td>
-                        <td>{student.batch}</td>
-                        <td>{student.semester}</td>
-                        <td>{student.section || 'N/A'}</td>
-                        <td>{student.student_type || 'N/A'}</td>
-                        <td>{student.tenth_percentage || 'N/A'}</td>
-                        <td>{student.twelfth_percentage || 'N/A'}</td>
-                        <td>{calculateCgpa(student)}</td>
-                        <td>{formatArrears(student)}</td>
-                        <td>
-                          {student.eligibleCompanies.length > 0 ? (
-                            <div className="companies-list">
-                              {student.eligibleCompanies.map((company, idx) => (
-                                <span key={idx} className="company-tag">{company}</span>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="no-companies">No eligible companies</span>
-                          )}
-                        </td>
-                      </tr>
+          {showFilters && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Batch</label>
+                  <select
+                    name="batch"
+                    value={filters.batch}
+                    onChange={handleFilterChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">All Batches</option>
+                    {filterOptions.batches.map(batch => (
+                      <option key={batch} value={batch}>{batch}</option>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              !loading && (
-                <div className="empty-state">
-                  <div className="empty-icon">👨‍🎓</div>
-                  <h3 className="empty-title">No Eligible Students Found</h3>
-                  <p className="empty-description">
-                    {filters.dept || filters.batch || filters.year || filters.semester || filters.companyName
-                      ? "No students match the current filters. Try adjusting your search criteria."
-                      : "You don't have any students assigned or none have complete education records."
-                    }
-                  </p>
+                  </select>
                 </div>
-              )
-            )}
-          </div>
 
-          {/* Summary Statistics */}
-          {!loading && students.length > 0 && (
-            <div className="summary-stats">
-              <div className="stat-card">
-                <h4>My Total Students</h4>
-                <span className="stat-number">{students.length}</span>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Year</label>
+                  <select
+                    name="year"
+                    value={filters.year}
+                    onChange={handleFilterChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">All Years</option>
+                    {filterOptions.years.map(year => (
+                      <option key={year} value={year}>Year {year}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Arrears History</label>
+                  <select
+                    name="hasArrearsHistory"
+                    value={filters.hasArrearsHistory}
+                    onChange={handleFilterChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Any</option>
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Standing Arrears</label>
+                  <select
+                    name="hasStandingArrears"
+                    value={filters.hasStandingArrears}
+                    onChange={handleFilterChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Any</option>
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Min 10th %</label>
+                  <input
+                    type="number"
+                    name="minTenth"
+                    value={filters.minTenth}
+                    onChange={handleFilterChange}
+                    placeholder="0"
+                    min="0"
+                    max="100"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Max 10th %</label>
+                  <input
+                    type="number"
+                    name="maxTenth"
+                    value={filters.maxTenth}
+                    onChange={handleFilterChange}
+                    placeholder="100"
+                    min="0"
+                    max="100"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Min 12th %</label>
+                  <input
+                    type="number"
+                    name="minTwelfth"
+                    value={filters.minTwelfth}
+                    onChange={handleFilterChange}
+                    placeholder="0"
+                    min="0"
+                    max="100"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Max 12th %</label>
+                  <input
+                    type="number"
+                    name="maxTwelfth"
+                    value={filters.maxTwelfth}
+                    onChange={handleFilterChange}
+                    placeholder="100"
+                    min="0"
+                    max="100"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Min CGPA</label>
+                  <input
+                    type="number"
+                    name="minCgpa"
+                    value={filters.minCgpa}
+                    onChange={handleFilterChange}
+                    placeholder="0"
+                    min="0"
+                    max="10"
+                    step="0.01"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Max CGPA</label>
+                  <input
+                    type="number"
+                    name="maxCgpa"
+                    value={filters.maxCgpa}
+                    onChange={handleFilterChange}
+                    placeholder="10"
+                    min="0"
+                    max="10"
+                    step="0.01"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
               </div>
-              <div className="stat-card">
-                <h4>Filtered Results</h4>
-                <span className="stat-number">{filteredStudents.length}</span>
-              </div>
-              <div className="stat-card">
-                <h4>Available Companies</h4>
-                <span className="stat-number">{companies.length}</span>
-              </div>
-              <div className="stat-card">
-                <h4>Eligible Students</h4>
-                <span className="stat-number">
-                  {filteredStudents.filter(s => s.eligibleCompanies.length > 0).length}
-                </span>
+
+              <div className="flex gap-4">
+                <button
+                  onClick={handleSearch}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400"
+                >
+                  <Search size={20} />
+                  {loading ? 'Searching...' : 'Search Students'}
+                </button>
+                <button
+                  onClick={clearFilters}
+                  className="flex items-center gap-2 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                >
+                  <X size={20} />
+                  Clear Filters
+                </button>
               </div>
             </div>
           )}
         </div>
+
+        {students.length > 0 && (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">
+                Eligible Students ({students.length})
+              </h2>
+              <div className="flex gap-3">
+                <button
+                  onClick={exportToCSV}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                >
+                  <Download size={20} />
+                  Export CSV
+                </button>
+                <button
+                  onClick={exportToExcel}
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
+                >
+                  <FileSpreadsheet size={20} />
+                  Export Excel
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-100 border-b-2 border-gray-300">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Reg No</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Name</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Email</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Department</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Batch</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">10th %</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">12th %</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">CGPA</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Arrears History</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Standing Arrears</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {students.map((student, index) => (
+                    <tr key={student.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <td className="px-4 py-3 font-medium text-gray-900">{student.regno}</td>
+                      <td className="px-4 py-3 text-gray-700">{student.username}</td>
+                      <td className="px-4 py-3 text-gray-700">{student.email}</td>
+                      <td className="px-4 py-3 text-gray-700">{student.department}</td>
+                      <td className="px-4 py-3 text-gray-700">{student.batch}</td>
+                      <td className="px-4 py-3 text-gray-700">{student.tenth_percentage || 'N/A'}</td>
+                      <td className="px-4 py-3 text-gray-700">{student.twelfth_percentage || 'N/A'}</td>
+                      <td className="px-4 py-3 text-gray-700">{student.cgpa || 'N/A'}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                          student.has_arrears_history 
+                            ? 'bg-red-100 text-red-800' 
+                            : 'bg-green-100 text-green-800'
+                        }`}>
+                          {student.has_arrears_history ? 'Yes' : 'No'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                          student.has_standing_arrears 
+                            ? 'bg-red-100 text-red-800' 
+                            : 'bg-green-100 text-green-800'
+                        }`}>
+                          {student.has_standing_arrears ? 'Yes' : 'No'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {!loading && students.length === 0 && (
+          <div className="bg-white rounded-lg shadow-md p-12 text-center">
+            <p className="text-gray-500 text-lg">No students found. Please apply filters and search.</p>
+          </div>
+        )}
       </div>
-    </>
+    </div>
   );
 };
 
-export default EligibleStudents;
+export default StudentFilterPage;

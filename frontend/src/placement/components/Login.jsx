@@ -25,7 +25,7 @@ const Login = () => {
           headers: { Authorization: `Bearer ${token}` },
         })
         .then(() => {
-          if (role === "admin") navigate("/placement/admin-home");
+          if (role === "admin") navigate("/placement/admin-recruiters");
           else if (role === "student") navigate("/placement/home");
           else if (role === "staff") navigate("/placement/staff-home");
         })
@@ -63,7 +63,7 @@ const Login = () => {
 
         setTimeout(() => {
           if (role === "admin") {
-            navigate("/placement/admin-home");
+            navigate("/placement/admin-recruiters ");
           } else if (role === "student") {
             navigate("/placement/home");
           } else if (role === "staff") {

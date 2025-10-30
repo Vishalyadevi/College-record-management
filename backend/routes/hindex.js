@@ -14,6 +14,9 @@ router.get('/', authenticateToken, async (req, res) => {
         h.faculty_name,
         h.citations,
         h.h_index,
+        h.i_index,
+        h.google_citations,
+        h.scopus_citations,
         h.created_at,
         h.updated_at,
         u.username
@@ -56,6 +59,9 @@ router.get('/:id', authenticateToken, async (req, res) => {
         h.faculty_name,
         h.citations,
         h.h_index,
+        h.i_index,
+        h.google_citations,
+        h.scopus_citations,
         h.created_at,
         h.updated_at,
         u.username
@@ -90,15 +96,18 @@ router.post('/', authenticateToken, async (req, res) => {
   const { 
     faculty_name, 
     citations, 
-    h_index
+    h_index,
+    i_index,
+    google_citations,
+    scopus_citations
   } = req.body;
   
   try {
     // Debug logging - remove after testing
-    console.log('=== H-INDEX DEBUG INFO ===');
-    console.log('req.user:', req.user);
-    console.log('req.user.Userid:', req.user.Userid);
-    console.log('Request body:', req.body);
+    // console.log('=== H-INDEX DEBUG INFO ===');
+    // console.log('req.user:', req.user);
+    // console.log('req.user.Userid:', req.user.Userid);
+    // console.log('Request body:', req.body);
     
     // Comprehensive validation
     if (!faculty_name || !faculty_name.trim()) {
@@ -122,9 +131,33 @@ router.post('/', authenticateToken, async (req, res) => {
       });
     }
     
+    if (i_index === undefined || i_index === null) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'I-index field is required' 
+      });
+    }
+    
+    if (google_citations === undefined || google_citations === null) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Google citations field is required' 
+      });
+    }
+    
+    if (scopus_citations === undefined || scopus_citations === null) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Scopus citations field is required' 
+      });
+    }
+    
     // Convert to numbers and validate
     const citationsNum = parseInt(citations);
     const hIndexNum = parseInt(h_index);
+    const iIndexNum = parseFloat(i_index);
+    const googleCitationsNum = parseInt(google_citations);
+    const scopusCitationsNum = parseInt(scopus_citations);
     
     if (isNaN(citationsNum) || citationsNum < 0) {
       return res.status(400).json({ 
@@ -137,6 +170,27 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ 
         success: false,
         message: 'H-index must be a non-negative integer' 
+      });
+    }
+    
+    if (isNaN(iIndexNum) || iIndexNum < 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'I-index must be a non-negative number' 
+      });
+    }
+    
+    if (isNaN(googleCitationsNum) || googleCitationsNum < 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Google citations must be a non-negative integer' 
+      });
+    }
+    
+    if (isNaN(scopusCitationsNum) || scopusCitationsNum < 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Scopus citations must be a non-negative integer' 
       });
     }
     
@@ -167,9 +221,9 @@ router.post('/', authenticateToken, async (req, res) => {
     
     // Insert new h-index entry
     const [result] = await pool.query(
-      `INSERT INTO h_index (Userid, faculty_name, citations, h_index) 
-       VALUES (?, ?, ?, ?)`,
-      [req.user.Userid, faculty_name.trim(), citationsNum, hIndexNum] // ✅ Changed from req.user.id
+      `INSERT INTO h_index (Userid, faculty_name, citations, h_index, i_index, google_citations, scopus_citations) 
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [req.user.Userid, faculty_name.trim(), citationsNum, hIndexNum, iIndexNum, googleCitationsNum, scopusCitationsNum] // ✅ Changed from req.user.id
     );
     
     // Fetch the created entry with user details
@@ -180,6 +234,9 @@ router.post('/', authenticateToken, async (req, res) => {
         h.faculty_name,
         h.citations,
         h.h_index,
+        h.i_index,
+        h.google_citations,
+        h.scopus_citations,
         h.created_at,
         h.updated_at,
         u.username
@@ -224,7 +281,10 @@ router.put('/:id', authenticateToken, async (req, res) => {
   const { 
     faculty_name, 
     citations, 
-    h_index
+    h_index,
+    i_index,
+    google_citations,
+    scopus_citations
   } = req.body;
   
   try {
@@ -250,9 +310,33 @@ router.put('/:id', authenticateToken, async (req, res) => {
       });
     }
     
+    if (i_index === undefined || i_index === null) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'I-index field is required' 
+      });
+    }
+    
+    if (google_citations === undefined || google_citations === null) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Google citations field is required' 
+      });
+    }
+    
+    if (scopus_citations === undefined || scopus_citations === null) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Scopus citations field is required' 
+      });
+    }
+    
     // Convert to numbers and validate
     const citationsNum = parseInt(citations);
     const hIndexNum = parseInt(h_index);
+    const iIndexNum = parseFloat(i_index);
+    const googleCitationsNum = parseInt(google_citations);
+    const scopusCitationsNum = parseInt(scopus_citations);
     
     if (isNaN(citationsNum) || citationsNum < 0) {
       return res.status(400).json({ 
@@ -265,6 +349,27 @@ router.put('/:id', authenticateToken, async (req, res) => {
       return res.status(400).json({ 
         success: false,
         message: 'H-index must be a non-negative integer' 
+      });
+    }
+    
+    if (isNaN(iIndexNum) || iIndexNum < 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'I-index must be a non-negative number' 
+      });
+    }
+    
+    if (isNaN(googleCitationsNum) || googleCitationsNum < 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Google citations must be a non-negative integer' 
+      });
+    }
+    
+    if (isNaN(scopusCitationsNum) || scopusCitationsNum < 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Scopus citations must be a non-negative integer' 
       });
     }
     
@@ -308,9 +413,12 @@ router.put('/:id', authenticateToken, async (req, res) => {
         faculty_name = ?, 
         citations = ?, 
         h_index = ?,
+        i_index = ?,
+        google_citations = ?,
+        scopus_citations = ?,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?`,
-      [faculty_name.trim(), citationsNum, hIndexNum, req.params.id]
+      [faculty_name.trim(), citationsNum, hIndexNum, iIndexNum, googleCitationsNum, scopusCitationsNum, req.params.id]
     );
     
     if (updateResult.affectedRows === 0) {
@@ -328,6 +436,9 @@ router.put('/:id', authenticateToken, async (req, res) => {
         h.faculty_name,
         h.citations,
         h.h_index,
+        h.i_index,
+        h.google_citations,
+        h.scopus_citations,
         h.created_at,
         h.updated_at,
         u.username
@@ -404,10 +515,19 @@ router.get('/stats/overview', authenticateToken, async (req, res) => {
         COUNT(*) as total_entries,
         AVG(citations) as avg_citations,
         AVG(h_index) as avg_h_index,
+        AVG(i_index) as avg_i_index,
+        AVG(google_citations) as avg_google_citations,
+        AVG(scopus_citations) as avg_scopus_citations,
         MAX(citations) as max_citations,
         MAX(h_index) as max_h_index,
+        MAX(i_index) as max_i_index,
+        MAX(google_citations) as max_google_citations,
+        MAX(scopus_citations) as max_scopus_citations,
         MIN(citations) as min_citations,
-        MIN(h_index) as min_h_index
+        MIN(h_index) as min_h_index,
+        MIN(i_index) as min_i_index,
+        MIN(google_citations) as min_google_citations,
+        MIN(scopus_citations) as min_scopus_citations
       FROM h_index
     `);
     
@@ -419,10 +539,19 @@ router.get('/stats/overview', authenticateToken, async (req, res) => {
           total_entries: 0,
           avg_citations: 0,
           avg_h_index: 0,
+          avg_i_index: 0,
+          avg_google_citations: 0,
+          avg_scopus_citations: 0,
           max_citations: 0,
           max_h_index: 0,
+          max_i_index: 0,
+          max_google_citations: 0,
+          max_scopus_citations: 0,
           min_citations: 0,
-          min_h_index: 0
+          min_h_index: 0,
+          min_i_index: 0,
+          min_google_citations: 0,
+          min_scopus_citations: 0
         }
       });
     }
@@ -433,10 +562,19 @@ router.get('/stats/overview', authenticateToken, async (req, res) => {
         total_entries: stats[0].total_entries,
         avg_citations: Math.round(stats[0].avg_citations * 100) / 100,
         avg_h_index: Math.round(stats[0].avg_h_index * 100) / 100,
+        avg_i_index: Math.round(stats[0].avg_i_index * 100) / 100,
+        avg_google_citations: Math.round(stats[0].avg_google_citations * 100) / 100,
+        avg_scopus_citations: Math.round(stats[0].avg_scopus_citations * 100) / 100,
         max_citations: stats[0].max_citations,
         max_h_index: stats[0].max_h_index,
+        max_i_index: Math.round(stats[0].max_i_index * 100) / 100,
+        max_google_citations: stats[0].max_google_citations,
+        max_scopus_citations: stats[0].max_scopus_citations,
         min_citations: stats[0].min_citations,
-        min_h_index: stats[0].min_h_index
+        min_h_index: stats[0].min_h_index,
+        min_i_index: Math.round(stats[0].min_i_index * 100) / 100,
+        min_google_citations: stats[0].min_google_citations,
+        min_scopus_citations: stats[0].min_scopus_citations
       }
     });
   } catch (error) {

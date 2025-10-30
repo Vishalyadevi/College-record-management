@@ -1,277 +1,258 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import Navbar from "./navbar";
-import "../../styles/studenthackathon.css";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { FaExternalLinkAlt, FaCheck, FaTimes, FaCalendarAlt } from "react-icons/fa";
 
 const StudentHackathon = () => {
   const [hackathons, setHackathons] = useState([]);
-  const [filteredHackathons, setFilteredHackathons] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState('newest');
-  const [filterBy, setFilterBy] = useState('all');
+  const [loading, setLoading] = useState(false);
+
+  // Get student ID from localStorage or auth context
+  const getStudentId = () => {
+    // Get from localStorage where your auth stores user info
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    return user.Userid || user.id || user.student_id;
+  };
+
+  // Get auth token from localStorage
+  const getAuthToken = () => {
+    return localStorage.getItem('token');
+  };
+
+  // Create axios instance with auth header
+  const axiosInstance = axios.create({
+    baseURL: 'http://localhost:4000',
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  });
+
+  // Add token to every request
+  axiosInstance.interceptors.request.use(
+    (config) => {
+      const token = getAuthToken();
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    },
+    (error) => {
+      return Promise.reject(error);
+    }
+  );
+
+  // Handle auth errors
+  axiosInstance.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        alert('Session expired. Please login again.');
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
+      return Promise.reject(error);
+    }
+  );
 
   useEffect(() => {
-    const fetchHackathons = async () => {
-      try {
-        setLoading(true);
-        setError('');
-        const response = await axios.get('http://localhost:4000/api/placement/hackathons');
-        setHackathons(response.data);
-        setFilteredHackathons(response.data);
-      } catch (err) {
-        console.error('Error fetching hackathons:', err);
-        setError('Failed to load hackathons. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
+    const studentId = getStudentId();
+    if (!studentId) {
+      alert('Please login to view hackathons');
+      window.location.href = '/login';
+      return;
+    }
     fetchHackathons();
   }, []);
 
-  // Apply filters and search
-  useEffect(() => {
-    let filtered = [...hackathons];
+  const fetchHackathons = async () => {
+    try {
+      setLoading(true);
+      const studentId = getStudentId();
+      
+      if (!studentId) {
+        throw new Error('Student ID not found');
+      }
 
-    // Search filter
-    if (searchTerm) {
-      filtered = filtered.filter(hack =>
-        hack.content.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      const response = await axiosInstance.get(`/api/student-hackathons?student_id=${studentId}`);
+      setHackathons(response.data.data || []);
+    } catch (error) {
+      console.error('Error fetching hackathons:', error);
+      alert(error.response?.data?.message || 'Error fetching hackathons');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegister = async (hackathonId) => {
+    try {
+      const studentId = getStudentId();
+      
+      if (!studentId) {
+        alert('Please login to register');
+        return;
+      }
+
+      await axiosInstance.post('/api/student-hackathons/register', {
+        student_id: studentId,
+        hackathon_id: hackathonId
+      });
+      alert('Registered successfully!');
+      fetchHackathons();
+    } catch (error) {
+      console.error('Error registering:', error);
+      alert(error.response?.data?.message || 'Error registering for hackathon');
+    }
+  };
+
+  const handleAttempt = async (hackathonId) => {
+    const attemptDate = prompt('Enter attempt date (YYYY-MM-DD):');
+    if (!attemptDate) return;
+
+    // Validate date format
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(attemptDate)) {
+      alert('Invalid date format. Please use YYYY-MM-DD');
+      return;
     }
 
-    // Date filter
-    const now = new Date();
-    if (filterBy === 'recent') {
-      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      filtered = filtered.filter(hack => new Date(hack.created_at) >= sevenDaysAgo);
-    } else if (filterBy === 'withLinks') {
-      filtered = filtered.filter(hack => hack.link && hack.link.trim() !== '');
-    }
+    try {
+      const studentId = getStudentId();
+      
+      if (!studentId) {
+        alert('Please login to mark attempt');
+        return;
+      }
 
-    // Sort
-    if (sortBy === 'newest') {
-      filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    } else if (sortBy === 'oldest') {
-      filtered.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      await axiosInstance.put('/api/student-hackathons/attempt', {
+        student_id: studentId,
+        hackathon_id: hackathonId,
+        attempt_date: attemptDate
+      });
+      alert('Attempt recorded successfully!');
+      fetchHackathons();
+    } catch (error) {
+      console.error('Error recording attempt:', error);
+      alert(error.response?.data?.message || 'Error recording attempt');
     }
+  };
 
-    setFilteredHackathons(filtered);
-  }, [hackathons, searchTerm, sortBy, filterBy]);
+  const StatusBadge = ({ registered, attempted }) => {
+    if (attempted) {
+      return <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">Attempted</span>;
+    }
+    if (registered) {
+      return <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">Registered</span>;
+    }
+    return <span className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm font-medium">Not Registered</span>;
+  };
 
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleString('en-IN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getTimeAgo = (dateString) => {
-    const now = new Date();
-    const postDate = new Date(dateString);
-    const diffTime = Math.abs(now - postDate);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 1) return 'Today';
-    if (diffDays <= 7) return `${diffDays} days ago`;
-    if (diffDays <= 30) return `${Math.ceil(diffDays / 7)} weeks ago`;
-    return `${Math.ceil(diffDays / 30)} months ago`;
-  };
-
-  const isValidUrl = (string) => {
+    if (!dateString) return 'N/A';
     try {
-      new URL(string);
-      return true;
-    } catch (err) {
-      return false;
+      return new Date(dateString).toLocaleDateString();
+    } catch (error) {
+      return 'Invalid Date';
     }
   };
 
-  const clearFilters = () => {
-    setSearchTerm('');
-    setSortBy('newest');
-    setFilterBy('all');
-  };
-
-  if (loading) {
-    return (
-      <>
-        <Navbar />
-        <div className="hackathon-page">
-          <div className="loading-container">
-            <div className="loading-spinner"></div>
-            <p>Loading hackathons...</p>
-          </div>
-        </div>
-      </>
-    );
-  }
-
   return (
-    <>
-      <Navbar />
-      <br></br>
-      <br></br>
-      <br></br>
-      <div className="hackathon-page">
-        {/* Header Section */}
-        <div className="hackathon-header">
-          <div className="header-content">
-            <h1 className="page-title">Hackathons & Competitions</h1>
-            
-          </div>
+    <div className="min-h-screen bg-gray-50 p-6"
+          style={{ marginLeft: "250px", padding: "20px" }}
+>
+      <div className="max-w-7xl mx-auto">
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">Available Hackathons</h1>
+          <p className="text-gray-600">Register and track your hackathon participation</p>
         </div>
 
-        {/* Filters and Search Section */}
-        <div className="filters-section">
-          <div className="filters-container">
-            <div className="search-box">
-              <input
-                type="text"
-                placeholder="Search hackathons..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="search-input"
-              />
-            </div>
-            
-            <div className="filter-controls">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="filter-select"
-              >
-                <option value="newest">Newest First</option>
-                <option value="oldest">Oldest First</option>
-              </select>
-
-              <select
-                value={filterBy}
-                onChange={(e) => setFilterBy(e.target.value)}
-                className="filter-select"
-              >
-                <option value="all">All Hackathons</option>
-                <option value="recent">Recent (7 days)</option>
-                <option value="withLinks">With Registration Links</option>
-              </select>
-
-              <button onClick={clearFilters} className="clear-filters-btn">
-                Clear Filters
-              </button>
-            </div>
+        {loading ? (
+          <div className="text-center py-8">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <p className="mt-2 text-gray-600">Loading hackathons...</p>
           </div>
-
-          <div className="results-info">
-            <span className="results-count">
-              {filteredHackathons.length} hackathon{filteredHackathons.length !== 1 ? 's' : ''} found
-            </span>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="hackathon-content">
-          {error && (
-            <div className="error-card">
-              <h3>Error Loading Hackathons</h3>
-              <p>{error}</p>
-              <button 
-                onClick={() => window.location.reload()} 
-                className="retry-btn"
-              >
-                Try Again
-              </button>
-            </div>
-          )}
-
-          {!error && filteredHackathons.length === 0 && !loading && (
-            <div className="empty-state">
-              <div className="empty-icon">🔍</div>
-              <h3>No Hackathons Found</h3>
-              <p>
-                {searchTerm || filterBy !== 'all' 
-                  ? 'Try adjusting your search or filters'
-                  : 'Check back later for exciting opportunities!'
-                }
-              </p>
-              {(searchTerm || filterBy !== 'all') && (
-                <button onClick={clearFilters} className="clear-all-btn">
-                  Clear All Filters
-                </button>
-              )}
-            </div>
-          )}
-
-          {!error && filteredHackathons.length > 0 && (
-            <div className="hackathons-grid">
-              {filteredHackathons.map((hack) => (
-                <div key={hack.id} className="hackathon-card">
-                  <div className="card-header">
-                    <div className="card-badges">
-                      <span className="time-badge">{getTimeAgo(hack.created_at)}</span>
-                      {hack.link && <span className="link-badge">Registration Open</span>}
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {hackathons.map((hackathon) => (
+              <div key={hackathon.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
+                <div className="p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-lg font-semibold text-gray-800 flex-1">{hackathon.contest_name}</h3>
+                    <a
+                      href={hackathon.contest_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 ml-2"
+                    >
+                      <FaExternalLinkAlt />
+                    </a>
+                  </div>
+                  
+                  <div className="space-y-3 mb-4">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Date:</span>
+                      <span className="font-medium">{formatDate(hackathon.date)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Host:</span>
+                      <span className="font-medium">{hackathon.host_by}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Eligibility:</span>
+                      <span className="font-medium">{hackathon.eligibility_year}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Department:</span>
+                      <span className="font-medium">{hackathon.department}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Attempt By:</span>
+                      <span className="font-medium">{formatDate(hackathon.attempt_date)}</span>
                     </div>
                   </div>
 
-                  <div className="card-body">
-                    <h3 className="card-title">Competition Opportunity</h3>
-                    <p className="card-description">{hack.content}</p>
+                  <div className="mb-4">
+                    <StatusBadge registered={hackathon.registered} attempted={hackathon.attempted} />
                   </div>
 
-                  <div className="card-footer">
-                    <div className="card-meta">
-                      <span className="post-date">
-                        Posted: {formatDate(hack.created_at)}
-                      </span>
-                    </div>
-
-                    <div className="card-actions">
-                      {hack.link && isValidUrl(hack.link) ? (
-                        <a
-                          href={hack.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="action-btn primary-btn"
-                        >
-                          Register Now
-                        </a>
-                      ) : (
-                        <span className="no-link-text">Registration details TBA</span>
-                      )}
-                      
-                      <button 
-                        className="action-btn secondary-btn"
-                        onClick={() => {
-                          navigator.clipboard.writeText(hack.content)
-                            .then(() => {
-                              // You could add a toast notification here
-                              const btn = document.activeElement;
-                              const originalText = btn.textContent;
-                              btn.textContent = 'Copied!';
-                              setTimeout(() => {
-                                btn.textContent = originalText;
-                              }, 2000);
-                            })
-                            .catch(() => alert('Failed to copy'));
-                        }}
-                        title="Copy to clipboard"
+                  <div className="space-y-2">
+                    {!hackathon.registered && (
+                      <button
+                        onClick={() => handleRegister(hackathon.id)}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
                       >
-                        Copy
+                        <FaCheck /> Register Now
                       </button>
-                    </div>
+                    )}
+                    
+                    {hackathon.registered && !hackathon.attempted && (
+                      <button
+                        onClick={() => handleAttempt(hackathon.id)}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+                      >
+                        <FaCalendarAlt /> Mark as Attempted
+                      </button>
+                    )}
+
+                    {hackathon.attempted && (
+                      <div className="text-center text-sm text-gray-600">
+                        Attempted on: {formatDate(hackathon.student_attempt_date)}
+                      </div>
+                    )}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {hackathons.length === 0 && !loading && (
+          <div className="text-center py-12 bg-white rounded-xl shadow-lg">
+            <FaCalendarAlt className="text-6xl text-gray-300 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-600 mb-2">No Hackathons Available</h3>
+            <p className="text-gray-500">Check back later for upcoming hackathons.</p>
+          </div>
+        )}
       </div>
-    </>
+    </div>
   );
 };
 
