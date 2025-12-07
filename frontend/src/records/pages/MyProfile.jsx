@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { FaKey, FaSave, FaPlus, FaUser } from "react-icons/fa";
-import { useNavigate } from "react-router-dom"; // Import useNavigate for navigation
+import { FaKey, FaSave, FaPlus, FaUser, FaSpinner } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
 
 const MyProfile = () => {
   const [user, setUser] = useState({
@@ -18,21 +18,32 @@ const MyProfile = () => {
   const [previewImage, setPreviewImage] = useState("");
   const [editImage, setEditImage] = useState(false);
   const [editPassword, setEditPassword] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
 
   const backendUrl = "http://localhost:4000";
   const userId = localStorage.getItem("userId");
-  const navigate = useNavigate(); // Initialize useNavigate
+  const token = localStorage.getItem("token");
+  const navigate = useNavigate();
 
   // Fetch user details
   useEffect(() => {
     const fetchUserDetails = async () => {
       try {
-        if (!userId) {
-          toast.error("User ID not found. Please log in again.");
+        if (!userId || !token) {
+          toast.error("Session expired. Please log in again.");
+          navigate("/records/login");
           return;
         }
 
-        const response = await axios.get(`${backendUrl}/api/get-user/${userId}`);
+        const response = await axios.get(
+          `${backendUrl}/api/get-user/${userId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
 
         if (response.data.success) {
           setUser({
@@ -48,17 +59,41 @@ const MyProfile = () => {
         }
       } catch (error) {
         console.error("Error fetching user details:", error);
-        toast.error("Error fetching user details.");
+        
+        if (error.response?.status === 401) {
+          toast.error("Session expired. Please login again.");
+          localStorage.removeItem("token");
+          localStorage.removeItem("userId");
+          localStorage.removeItem("userRole");
+          navigate("/records/login");
+        } else {
+          toast.error("Error fetching user details.");
+        }
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchUserDetails();
-  }, [userId]);
+  }, [userId, token, navigate]);
 
   // Handle image selection and preview
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Validate file type
+      const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif"];
+      if (!validTypes.includes(file.type)) {
+        toast.error("Please upload a valid image file (JPEG, PNG, or GIF)");
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("Image size should be less than 5MB");
+        return;
+      }
+
       setNewImage(file);
       const imageUrl = URL.createObjectURL(file);
       setPreviewImage(imageUrl);
@@ -68,19 +103,51 @@ const MyProfile = () => {
 
   // Update profile (image & password)
   const handleUpdateProfile = async () => {
-    if (editPassword && newPassword !== confirmPassword) {
-      toast.error("Passwords do not match!");
+    if (editPassword) {
+      if (!newPassword || !confirmPassword) {
+        toast.error("Please fill in both password fields!");
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        toast.error("Passwords do not match!");
+        return;
+      }
+
+      if (newPassword.length < 6) {
+        toast.error("Password must be at least 6 characters long!");
+        return;
+      }
+    }
+
+    if (!editImage && !editPassword) {
+      toast.info("No changes to update!");
       return;
     }
 
     const formData = new FormData();
     if (newImage) formData.append("image", newImage);
-    if (editPassword) formData.append("password", newPassword);
+    if (editPassword && newPassword) formData.append("password", newPassword);
 
     try {
-      const response = await axios.put(`${backendUrl}/api/update-profile/${userId}`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      setUpdating(true);
+
+      if (!token) {
+        toast.error("Session expired. Please login again.");
+        navigate("/records/login");
+        return;
+      }
+
+      const response = await axios.put(
+        `${backendUrl}/api/update-profile/${userId}`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
 
       if (response.data.success) {
         toast.success("Profile updated successfully!");
@@ -88,6 +155,8 @@ const MyProfile = () => {
         setEditPassword(false);
         setNewPassword("");
         setConfirmPassword("");
+        setNewImage(null);
+        setPreviewImage("");
 
         // Update profile image on success
         setUser((prev) => ({
@@ -97,11 +166,22 @@ const MyProfile = () => {
             : prev.profileImage,
         }));
       } else {
-        toast.error(response.data.message);
+        toast.error(response.data.message || "Failed to update profile");
       }
     } catch (error) {
       console.error("Error updating profile:", error);
-      toast.error("Failed to update profile.");
+      
+      if (error.response?.status === 401) {
+        toast.error("Session expired. Please login again.");
+        localStorage.removeItem("token");
+        localStorage.removeItem("userId");
+        localStorage.removeItem("userRole");
+        navigate("/records/login");
+      } else {
+        toast.error(error.response?.data?.message || "Failed to update profile.");
+      }
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -109,6 +189,27 @@ const MyProfile = () => {
   const handleNavigateToBioData = () => {
     navigate(`/records/student-biodata/${userId}`);
   };
+
+  // Cancel editing
+  const handleCancelEdit = () => {
+    setEditImage(false);
+    setEditPassword(false);
+    setNewPassword("");
+    setConfirmPassword("");
+    setNewImage(null);
+    setPreviewImage("");
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-blue-500">
+        <div className="text-center text-white">
+          <FaSpinner className="animate-spin text-5xl mx-auto mb-4" />
+          <p className="text-xl font-semibold">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-blue-500 p-4">
@@ -122,8 +223,9 @@ const MyProfile = () => {
             className="w-32 h-32 rounded-full mx-auto border-4 border-blue-200 object-cover"
           />
           <div
-            className="absolute bottom-0 right-0 bg-blue-500 p-2 rounded-full cursor-pointer hover:bg-blue-600 transition-colors"
+            className="absolute bottom-0 right-0 bg-blue-500 p-2 rounded-full cursor-pointer hover:bg-blue-600 transition-colors shadow-lg"
             onClick={() => document.getElementById("fileInput").click()}
+            title="Change profile picture"
           >
             <FaPlus className="text-white text-lg" />
           </div>
@@ -142,57 +244,78 @@ const MyProfile = () => {
         <p className="bg-gray-200 px-4 py-1 rounded-full text-sm text-gray-700 inline-block">
           {user.role || "Loading..."}
         </p>
-        
 
         {/* Bio Data Button (Visible only for students) */}
         {user.role === "Student" && (
-          <div
-            className="flex items-center justify-center space-x-2 cursor-pointer bg-green-500 text-white px-4 py-2 rounded-full mt-4 hover:bg-green-600 transition-colors"
+          <button
+            className="flex items-center justify-center space-x-2 bg-green-500 text-white px-4 py-2 rounded-full mt-4 hover:bg-green-600 transition-colors w-full"
             onClick={handleNavigateToBioData}
           >
             <FaUser className="text-white" />
-            <span>Bio Data</span>
-          </div>
+            <span>View Bio Data</span>
+          </button>
         )}
 
         {/* Password Update Section */}
         <div className="mt-8">
-          <div
-            className="flex items-center justify-center space-x-2 cursor-pointer bg-blue-500 text-white px-4 py-2 rounded-full hover:bg-blue-600 transition-colors"
+          <button
+            className="flex items-center justify-center space-x-2 bg-blue-500 text-white px-4 py-2 rounded-full hover:bg-blue-600 transition-colors w-full"
             onClick={() => setEditPassword(!editPassword)}
           >
             <FaKey className="text-white" />
-            <span>Change Password</span>
-          </div>
+            <span>{editPassword ? "Cancel Password Change" : "Change Password"}</span>
+          </button>
+          
           {editPassword && (
             <div className="mt-4 space-y-4">
               <input
                 type="password"
-                placeholder="New Password"
+                placeholder="New Password (min 6 characters)"
                 className="border p-2 w-full rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
+                minLength={6}
               />
               <input
                 type="password"
-                placeholder="Confirm Password"
+                placeholder="Confirm New Password"
                 className="border p-2 w-full rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                minLength={6}
               />
             </div>
           )}
         </div>
 
-        {/* Save Button (Visible only in editable mode) */}
+        {/* Action Buttons (Visible only in editable mode) */}
         {(editImage || editPassword) && (
-          <button
-            onClick={handleUpdateProfile}
-            className="bg-blue-600 text-white px-4 py-2 rounded-full mt-8 hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2 w-full"
-          >
-            <FaSave />
-            <span>Save Changes</span>
-          </button>
+          <div className="flex gap-3 mt-8">
+            <button
+              onClick={handleCancelEdit}
+              className="flex-1 bg-gray-500 text-white px-4 py-2 rounded-full hover:bg-gray-600 transition-colors flex items-center justify-center space-x-2"
+              disabled={updating}
+            >
+              <span>Cancel</span>
+            </button>
+            <button
+              onClick={handleUpdateProfile}
+              className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-full hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={updating}
+            >
+              {updating ? (
+                <>
+                  <FaSpinner className="animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <FaSave />
+                  <span>Save Changes</span>
+                </>
+              )}
+            </button>
+          </div>
         )}
       </div>
     </div>

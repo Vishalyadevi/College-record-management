@@ -28,10 +28,19 @@ const Sidebar = () => {
         const userId = localStorage.getItem("userId");
 
         if (!token || !userId) {
+          console.log("No token or userId found");
           return;
         }
 
-        const response = await axios.get(`${backendUrl}/api/get-user/${userId}`);
+        // Include Authorization header with Bearer token
+        const response = await axios.get(
+          `${backendUrl}/api/get-user/${userId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
 
         if (response.data.success) {
           setCurrentUser({
@@ -45,13 +54,23 @@ const Sidebar = () => {
           toast.error("Failed to fetch user details");
         }
       } catch (error) {
-        toast.error("Error fetching user details");
-        console.error(error);
+        console.error("Error fetching user details:", error);
+        
+        // Handle 401 Unauthorized - token expired or invalid
+        if (error.response?.status === 401) {
+          toast.error("Session expired. Please login again.");
+          localStorage.removeItem("token");
+          localStorage.removeItem("userId");
+          localStorage.removeItem("userRole");
+          navigate("/records/login");
+        } else {
+          toast.error("Error fetching user details");
+        }
       }
     };
 
     fetchCurrentUserDetails();
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     setShowDropdown(false);
@@ -66,9 +85,57 @@ const Sidebar = () => {
 
   const role = localStorage.getItem("userRole");
 
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      
+      // Call logout API
+      await axios.post(
+        `${backendUrl}/api/logout`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      // Clear local storage
+      localStorage.removeItem("token");
+      localStorage.removeItem("userId");
+      localStorage.removeItem("userRole");
+      
+      toast.success("Logged out successfully");
+      navigate("/records/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      
+      // Even if API call fails, still clear local data and redirect
+      localStorage.removeItem("token");
+      localStorage.removeItem("userId");
+      localStorage.removeItem("userRole");
+      
+      toast.success("Logged out successfully");
+      navigate("/records/login");
+    }
+  };
+
   const renderSidebarItems = () => {
     switch (role) {
-      case "Admin":
+      case "SuperAdmin":
+        return (
+          <>
+            <SidebarLink to="/records/admin" icon={<FaChalkboardTeacher />} label="Dashboard" />
+            <SidebarLink to="/records/add-user" icon={<FaUserTie />} label="Add User" />
+            <SidebarLink to="/records/student-list" icon={<FaUsers />} label="Student List" />
+            <SidebarLink to="/records/staff-list" icon={<FaUserTie />} label="Staff List" />
+            <SidebarLink to="/records/staff-activities" icon={<FaUserTie />} label="Staff Activities" />
+            <SidebarLink to="/records/student-activities" icon={<FaUserTie />} label="Student Activities" />
+            <SidebarLink to="/records/noncgpa-category" icon={<FaUserTie />} label="Add Non CGPA" />
+            <SidebarLink to="/records/bulk" icon={<FaFileUpload />} label="Bulk Import" />
+          </>
+        );
+      case "DeptAdmin":
         return (
           <>
             <SidebarLink to="/records/admin" icon={<FaChalkboardTeacher />} label="Dashboard" />
@@ -195,7 +262,10 @@ const Sidebar = () => {
           <div className="mt-2 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden w-48">
             <button
               className="block w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gradient-to-r from-purple-100 to-blue-100 transition-colors"
-              onClick={() => navigate("/records/profile")}
+              onClick={() => {
+                navigate("/records/profile");
+                setShowDropdown(false);
+              }}
             >
               My Profile
             </button>
@@ -215,12 +285,7 @@ const Sidebar = () => {
           style={{
             background: "linear-gradient(135deg, #F87171, #EF4444)",
           }}
-          onClick={() => {
-            localStorage.removeItem("token");
-            localStorage.removeItem("userId");
-            toast.success("Logged out successfully");
-            navigate("/records/login");
-          }}
+          onClick={handleLogout}
         >
           Logout
         </button>
@@ -248,13 +313,11 @@ const StaffPlacementDropdown = ({ isOpen, setIsOpen }) => {
   const location = useLocation();
   
   const subMenuItems = [
-   // { to: "/placement/staff-home", icon: <FaBriefcase />, label: "Home" },
     { to: "/records/staff-recruiters", icon: <FaBuilding />, label: "Recruiters" },
     { to: "/records/staff-upcomingdrive", icon: <FaCalendarCheck />, label: "Upcoming Drives" },
     { to: "/records/staff-hackathon", icon: <FaCode />, label: "Hackathons" },
     { to: "/records/staff-feedback", icon: <FaComments />, label: "Feedback" },
-        { to: "/records/eligible-staff-students", icon: <FaComments />, label: "Eligible students" },
-
+    { to: "/records/eligible-staff-students", icon: <FaUsers />, label: "Eligible Students" },
   ];
 
   return (
@@ -263,7 +326,7 @@ const StaffPlacementDropdown = ({ isOpen, setIsOpen }) => {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`flex items-center justify-between w-full py-3 px-6 text-sm font-medium text-gray-700 hover:bg-gradient-to-r from-purple-100 to-blue-100 transition-colors ${
-          location.pathname.includes('/placement/') ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white" : ""
+          location.pathname.includes('/records/staff-') && location.pathname.includes('staff') ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white" : ""
         }`}
       >
         <div className="flex items-center gap-3">
@@ -303,7 +366,6 @@ const StudentPlacementDropdown = ({ isOpen, setIsOpen }) => {
   const location = useLocation();
   
   const subMenuItems = [
-   // { to: "/placement/home", icon: <FaBriefcase />, label: "Home" },
     { to: "/placement/recruiters", icon: <FaBuilding />, label: "Recruiters" },
     { to: "/placement/upcoming-drive", icon: <FaCalendarCheck />, label: "Upcoming Drives" },
     { to: "/placement/hackathon", icon: <FaCode />, label: "Hackathons" },

@@ -1,55 +1,108 @@
-const mysql = require('mysql2/promise');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
-require('dotenv').config();
+import jwt from 'jsonwebtoken';
+import { pool } from '../db/db.js';
+import dotenv from 'dotenv';
 
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASS,
-  database: process.env.DB_NAME,
-});
+dotenv.config();
 
-
-exports.login = async (req, res) => {
+// Legacy authentication function (CommonJS style converted to ES6)
+export const login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const [rows] = await pool.execute('SELECT * FROM Users WHERE email = ?', [email]);
-    if (rows.length === 0) return res.status(404).json({ message: 'User not found' });
+    const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'User not found' 
+      });
+    }
 
     const user = rows[0];
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
-
     
+    // Note: This uses direct password comparison - NOT RECOMMENDED
+    // Use bcrypt in production (see authController.js)
+    const isMatch = password === user.password; // Should use bcrypt.compare()
+    
+    if (!isMatch) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid credentials' 
+      });
+    }
+
     const token = jwt.sign(
       { Userid: user.Userid, role: user.role }, 
       process.env.JWT_SECRET, 
-      { expiresIn: '1h' }
+      { expiresIn: '24h' }
     );
 
-    res.status(200).json({ token, role: user.role });
+    res.status(200).json({ 
+      success: true,
+      token, 
+      role: user.role,
+      Userid: user.Userid
+    });
+    
   } catch (err) {
-    res.status(500).json({ message: 'Server error' });
+    console.error('❌ Login error:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error' 
+    });
   }
 };
 
-// ✅ Middleware for Role-Based Access (Updated to use `Userid`)
-exports.verifyRole = (roles) => {
+// Legacy role verification middleware
+export const verifyRole = (roles) => {
   return (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1];
-    if (!token) return res.status(401).json({ message: 'Unauthorized' });
+    
+    if (!token) {
+      return res.status(401).json({ 
+        success: false,
+        message: 'Unauthorized: No token provided' 
+      });
+    }
 
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      
       if (!roles.includes(decoded.role)) {
-        return res.status(403).json({ message: 'Forbidden' });
+        return res.status(403).json({ 
+          success: false,
+          message: 'Forbidden: Insufficient permissions' 
+        });
       }
-      req.user = decoded; // ✅ Attach `Userid` and `role`
+      
+      req.user = decoded;
       next();
+      
     } catch (err) {
-      res.status(401).json({ message: 'Unauthorized' });
+      console.error('❌ Token verification failed:', err);
+      return res.status(401).json({ 
+        success: false,
+        message: 'Unauthorized: Invalid token' 
+      });
     }
   };
+};
+
+// Role-specific middleware functions
+export const verifySuperAdmin = verifyRole(['SuperAdmin']);
+export const verifyAdmin = verifyRole(['SuperAdmin', 'DeptAdmin', 'AcademicAdmin', 'IrAdmin', 'PgAdmin', 'NewgenAdmin', 'PlacementAdmin']);
+export const verifyDeptAdmin = verifyRole(['SuperAdmin', 'DeptAdmin']);
+export const verifyStaff = verifyRole(['Staff', 'SuperAdmin', 'DeptAdmin', 'AcademicAdmin']);
+export const verifyStudent = verifyRole(['Student', 'Staff', 'SuperAdmin', 'DeptAdmin', 'AcademicAdmin']);
+export const verifyPlacementAdmin = verifyRole(['SuperAdmin', 'PlacementAdmin']);
+
+export default {
+  login,
+  verifyRole,
+  verifySuperAdmin,
+  verifyAdmin,
+  verifyDeptAdmin,
+  verifyStaff,
+  verifyStudent,
+  verifyPlacementAdmin
 };

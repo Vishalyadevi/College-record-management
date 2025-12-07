@@ -1,67 +1,18 @@
-// import jwt from 'jsonwebtoken';
-// import dotenv from 'dotenv';
-// import User from '../models/User.js';
-
-// dotenv.config();
-
-// export const authenticate = async (req, res, next) => {
-//   try {
-//     const authHeader = req.headers.authorization;
-
-//     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-//       console.log("❌ No token found in header!");
-//       return res.status(401).json({ message: 'Unauthorized: No token provided' });
-//     }
-
-//     const token = authHeader.split(' ')[1];
-
-//     if (!process.env.JWT_SECRET) {
-//       console.error("❌ JWT_SECRET is missing in environment variables!");
-//       return res.status(500).json({ message: "Internal Server Error: Missing JWT secret" });
-//     }
-
-//     // ✅ Decode JWT
-//     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-//     // ✅ Ensure correct key used — 'Userid' must match what was signed in token
-//     const user = await User.findOne({ where: { Userid: decoded.Userid } });
-
-//     if (!user) {
-//       console.log("❌ User not found in database!");
-//       return res.status(401).json({ message: 'Unauthorized: User not found' });
-//     }
-
-//     if (user.status !== 'active') {
-//       console.log("❌ User account is inactive!");
-//       return res.status(403).json({ message: 'Account is inactive. Access denied.' });
-//     }
-
-//     // ✅ Attach full user object to req
-//     req.user = user;
-
-//     next(); // Proceed to next middleware or controller
-
-//   } catch (err) {
-//     console.error('❌ Token verification failed:', err.message);
-//     return res.status(403).json({ message: 'Invalid or expired token' });
-//   }
-// };
-
-
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import { pool } from '../db/db.js';
 
 dotenv.config();
 
+// Main authentication middleware
 export const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
-    console.log('🔍 Auth Header:', authHeader);
+    console.log('🔍 Auth Header:', authHeader ? 'Present' : 'Missing');
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log("❌ No token found in header!");
+      console.log('❌ No token found in header!');
       return res.status(401).json({ 
         success: false,
         message: 'Unauthorized: No token provided' 
@@ -70,9 +21,8 @@ export const authenticate = async (req, res, next) => {
 
     const token = authHeader.split(' ')[1];
     
-    // Check if token is actually present after split
     if (!token || token === 'null' || token === 'undefined') {
-      console.log("❌ Token is null or undefined!");
+      console.log('❌ Token is null or undefined!');
       return res.status(401).json({ 
         success: false,
         message: 'Unauthorized: Invalid token format' 
@@ -82,29 +32,28 @@ export const authenticate = async (req, res, next) => {
     console.log('🔑 Token received:', token.substring(0, 20) + '...');
 
     if (!process.env.JWT_SECRET) {
-      console.error("❌ JWT_SECRET is missing in environment variables!");
+      console.error('❌ JWT_SECRET is missing in environment variables!');
       return res.status(500).json({ 
         success: false,
-        message: "Internal Server Error: Missing JWT secret" 
+        message: 'Internal Server Error: Missing JWT secret' 
       });
     }
 
-    // ✅ Decode and verify JWT
+    // Verify JWT
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log('✅ Decoded token:', decoded);
 
-    // Check what field is in the token (might be 'id', 'userId', 'Userid', etc.)
     const userId = decoded.Userid || decoded.userId || decoded.id;
     
     if (!userId) {
-      console.log("❌ No user ID found in token! Token payload:", decoded);
+      console.log('❌ No user ID found in token! Token payload:', decoded);
       return res.status(401).json({ 
         success: false,
         message: 'Unauthorized: Invalid token payload' 
       });
     }
 
-    // ✅ Query user from database using raw SQL
+    // Query user from database
     const [users] = await pool.query(
       'SELECT * FROM users WHERE Userid = ? LIMIT 1',
       [userId]
@@ -121,25 +70,28 @@ export const authenticate = async (req, res, next) => {
     const user = users[0];
 
     if (user.status && user.status !== 'active') {
-      console.log("❌ User account is inactive!");
+      console.log('❌ User account is inactive!');
       return res.status(403).json({ 
         success: false,
         message: 'Account is inactive. Access denied.' 
       });
     }
 
-    // ✅ Attach user object to req
+    // Attach user object to req
     req.user = {
       Userid: user.Userid,
       username: user.username,
       email: user.email,
       role: user.role,
-      status: user.status
+      status: user.status,
+      Deptid: user.Deptid,
+      staffId: user.staffId,
+      image: user.image
     };
 
-    console.log('✅ User authenticated:', req.user.username);
+    console.log('✅ User authenticated:', req.user.username, '| Role:', req.user.role);
 
-    next(); // Proceed to next middleware or controller
+    next();
 
   } catch (err) {
     console.error('❌ Token verification failed:', err.message);
@@ -165,26 +117,106 @@ export const authenticate = async (req, res, next) => {
   }
 };
 
-// Optional: Middleware to check if user is admin
-export const isAdmin = (req, res, next) => {
-  if (req.user && req.user.role === 'admin') {
+// Role-based authorization middleware
+export const authorize = (...allowedRoles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ 
+        success: false,
+        message: 'Unauthorized: User not authenticated' 
+      });
+    }
+
+    if (!allowedRoles.includes(req.user.role)) {
+      console.log(`❌ Access denied for role: ${req.user.role}. Required: ${allowedRoles.join(', ')}`);
+      return res.status(403).json({ 
+        success: false,
+        message: `Access denied. Required role: ${allowedRoles.join(' or ')}` 
+      });
+    }
+
+    console.log(`✅ Role authorized: ${req.user.role}`);
     next();
-  } else {
-    return res.status(403).json({ 
+  };
+};
+
+// Specific role middlewares
+export const isSuperAdmin = (req, res, next) => {
+  return authorize('SuperAdmin')(req, res, next);
+};
+
+export const isAdmin = (req, res, next) => {
+  return authorize('SuperAdmin', 'DeptAdmin', 'AcademicAdmin', 'IrAdmin', 'PgAdmin', 'NewgenAdmin', 'PlacementAdmin')(req, res, next);
+};
+
+export const isDeptAdmin = (req, res, next) => {
+  return authorize('SuperAdmin', 'DeptAdmin')(req, res, next);
+};
+
+export const isStaff = (req, res, next) => {
+  return authorize('Staff', 'SuperAdmin', 'DeptAdmin', 'AcademicAdmin')(req, res, next);
+};
+
+export const isAcademicAdmin = (req, res, next) => {
+  return authorize('SuperAdmin', 'AcademicAdmin')(req, res, next);
+};
+
+export const isIrAdmin = (req, res, next) => {
+  return authorize('SuperAdmin', 'IrAdmin')(req, res, next);
+};
+
+export const isPgAdmin = (req, res, next) => {
+  return authorize('SuperAdmin', 'PgAdmin')(req, res, next);
+};
+
+export const isNewgenAdmin = (req, res, next) => {
+  return authorize('SuperAdmin', 'NewgenAdmin')(req, res, next);
+};
+
+export const isPlacementAdmin = (req, res, next) => {
+  return authorize('SuperAdmin', 'PlacementAdmin')(req, res, next);
+};
+
+// Department-based authorization
+export const checkDepartmentAccess = async (req, res, next) => {
+  try {
+    const { departmentId } = req.params;
+    const user = req.user;
+
+    // SuperAdmin has access to all departments
+    if (user.role === 'SuperAdmin') {
+      return next();
+    }
+
+    // DeptAdmin can only access their own department
+    if (user.role === 'DeptAdmin' && user.Deptid !== parseInt(departmentId)) {
+      return res.status(403).json({ 
+        success: false,
+        message: 'Access denied: You can only access your own department' 
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error('❌ Error checking department access:', error);
+    return res.status(500).json({ 
       success: false,
-      message: 'Access denied. Admin privileges required.' 
+      message: 'Internal server error' 
     });
   }
 };
 
-// Optional: Middleware to check if user is faculty
-export const isFaculty = (req, res, next) => {
-  if (req.user && (req.user.role === 'faculty' || req.user.role === 'admin')) {
-    next();
-  } else {
-    return res.status(403).json({ 
-      success: false,
-      message: 'Access denied. Faculty privileges required.' 
-    });
-  }
+export default {
+  authenticate,
+  authorize,
+  isSuperAdmin,
+  isAdmin,
+  isDeptAdmin,
+  isStaff,
+  isAcademicAdmin,
+  isIrAdmin,
+  isPgAdmin,
+  isNewgenAdmin,
+  isPlacementAdmin,
+  checkDepartmentAccess
 };

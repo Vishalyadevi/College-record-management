@@ -19,7 +19,7 @@ import { OnlineCoursesProvider } from './records/contexts/OnlineCoursesContext.j
 import { AchievementProvider } from "./records/contexts/AchievementContext.jsx";
 import { HackathonProvider } from "./records/contexts/HackathonContext.jsx"; // NEW
 import { StudentDataProvider } from './records/contexts/studentDataContext.jsx';
-import { CourseProvider } from './records/contexts/CourseContext.jsx';
+//import { CourseProvider } from './records/contexts/CourseContext.jsx';
 import { ExtracurricularProvider } from "./records/contexts/ExtracurricularContext.jsx";
 import { ProjectProvider } from "./records/contexts/ProjectContext.jsx";
 import { CompetencyCodingProvider } from "./records/contexts/CompetencyCodingContext.jsx"; // NEW
@@ -36,9 +36,9 @@ import { CertificateProvider } from "./records/contexts/CertificateContext.jsx";
 import Navbar from './components/Navbar';
 import Sidebar from './records/components/Sidebar';
 import Hero from './components/Hero';
-import QuickLinks from './components/QuickLinks';
+//import QuickLinks from './components/QuickLinks';
 import AcademicsOverview from './components/AcademicsOverview';
-import NewsSection from './components/NewsSection';
+//import NewsSection from './components/NewsSection';
 import Footer from './components/Footer';
 import PlacementHighlights from './components/PlacementHighlights';
 import ProgrammesOffered from './components/ProgrammesOffered';
@@ -561,37 +561,37 @@ const AppRoutes: React.FC = () => {
       
       {/* Admin Routes */}
       <Route path="/records/admin" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
+        <ProtectedRoute allowedRoles={['Superadmin','Deptadmin']}>
           <RecordsLayoutWithLocation><AdminPanel /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
       <Route path="/records/student-list" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
+        <ProtectedRoute allowedRoles={['Superadmin','Deptadmin']}>
           <RecordsLayoutWithLocation><StudentList /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
       <Route path="/records/staff-list" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
+        <ProtectedRoute allowedRoles={['Superadmin','Deptadmin']}>
           <RecordsLayoutWithLocation><StaffList /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
       <Route path="/records/add-user" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
+        <ProtectedRoute allowedRoles={['Superadmin','Deptadmin']}>
           <RecordsLayoutWithLocation><AddUser /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
       <Route path="/records/bulk" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
+        <ProtectedRoute allowedRoles={['Superadmin','Deptadmin']}>
           <RecordsLayoutWithLocation><Bulk /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
       <Route path="/records/staff-activities" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
+        <ProtectedRoute allowedRoles={['Superadmin','Deptadmin']}>
           <RecordsLayoutWithLocation><StaffActivitiesPage /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
       <Route path="/records/student-activities" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
+        <ProtectedRoute allowedRoles={['Superadmin','Deptadmin']}>
           <RecordsLayoutWithLocation><StudentActivitiesPage /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
@@ -874,7 +874,7 @@ const AppRoutes: React.FC = () => {
   </ProtectedRoute>
 } />
 <Route path="/records/noncgpa-category" element={
-  <ProtectedRoute allowedRoles={['Admin']}>
+  <ProtectedRoute allowedRoles={['Superadmin','Deptadmin']}>
     <RecordsLayoutWithLocation includeStudentProvider={true}>
       <NonCGPACategory />
     </RecordsLayoutWithLocation>
@@ -947,7 +947,7 @@ function App() {
     <StudentDataProvider>
           <CertificateProvider>
 
-      <CourseProvider>
+      
         <NonCGPACategoryProvider>
         <NonCGPAProvider>
         <StudentEducationProvider>
@@ -993,7 +993,7 @@ function App() {
 </StudentEducationProvider>
 </NonCGPAProvider>
 </NonCGPACategoryProvider>
-      </CourseProvider>
+     
           </CertificateProvider>
 
     </StudentDataProvider>
