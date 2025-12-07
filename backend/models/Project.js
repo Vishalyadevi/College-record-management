@@ -1,4 +1,3 @@
-// models/Project.js
 import { DataTypes } from 'sequelize';
 import { sequelize } from '../config/mysql.js';
 
@@ -22,22 +21,9 @@ const Project = sequelize.define('Project', {
     allowNull: false,
   },
   domain: {
-    type: DataTypes.ENUM(
-      'Web Development',
-      'Mobile Development',
-      'Machine Learning',
-      'Data Science',
-      'Artificial Intelligence',
-      'Cloud Computing',
-      'IoT',
-      'Blockchain',
-      'Cybersecurity',
-      'Game Development',
-      'Desktop Application',
-      'DevOps',
-      'Other'
-    ),
+    type: DataTypes.STRING(100),
     allowNull: false,
+    comment: 'Project domain/category (free text)',
   },
   link: {
     type: DataTypes.STRING(500),
@@ -54,7 +40,7 @@ const Project = sequelize.define('Project', {
     type: DataTypes.JSON,
     allowNull: true,
     defaultValue: [],
-    comment: 'Array of technologies used: ["React", "Node.js", "MongoDB"]',
+    comment: 'Array of technologies used',
   },
   start_date: {
     type: DataTypes.DATE,
@@ -62,10 +48,6 @@ const Project = sequelize.define('Project', {
   },
   end_date: {
     type: DataTypes.DATE,
-    allowNull: true,
-  },
-  image_url: {
-    type: DataTypes.STRING(500),
     allowNull: true,
   },
   github_link: {

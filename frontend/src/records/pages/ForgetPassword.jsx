@@ -1,27 +1,41 @@
 import React, { useState } from "react";
-import axios from "axios";
-import { toast } from "react-toastify";
-import { useNavigate, Link } from "react-router-dom";
-import { FaEnvelope } from "react-icons/fa";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import NEC_IMAGE from "../assets/nec2.JPG"; // Import the same background image
+import { FaEnvelope, FaArrowLeft } from "react-icons/fa";
+import { toast } from "react-toastify";
+import axios from "axios";
+import NEC_IMAGE from "../assets/nec2.JPG";
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+  const [emailSent, setEmailSent] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const response = await axios.post("http://localhost:4000/api/forgot-password", { email });
-      toast.success(response.data.message, { autoClose: 3000 });
-      setEmail(""); // Clear the email field after successful submission
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        toast.error("Please enter a valid email address");
+        setLoading(false);
+        return;
+      }
+
+      const response = await axios.post("http://localhost:4000/api/auth/forgot-password", {
+        email,
+      });
+
+      if (response.data.success) {
+        setEmailSent(true);
+        toast.success("Password reset link sent to your email!");
+      }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || "Error sending email";
-      toast.error(errorMessage, { autoClose: 3000 });
+      console.error("Forgot password error:", error);
+      const errorMessage = error.response?.data?.message || "Failed to send reset link. Please try again.";
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -29,84 +43,112 @@ const ForgotPassword = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center relative">
-      {/* Full-Screen Background Image */}
+      {/* Background Image */}
       <div
         className="absolute inset-0 bg-cover bg-center z-0"
         style={{ backgroundImage: `url(${NEC_IMAGE})` }}
       >
-        {/* Overlay for Desktop Only */}
-        <div className="hidden lg:block absolute inset-0 backdrop-blur-sm"></div>
+        <div className="absolute inset-0 backdrop-blur-sm bg-black/20"></div>
       </div>
 
-      {/* Centered Container for Desktop */}
-      <div className="w-full lg:w-4/5 xl:w-3/4 max-w-6xl flex flex-col lg:flex-row bg-white/20 backdrop-blur-md rounded-xl shadow-2xl overflow-hidden border border-white/30">
-        {/* Left Side: Image */}
-        <div
-          className="hidden lg:flex w-full lg:w-1/2 bg-cover bg-center"
-          style={{ backgroundImage: `url(${NEC_IMAGE})` }}
+      {/* Content Container */}
+      <div className="relative z-10 w-full max-w-md mx-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="bg-white/95 backdrop-blur-md rounded-xl shadow-2xl p-8 border border-white/30"
         >
-
-        </div>
-
-        {/* Right Side: Forgot Password Container */}
-        <div className="w-full lg:w-1/2 flex items-center justify-center p-10 bg-white/20 backdrop-blur-md">
-          <motion.div
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8 }}
-            className="w-full max-w-md"
-          >
-            <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-              <h1 className="text-3xl font-bold text-gray-800 text-center">Forgot Password</h1>
-
-              {/* Email Input */}
-              <div className="w-full">
-                <label className="block mb-2 text-sm font-medium text-gray-600">Email</label>
-                <div className="relative">
-                  <FaEnvelope className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-800 z-10" />
-                  <input
-                    type="email"
-                    placeholder="Enter your email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-white/90 backdrop-blur-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-gray-500"
-                    required
-                  />
-                </div>
+          {!emailSent ? (
+            <>
+              {/* Header */}
+              <div className="text-center mb-6">
+                <h1 className="text-3xl font-bold text-gray-800 mb-2">Forgot Password?</h1>
+                <p className="text-gray-600 text-sm">
+                  Enter your email address and we'll send you a link to reset your password
+                </p>
               </div>
 
-              {/* Submit Button */}
-              <button
-                type="submit"
-                className={`w-full py-3 rounded-lg text-white font-semibold transition-all ${
-                  loading
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
-                }`}
-                disabled={loading}
-              >
-                {loading ? (
-                  <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    <span className="ml-2">Sending...</span>
+              {/* Form */}
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Email Input */}
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-700">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <FaEnvelope className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      placeholder="Enter your email"
+                      required
+                      disabled={loading}
+                    />
                   </div>
-                ) : (
-                  "SEND RESET LINK"
-                )}
-              </button>
+                </div>
 
-              {/* Back to Login Link */}
-              <div className="text-center">
-                <Link
-                  to="/"
-                  className="text-sm text-blue-600 hover:text-blue-800 transition-all"
+                {/* Submit Button */}
+                <button
+                  type="submit"
+                  className={`w-full py-3 rounded-lg text-white font-semibold transition-all ${
+                    loading
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg hover:shadow-xl"
+                  }`}
+                  disabled={loading}
                 >
-                  Back to Login
+                  {loading ? (
+                    <div className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                      Sending...
+                    </div>
+                  ) : (
+                    "Send Reset Link"
+                  )}
+                </button>
+
+                {/* Back to Login */}
+                <div className="text-center">
+                  <Link
+                    to="/records/login"
+                    className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 transition-all font-medium"
+                  >
+                    <FaArrowLeft className="mr-2" />
+                    Back to Login
+                  </Link>
+                </div>
+              </form>
+            </>
+          ) : (
+            <>
+              {/* Success Message */}
+              <div className="text-center">
+                <div className="text-green-600 text-6xl mb-4">✓</div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-4">Email Sent!</h2>
+                <p className="text-gray-600 mb-6">
+                  We've sent a password reset link to <strong>{email}</strong>. Please check your
+                  inbox and follow the instructions.
+                </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <p className="text-sm text-gray-700">
+                    <strong>Didn't receive the email?</strong>
+                    <br />
+                    Check your spam folder or wait a few minutes for the email to arrive.
+                  </p>
+                </div>
+                <Link
+                  to="/records/login"
+                  className="inline-block bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-purple-700 transition-all shadow-lg"
+                >
+                  Return to Login
                 </Link>
               </div>
-            </form>
-          </motion.div>
-        </div>
+            </>
+          )}
+        </motion.div>
       </div>
     </div>
   );

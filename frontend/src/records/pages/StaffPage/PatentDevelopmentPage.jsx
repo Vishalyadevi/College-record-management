@@ -172,7 +172,7 @@ const PatentDevelopmentPage = () => {
           className="btn flex items-center gap-2 text-white bg-gradient-to-r from-blue-600 to-purple-400 hover:from-blue-800 hover:to-purple-500 px-4 py-2 rounded-md shadow-md"
         >
           <Plus size={16} />
-          Add Entry
+          Add Patent/Product Development
         </button>
       </div>
 

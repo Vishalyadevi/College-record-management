@@ -1,6 +1,5 @@
-// Projects.jsx - Student Project Management Component
 import React, { useState, useEffect } from "react";
-import { FaPlus, FaEye, FaEdit, FaTrash, FaGithub, FaLink, FaCalendar, FaUsers } from "react-icons/fa";
+import { FaEye, FaEdit, FaTrash, FaGithub, FaLink, FaUsers } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { useProject } from "../../contexts/ProjectContext";
 
@@ -16,22 +15,6 @@ const Projects = () => {
     clearError
   } = useProject();
 
-  const domains = [
-    'Web Development',
-    'Mobile Development',
-    'Machine Learning',
-    'Data Science',
-    'Artificial Intelligence',
-    'Cloud Computing',
-    'IoT',
-    'Blockchain',
-    'Cybersecurity',
-    'Game Development',
-    'Desktop Application',
-    'DevOps',
-    'Other'
-  ];
-
   const statuses = ['In Progress', 'Completed', 'On Hold', 'Archived'];
 
   const [formData, setFormData] = useState({
@@ -42,7 +25,6 @@ const Projects = () => {
     techstack: "",
     start_date: "",
     end_date: "",
-    image_url: "",
     github_link: "",
     team_members: 1,
     status: "In Progress",
@@ -55,7 +37,10 @@ const Projects = () => {
 
   useEffect(() => {
     if (userId) {
+      console.log("🔄 Fetching projects for userId:", userId);
       fetchUserProjects(userId);
+    } else {
+      console.error("❌ No userId found in localStorage");
     }
   }, [userId, fetchUserProjects]);
 
@@ -73,6 +58,13 @@ const Projects = () => {
     setLocalLoading(true);
     
     try {
+      // Validate required fields
+      if (!formData.title || !formData.domain || !formData.description) {
+        alert("Please fill in all required fields (Title, Domain, Description)");
+        setLocalLoading(false);
+        return;
+      }
+
       // Parse techstack from comma-separated string to array
       const techArray = formData.techstack
         .split(',')
@@ -80,16 +72,27 @@ const Projects = () => {
         .filter(tech => tech.length > 0);
 
       const projectData = {
-        ...formData,
+        title: formData.title,
+        domain: formData.domain,
+        link: formData.link || null,
+        description: formData.description,
         techstack: techArray,
-        Userid: parseInt(userId),
+        start_date: formData.start_date || null,
+        end_date: formData.end_date || null,
+        github_link: formData.github_link || null,
         team_members: parseInt(formData.team_members) || 1,
+        status: formData.status,
+        Userid: parseInt(userId),
       };
+
+      console.log("📤 Submitting project:", projectData);
 
       if (editingId) {
         await updateProject(editingId, projectData);
+        alert("✅ Project updated successfully!");
       } else {
         await addProject(projectData);
+        alert("✅ Project submitted successfully!");
       }
 
       // Refresh the projects list
@@ -104,14 +107,14 @@ const Projects = () => {
         techstack: "",
         start_date: "",
         end_date: "",
-        image_url: "",
         github_link: "",
         team_members: 1,
         status: "In Progress",
       });
       setEditingId(null);
     } catch (err) {
-      console.error("Error submitting project:", err);
+      console.error("❌ Error submitting project:", err);
+      alert(`Failed to submit project: ${err.message}`);
     } finally {
       setLocalLoading(false);
     }
@@ -126,7 +129,6 @@ const Projects = () => {
       techstack: Array.isArray(project.techstack) ? project.techstack.join(', ') : "",
       start_date: project.start_date ? project.start_date.split('T')[0] : "",
       end_date: project.end_date ? project.end_date.split('T')[0] : "",
-      image_url: project.image_url || "",
       github_link: project.github_link || "",
       team_members: project.team_members || 1,
       status: project.status,
@@ -140,8 +142,10 @@ const Projects = () => {
       try {
         await deleteProject(id, userId);
         await fetchUserProjects(userId);
+        alert("✅ Project deleted successfully!");
       } catch (err) {
         console.error("Error deleting project:", err);
+        alert(`Failed to delete project: ${err.message}`);
       }
     }
   };
@@ -167,7 +171,7 @@ const Projects = () => {
       {error && (
         <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg flex justify-between items-center">
           <span>{error}</span>
-          <button onClick={clearError} className="text-red-900 font-bold">×</button>
+          <button onClick={clearError} className="text-red-900 font-bold text-xl">×</button>
         </div>
       )}
 
@@ -204,18 +208,15 @@ const Projects = () => {
 
             <div>
               <label className="block text-gray-700 font-medium mb-1">Domain *</label>
-              <select
+              <input
+                type="text"
                 name="domain"
                 value={formData.domain}
                 onChange={handleInputChange}
                 className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., Web Development, Machine Learning, IoT"
                 required
-              >
-                <option value="">Select Domain</option>
-                {domains.map((domain) => (
-                  <option key={domain} value={domain}>{domain}</option>
-                ))}
-              </select>
+              />
             </div>
 
             <div>
@@ -290,18 +291,6 @@ const Projects = () => {
             </div>
 
             <div>
-              <label className="block text-gray-700 font-medium mb-1">Image URL</label>
-              <input
-                type="url"
-                name="image_url"
-                value={formData.image_url}
-                onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="https://example.com/image.jpg"
-              />
-            </div>
-
-            <div>
               <label className="block text-gray-700 font-medium mb-1">Team Members</label>
               <input
                 type="number"
@@ -346,7 +335,6 @@ const Projects = () => {
                     techstack: "",
                     start_date: "",
                     end_date: "",
-                    image_url: "",
                     github_link: "",
                     team_members: 1,
                     status: "In Progress",
@@ -389,14 +377,6 @@ const Projects = () => {
                 animate={{ opacity: 1, scale: 1 }}
                 className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg shadow-md hover:shadow-xl transition p-4"
               >
-                {project.image_url && (
-                  <img
-                    src={project.image_url}
-                    alt={project.title}
-                    className="w-full h-40 object-cover rounded-lg mb-3"
-                  />
-                )}
-                
                 <h4 className="text-lg font-bold text-gray-800 mb-2">{project.title}</h4>
                 
                 <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold mb-2 ${getStatusColor(project)}`}>
@@ -518,14 +498,6 @@ const Projects = () => {
               </button>
             </div>
             
-            {viewProject.image_url && (
-              <img
-                src={viewProject.image_url}
-                alt={viewProject.title}
-                className="w-full h-64 object-cover rounded-lg mb-4"
-              />
-            )}
-            
             <div className="space-y-3">
               <div>
                 <strong className="text-gray-700">Domain:</strong>
@@ -538,7 +510,7 @@ const Projects = () => {
               </div>
               
               <div>
-                <strong className="text-gray-700">Status:</strong>
+                <strong className="text-gray-700">Approval Status:</strong>
                 <span className={`ml-2 px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(viewProject)}`}>
                   {getStatusText(viewProject)}
                 </span>

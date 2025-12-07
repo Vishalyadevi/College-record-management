@@ -1,6 +1,5 @@
 import { DataTypes } from 'sequelize';
 import { sequelize } from '../config/mysql.js';
-import Department from './Department.js';
 
 const User = sequelize.define(
   'User',
@@ -18,14 +17,30 @@ const User = sequelize.define(
       type: DataTypes.STRING(255),
       allowNull: false,
       unique: true,
+      validate: {
+        isEmail: {
+          msg: 'Must be a valid email address'
+        }
+      }
     },
     password: {
       type: DataTypes.STRING(255),
       allowNull: false,
     },
     role: {
-      type: DataTypes.ENUM('Student', 'Staff', 'Admin'),
+      type: DataTypes.ENUM(
+        'Student', 
+        'Staff', 
+        'DeptAdmin', 
+        'SuperAdmin', 
+        'IrAdmin', 
+        'PgAdmin', 
+        'AcademicAdmin', 
+        'NewgenAdmin',
+        'PlacementAdmin'
+      ),
       allowNull: false,
+      defaultValue: 'Student'
     },
     status: {
       type: DataTypes.ENUM('active', 'inactive'),
@@ -35,31 +50,31 @@ const User = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: true,
       unique: true,
-     
-    },    
+    },
     Deptid: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      references: { model: "department", key: 'Deptid' }
+      references: { 
+        model: 'department', 
+        key: 'Deptid' 
+      }
     },
     image: {
       type: DataTypes.STRING(500),
       defaultValue: '/uploads/default.jpg',
     },
     resetPasswordToken: {
-      type: DataTypes.STRING(255),
+      type: DataTypes.STRING(500),
       allowNull: true,
     },
     resetPasswordExpires: {
       type: DataTypes.DATE,
       allowNull: true,
     },
-    skillrackProfile: {  // Add this line
-      type: DataTypes.STRING,
+    skillrackProfile: {
+      type: DataTypes.STRING(255),
       allowNull: true,
     },
-
-
     Created_by: {
       type: DataTypes.INTEGER,
       allowNull: true,
@@ -93,6 +108,21 @@ const User = sequelize.define(
     timestamps: true,
     tableName: 'users',
     freezeTableName: true,
+    indexes: [
+      {
+        unique: true,
+        fields: ['email']
+      },
+      {
+        fields: ['role']
+      },
+      {
+        fields: ['status']
+      },
+      {
+        fields: ['Deptid']
+      }
+    ]
   }
 );
 

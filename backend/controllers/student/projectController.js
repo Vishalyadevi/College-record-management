@@ -1,10 +1,21 @@
-// controllers/student/projectController.js
 import { User, StudentDetails, Project } from "../../models/index.js";
 import { sendEmail } from "../../utils/emailService.js";
+
+// Helper function to validate URLs
+function isValidUrl(string) {
+  try {
+    new URL(string);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
 
 // Add a new project
 export const addProject = async (req, res) => {
   try {
+    console.log("📥 Received project data:", req.body);
+
     const {
       title,
       domain,
@@ -13,7 +24,6 @@ export const addProject = async (req, res) => {
       techstack,
       start_date,
       end_date,
-      image_url,
       github_link,
       team_members,
       status,
@@ -22,28 +32,24 @@ export const addProject = async (req, res) => {
 
     // Validate required fields
     if (!Userid || !title || !domain || !description) {
-      return res.status(400).json({ message: "Title, domain, description, and Userid are required" });
+      console.error("❌ Missing required fields");
+      return res.status(400).json({ 
+        message: "Title, domain, description, and Userid are required",
+        missing: {
+          Userid: !Userid,
+          title: !title,
+          domain: !domain,
+          description: !description
+        }
+      });
     }
 
-    // Validate domain enum
-    const validDomains = [
-      'Web Development',
-      'Mobile Development',
-      'Machine Learning',
-      'Data Science',
-      'Artificial Intelligence',
-      'Cloud Computing',
-      'IoT',
-      'Blockchain',
-      'Cybersecurity',
-      'Game Development',
-      'Desktop Application',
-      'DevOps',
-      'Other',
-    ];
-
-    if (!validDomains.includes(domain)) {
-      return res.status(400).json({ message: "Invalid domain" });
+    // Validate domain
+    if (typeof domain !== 'string' || domain.trim().length === 0) {
+      return res.status(400).json({ message: "Domain must be a non-empty string" });
+    }
+    if (domain.length > 100) {
+      return res.status(400).json({ message: "Domain must be less than 100 characters" });
     }
 
     // Validate status if provided
@@ -60,39 +66,51 @@ export const addProject = async (req, res) => {
       return res.status(400).json({ message: "Invalid GitHub link URL" });
     }
 
-    // Validate techstack is array
+    // Handle techstack - ensure it's an array
     let techs = techstack;
-    if (typeof techstack === 'string') {
-      try {
-        techs = JSON.parse(techstack);
-      } catch (e) {
-        return res.status(400).json({ message: "Techstack must be a valid JSON array" });
+    if (techstack) {
+      if (typeof techstack === 'string') {
+        try {
+          techs = JSON.parse(techstack);
+        } catch (e) {
+          techs = techstack.split(',').map(t => t.trim()).filter(t => t);
+        }
       }
+      if (!Array.isArray(techs)) {
+        techs = [techs];
+      }
+    } else {
+      techs = [];
     }
+
+    console.log("✅ Validation passed");
 
     // Fetch user details
     const user = await User.findByPk(Userid);
     if (!user || !user.email) {
+      console.error("❌ User not found");
       return res.status(404).json({ message: "Student email not found" });
     }
 
     // Fetch student details
     const student = await StudentDetails.findOne({ where: { Userid } });
     if (!student || !student.tutorEmail) {
+      console.error("❌ Student details or tutor email not found");
       return res.status(404).json({ message: "Tutor email not found" });
     }
+
+    console.log("✅ Creating project...");
 
     // Create project
     const project = await Project.create({
       Userid,
       title,
-      domain,
+      domain: domain.trim(),
       link: link || null,
       description,
-      techstack: techs || [],
+      techstack: techs,
       start_date: start_date || null,
       end_date: end_date || null,
-      image_url: image_url || null,
       github_link: github_link || null,
       team_members: team_members || 1,
       status: status || 'In Progress',
@@ -104,24 +122,82 @@ export const addProject = async (req, res) => {
       Updated_by: user.Userid,
     });
 
-    // Send email to tutor
-    const techstackStr = Array.isArray(techs) ? techs.join(', ') : 'Not specified';
-    const emailText = `Dear Tutor,\n\nA student has submitted a new project for your approval.\n\nStudent Details:\nRegno: ${student.regno}\nName: ${user.username || "N/A"}\n\nProject Details:\nTitle: ${title}\nDomain: ${domain}\nDescription: ${description}\nTechstack: ${techstackStr}\nLink: ${link || "N/A"}\nGitHub Link: ${github_link || "N/A"}\nTeam Members: ${team_members || 1}\nStatus: ${status || "In Progress"}\nStart Date: ${start_date || "N/A"}\nEnd Date: ${end_date || "N/A"}\n\nThe project is currently pending your approval. Please review and approve or reject.\n\nBest Regards,\nProject Management System`;
+    console.log("✅ Project created:", project.id);
 
-    await sendEmail({
-      from: user.email,
-      to: student.tutorEmail,
-      subject: "New Project Submitted - Pending Approval",
-      text: emailText,
-    });
+    // Send email to tutor
+    try {
+      const techstackStr = Array.isArray(techs) ? techs.join(', ') : 'Not specified';
+      const emailText = `Dear Tutor,
+
+A student has submitted a new project for your approval.
+
+Student Details:
+Regno: ${student.regno}
+Name: ${user.username || "N/A"}
+
+Project Details:
+Title: ${title}
+Domain: ${domain}
+Description: ${description}
+Techstack: ${techstackStr}
+Link: ${link || "N/A"}
+GitHub Link: ${github_link || "N/A"}
+Team Members: ${team_members || 1}
+Status: ${status || "In Progress"}
+Start Date: ${start_date || "N/A"}
+End Date: ${end_date || "N/A"}
+
+The project is currently pending your approval. Please review and approve or reject.
+
+Best Regards,
+Project Management System`;
+
+      await sendEmail({
+        from: user.email,
+        to: student.tutorEmail,
+        subject: "New Project Submitted - Pending Approval",
+        text: emailText,
+      });
+      console.log("✅ Email sent to tutor");
+    } catch (emailError) {
+      console.error("⚠️ Email sending failed (non-critical):", emailError.message);
+    }
 
     res.status(201).json({
       message: "Project submitted for approval. Tutor notified.",
       project,
     });
   } catch (error) {
-    console.error("❌ Error adding project:", error);
-    res.status(500).json({ message: "Error adding project", error: error.message });
+    console.error("❌❌❌ ERROR ADDING PROJECT ❌❌❌");
+    console.error("Error Type:", error.name);
+    console.error("Error Message:", error.message);
+    console.error("Error Stack:", error.stack);
+    
+    // Sequelize specific errors
+    if (error.name === 'SequelizeDatabaseError') {
+      console.error("💥 Database Error:", error.original?.sqlMessage || error.original);
+      console.error("SQL:", error.sql);
+      
+      return res.status(500).json({ 
+        message: "Database error while adding project",
+        error: error.original?.sqlMessage || error.message,
+        hint: "Check if the database schema matches the model. Domain should be VARCHAR(100)."
+      });
+    }
+    
+    if (error.name === 'SequelizeValidationError') {
+      console.error("💥 Validation Error:", error.errors);
+      return res.status(400).json({ 
+        message: "Validation error",
+        errors: error.errors.map(e => ({ field: e.path, message: e.message }))
+      });
+    }
+
+    res.status(500).json({ 
+      message: "Error adding project", 
+      error: error.message,
+      type: error.name
+    });
   }
 };
 
@@ -136,7 +212,6 @@ export const updateProject = async (req, res) => {
     techstack,
     start_date,
     end_date,
-    image_url,
     github_link,
     team_members,
     status,
@@ -144,6 +219,8 @@ export const updateProject = async (req, res) => {
   } = req.body;
 
   try {
+    console.log("📝 Updating project:", id);
+
     const project = await Project.findByPk(id);
     if (!project) {
       return res.status(404).json({ message: "Project not found" });
@@ -154,27 +231,18 @@ export const updateProject = async (req, res) => {
       return res.status(403).json({ message: "Unauthorized to update this project" });
     }
 
-    // Validate enums if provided
-    const validDomains = [
-      'Web Development',
-      'Mobile Development',
-      'Machine Learning',
-      'Data Science',
-      'Artificial Intelligence',
-      'Cloud Computing',
-      'IoT',
-      'Blockchain',
-      'Cybersecurity',
-      'Game Development',
-      'Desktop Application',
-      'DevOps',
-      'Other',
-    ];
-    const validStatuses = ['In Progress', 'Completed', 'On Hold', 'Archived'];
-
-    if (domain && !validDomains.includes(domain)) {
-      return res.status(400).json({ message: "Invalid domain" });
+    // Validate domain if provided
+    if (domain) {
+      if (typeof domain !== 'string' || domain.trim().length === 0) {
+        return res.status(400).json({ message: "Domain must be a non-empty string" });
+      }
+      if (domain.length > 100) {
+        return res.status(400).json({ message: "Domain must be less than 100 characters" });
+      }
     }
+
+    // Validate status if provided
+    const validStatuses = ['In Progress', 'Completed', 'On Hold', 'Archived'];
     if (status && !validStatuses.includes(status)) {
       return res.status(400).json({ message: "Invalid project status" });
     }
@@ -193,27 +261,29 @@ export const updateProject = async (req, res) => {
       return res.status(404).json({ message: "User or Student details not found" });
     }
 
-    // Parse techstack if provided as string
+    // Handle techstack
     let techs = techstack;
     if (techstack) {
       if (typeof techstack === 'string') {
         try {
           techs = JSON.parse(techstack);
         } catch (e) {
-          return res.status(400).json({ message: "Techstack must be a valid JSON array" });
+          techs = techstack.split(',').map(t => t.trim()).filter(t => t);
         }
+      }
+      if (!Array.isArray(techs)) {
+        techs = [techs];
       }
     }
 
     // Update fields
     project.title = title ?? project.title;
-    project.domain = domain ?? project.domain;
+    project.domain = domain ? domain.trim() : project.domain;
     project.link = link ?? project.link;
     project.description = description ?? project.description;
     project.techstack = techs ?? project.techstack;
     project.start_date = start_date ?? project.start_date;
     project.end_date = end_date ?? project.end_date;
-    project.image_url = image_url ?? project.image_url;
     project.github_link = github_link ?? project.github_link;
     project.team_members = team_members ?? project.team_members;
     project.status = status ?? project.status;
@@ -224,18 +294,41 @@ export const updateProject = async (req, res) => {
     project.approved_at = null;
 
     await project.save();
+    console.log("✅ Project updated");
 
     // Send update email to tutor
     if (student.tutorEmail) {
-      const techstackStr = Array.isArray(project.techstack) ? project.techstack.join(', ') : 'Not specified';
-      const emailText = `Dear Tutor,\n\nA student has updated their project details.\n\nStudent Details:\nRegno: ${student.regno}\nName: ${user.username || "N/A"}\n\nUpdated Project Details:\nTitle: ${project.title}\nDomain: ${project.domain}\nDescription: ${project.description}\nTechstack: ${techstackStr}\nStatus: ${project.status}\n\nThis project is now pending approval. Please review the updated details.\n\nBest Regards,\nProject Management System`;
+      try {
+        const techstackStr = Array.isArray(project.techstack) ? project.techstack.join(', ') : 'Not specified';
+        const emailText = `Dear Tutor,
 
-      await sendEmail({
-        from: user.email,
-        to: student.tutorEmail,
-        subject: "Project Updated - Requires Review",
-        text: emailText,
-      });
+A student has updated their project details.
+
+Student Details:
+Regno: ${student.regno}
+Name: ${user.username || "N/A"}
+
+Updated Project Details:
+Title: ${project.title}
+Domain: ${project.domain}
+Description: ${project.description}
+Techstack: ${techstackStr}
+Status: ${project.status}
+
+This project is now pending approval. Please review the updated details.
+
+Best Regards,
+Project Management System`;
+
+        await sendEmail({
+          from: user.email,
+          to: student.tutorEmail,
+          subject: "Project Updated - Requires Review",
+          text: emailText,
+        });
+      } catch (emailError) {
+        console.error("⚠️ Email sending failed:", emailError.message);
+      }
     }
 
     res.status(200).json({
@@ -335,14 +428,32 @@ export const approveProject = async (req, res) => {
     // Send approval email to student
     const user = await User.findByPk(project.Userid);
     if (user && user.email) {
-      const techstackStr = Array.isArray(project.techstack) ? project.techstack.join(', ') : 'Not specified';
-      const emailText = `Dear ${user.username},\n\nYour project has been approved!\n\nProject: ${project.title}\nDomain: ${project.domain}\nTechstack: ${techstackStr}\nRating: ${rating ? rating + '/5' : "Not rated"}\n\nComments: ${comments || "None"}\n\nWell done on your excellent work!\n\nBest Regards,\nProject Management System`;
+      try {
+        const techstackStr = Array.isArray(project.techstack) ? project.techstack.join(', ') : 'Not specified';
+        const emailText = `Dear ${user.username},
 
-      await sendEmail({
-        to: user.email,
-        subject: "Project Approved Successfully",
-        text: emailText,
-      });
+Your project has been approved!
+
+Project: ${project.title}
+Domain: ${project.domain}
+Techstack: ${techstackStr}
+Rating: ${rating ? rating + '/5' : "Not rated"}
+
+Comments: ${comments || "None"}
+
+Well done on your excellent work!
+
+Best Regards,
+Project Management System`;
+
+        await sendEmail({
+          to: user.email,
+          subject: "Project Approved Successfully",
+          text: emailText,
+        });
+      } catch (emailError) {
+        console.error("⚠️ Email sending failed:", emailError.message);
+      }
     }
 
     res.status(200).json({ message: "Project approved successfully", project });
@@ -374,13 +485,29 @@ export const rejectProject = async (req, res) => {
     // Send rejection email to student
     const user = await User.findByPk(project.Userid);
     if (user && user.email) {
-      const emailText = `Dear ${user.username},\n\nYour project has been rejected.\n\nProject: ${project.title}\nDomain: ${project.domain}\n\nReason: ${comments || "No comments provided"}\n\nYou can update and resubmit your project after making necessary changes.\n\nBest Regards,\nProject Management System`;
+      try {
+        const emailText = `Dear ${user.username},
 
-      await sendEmail({
-        to: user.email,
-        subject: "Project Rejected - Please Review",
-        text: emailText,
-      });
+Your project has been rejected.
+
+Project: ${project.title}
+Domain: ${project.domain}
+
+Reason: ${comments || "No comments provided"}
+
+You can update and resubmit your project after making necessary changes.
+
+Best Regards,
+Project Management System`;
+
+        await sendEmail({
+          to: user.email,
+          subject: "Project Rejected - Please Review",
+          text: emailText,
+        });
+      } catch (emailError) {
+        console.error("⚠️ Email sending failed:", emailError.message);
+      }
     }
 
     res.status(200).json({ message: "Project rejected successfully", project });
@@ -404,27 +531,56 @@ export const deleteProject = async (req, res) => {
     const user = await User.findByPk(project.Userid);
 
     await project.destroy();
+    console.log("✅ Project deleted");
 
     // Send deletion notification to student
     if (user && user.email) {
-      const emailText = `Dear ${user.username},\n\nYour project has been deleted.\n\nProject Title: ${project.title}\nDomain: ${project.domain}\n\nIf this was an error, please contact your tutor.\n\nBest Regards,\nProject Management System`;
+      try {
+        const emailText = `Dear ${user.username},
 
-      await sendEmail({
-        to: user.email,
-        subject: "Project Deleted Notification",
-        text: emailText,
-      });
+Your project has been deleted.
+
+Project Title: ${project.title}
+Domain: ${project.domain}
+
+If this was an error, please contact your tutor.
+
+Best Regards,
+Project Management System`;
+
+        await sendEmail({
+          to: user.email,
+          subject: "Project Deleted Notification",
+          text: emailText,
+        });
+      } catch (emailError) {
+        console.error("⚠️ Email sending failed:", emailError.message);
+      }
     }
 
     // Send deletion notification to tutor
     if (student && student.tutorEmail) {
-      const emailText = `Dear Tutor,\n\nThe following project has been deleted:\n\nStudent: ${user?.username || "N/A"}\nRegno: ${student.regno}\nProject: ${project.title}\nDomain: ${project.domain}\n\nBest Regards,\nProject Management System`;
+      try {
+        const emailText = `Dear Tutor,
 
-      await sendEmail({
-        to: student.tutorEmail,
-        subject: "Project Deleted Notification",
-        text: emailText,
-      });
+The following project has been deleted:
+
+Student: ${user?.username || "N/A"}
+Regno: ${student.regno}
+Project: ${project.title}
+Domain: ${project.domain}
+
+Best Regards,
+Project Management System`;
+
+        await sendEmail({
+          to: student.tutorEmail,
+          subject: "Project Deleted Notification",
+          text: emailText,
+        });
+      } catch (emailError) {
+        console.error("⚠️ Email sending failed:", emailError.message);
+      }
     }
 
     res.status(200).json({ message: "Project deleted successfully" });
@@ -437,6 +593,9 @@ export const deleteProject = async (req, res) => {
 // Get all projects for a student
 export const getStudentProjects = async (req, res) => {
   const userId = req.user?.Userid || req.query.UserId;
+  
+  console.log("📥 Get student projects - User ID:", userId);
+  
   if (!userId) {
     return res.status(400).json({ message: "User ID is required" });
   }
@@ -447,10 +606,12 @@ export const getStudentProjects = async (req, res) => {
       order: [["createdAt", "DESC"]],
     });
 
+    console.log(`✅ Found ${projects.length} projects for user ${userId}`);
+
     res.status(200).json({ success: true, projects });
   } catch (error) {
     console.error("Error fetching student projects:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };
 
@@ -527,13 +688,3 @@ export const getProjectStatistics = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
-
-// Helper function to validate URLs
-function isValidUrl(string) {
-  try {
-    new URL(string);
-    return true;
-  } catch (_) {
-    return false;
-  }
-}

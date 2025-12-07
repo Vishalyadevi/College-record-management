@@ -5,7 +5,7 @@ import { toast } from "react-toastify";
 const StaffContext = createContext();
 
 export const StaffProvider = ({ children }) => {
-  const backendUrl = "http://localhost:4000"; // Ensure backend URL is defined
+  const backendUrl = "http://localhost:4000";
 
   const [staffs, setStaffs] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -18,17 +18,30 @@ export const StaffProvider = ({ children }) => {
       setError(null);
       try {
         const token = localStorage.getItem("token");
-        const [staffRes, deptRes] = await Promise.all([
-          axios.get(`${backendUrl}/api/staffs`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          axios.get(`${backendUrl}/api/departments`),
-        ]);
+        const userRole = localStorage.getItem("userRole");
+        const userDeptId = localStorage.getItem("deptid");
 
-        setStaffs(staffRes.data || []);
-        
-        setDepartments(deptRes.data || []);
-       
+        // Fetch departments first
+        const deptRes = await axios.get(`${backendUrl}/api/departments`);
+        let allDepartments = deptRes.data || [];
+
+        // Fetch staff data
+        const staffRes = await axios.get(`${backendUrl}/api/staffs`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        let allStaffs = staffRes.data || [];
+
+        // Filter based on user role
+        if (userRole === "DeptAdmin" && userDeptId) {
+          // DeptAdmin sees only their department
+          const deptIdNum = parseInt(userDeptId);
+          allStaffs = allStaffs.filter(staff => staff.Deptid === deptIdNum);
+          allDepartments = allDepartments.filter(dept => dept.Deptid === deptIdNum);
+        }
+        // SuperAdmin sees everything (no filtering needed)
+
+        setStaffs(allStaffs);
+        setDepartments(allDepartments);
       } catch (err) {
         console.error("Error fetching data:", err.response?.data || err.message);
         toast.error("Failed to load data");
@@ -39,7 +52,7 @@ export const StaffProvider = ({ children }) => {
     };
 
     fetchData();
-  }, []); // Removed `backendUrl` dependency to avoid unnecessary re-renders
+  }, []);
 
   return (
     <StaffContext.Provider value={{ staffs, departments, loading, error, setStaffs }}>
