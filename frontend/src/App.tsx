@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-route
 import './index.css';
 
 // Context Providers
-
 import { StudentProvider } from './records/contexts/StudentContext.jsx';
 import { StaffProvider } from './records/contexts/StaffContext.jsx';
 import { UserProvider } from './records/contexts/UserContext.jsx';
@@ -133,8 +132,9 @@ import StudentProject from './records/pages/Student/StudentProject.jsx';
 import StudentCompetency from './records/pages/Student/CompetencyCoding.jsx';
 import Publication from './records/pages/Student/Publication.jsx';
 import StudentEducation from './records/pages/Student/Education.jsx';
-import NonCGPA from './records/pages/Student/NonCGPACourses.jsx';
-import NonCGPACategory from './records/pages/admin/NonCGPACategoryManagement.jsx';
+import NonCGPACourses from './records/pages/Student/NonCGPACourses.jsx';
+import NonCGPACategoryManagement from './records/pages/admin/NonCGPACategoryManagement.jsx';
+import ResumeGenerator from './records/pages/Student/ResumeGenerator.jsx';
 
 
 
@@ -480,49 +480,49 @@ const AppRoutes: React.FC = () => {
       {/* Student Routes */}
       <Route path="/placement/home" element={
         <ProtectedRoute allowedRoles={['Student']}>
-           <Sidebar /><StudentHome />
+           <Sidebar /><div className="ml-64"><StudentHome /></div>
         </ProtectedRoute>
       } />
       <Route path="/placement/recruiters" element={
         <ProtectedRoute allowedRoles={['Student']}>
-           <Sidebar /><StudentRecruiter />
+           <Sidebar /><div className="ml-64"><StudentRecruiter /></div>
         </ProtectedRoute>
       } />
       <Route path="/placement/feedback" element={
         <ProtectedRoute allowedRoles={['Student']}>
-           <Sidebar /><PlacementFeedback />
+           <Sidebar /><div className="ml-64"><PlacementFeedback /></div>
         </ProtectedRoute>
       } />
       <Route path="/placement/upcoming-drive" element={
         <ProtectedRoute allowedRoles={['Student']}>
-           <Sidebar /><UpcomingDrives />
+           <Sidebar /><div className="ml-64"><UpcomingDrives /></div>
         </ProtectedRoute>
       } />
       <Route path="/placement/status" element={
         <ProtectedRoute allowedRoles={['Student']}>
-           <Sidebar /><Status />
+           <Sidebar /><div className="ml-64"><Status /></div>
         </ProtectedRoute>
       } />
       <Route path="/placement/studentprofile" element={
         <ProtectedRoute allowedRoles={['Student']}>
-          <Sidebar /><StudentProfile />
+          <Sidebar /><div className="ml-64"><StudentProfile /></div>
         </ProtectedRoute>
       } />
       <Route path="/placement/hackathon" element={
         <ProtectedRoute allowedRoles={['Student']}>
-           <Sidebar /><StudentHackathon />
+           <Sidebar /><div className="ml-64"><StudentHackathon /></div>
         </ProtectedRoute>
       } />
 
       {/* Staff Routes */}
       <Route path="/placement/staff-home" element={
         <ProtectedRoute allowedRoles={['Staff']}>
-          <Sidebar /><StaffHome />
+          <Sidebar /><div className="ml-64"><StaffHome /></div>
         </ProtectedRoute>
       } />
       <Route path="/records/staff-recruiters" element={
         <ProtectedRoute allowedRoles={['Staff']}>
-          <Sidebar /><StaffRecruiter />
+          <Sidebar /><div className="ml-64"><StaffRecruiter /></div>
         </ProtectedRoute>
       } />
       <Route path="/records/staff-upcomingdrive" element={
@@ -815,6 +815,13 @@ const AppRoutes: React.FC = () => {
           </RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
+      <Route path="/records/student-resume-generator" element={
+        <ProtectedRoute allowedRoles={['Student']}>
+          <RecordsLayoutWithLocation includeStudentProvider={true}>
+            <ResumeGenerator />
+          </RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
 
       <Route path="/records/student-profile" element={
         <ProtectedRoute allowedRoles={['Student']}>
@@ -869,14 +876,14 @@ const AppRoutes: React.FC = () => {
 <Route path="/records/noncgpa" element={
   <ProtectedRoute allowedRoles={['Student']}>
     <RecordsLayoutWithLocation includeStudentProvider={true}>
-      <NonCGPA />
+      <NonCGPACourses />
     </RecordsLayoutWithLocation>
   </ProtectedRoute>
 } />
 <Route path="/records/noncgpa-category" element={
   <ProtectedRoute allowedRoles={['Superadmin','Deptadmin']}>
     <RecordsLayoutWithLocation includeStudentProvider={true}>
-      <NonCGPACategory />
+      <NonCGPACategoryManagement />
     </RecordsLayoutWithLocation>
   </ProtectedRoute>
 } />

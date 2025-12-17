@@ -506,3 +506,162 @@ export const tutorApproveAchievement = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+// DashboardController.js - Add these new functions
+
+// Get Non-CGPA data for dashboard
+export const getNonCGPAForStudent = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    const noncgpaData = await db.query(
+      `SELECT * FROM student_noncgpa WHERE Userid = ? ORDER BY created_at DESC`,
+      [studentId]
+    );
+
+    res.json({
+      success: true,
+      data: noncgpaData[0] || []
+    });
+  } catch (error) {
+    console.error('Error fetching non-CGPA data:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get SkillRack data (mock for now - replace with actual scraping if needed)
+export const getSkillRackData = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    // Get student's skillrack profile URL
+    const student = await User.findByPk(studentId, {
+      attributes: ['skillrackProfile']
+    });
+
+    if (!student || !student.skillrackProfile) {
+      return res.json({
+        success: false,
+        message: 'SkillRack profile not found'
+      });
+    }
+
+    // Mock data - replace with actual API call or scraping
+    res.json({
+      success: true,
+      data: {
+        rank: Math.floor(Math.random() * 5000) + 1,
+        medals: {
+          gold: Math.floor(Math.random() * 20),
+          silver: Math.floor(Math.random() * 15),
+          bronze: Math.floor(Math.random() * 25)
+        },
+        profile: student.skillrackProfile
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching SkillRack data:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get dashboard summary statistics
+export const getDashboardStats = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    // Get all data in parallel
+    const [
+      student,
+      courses,
+      internships,
+      achievements,
+      events,
+      scholarships,
+      leaves,
+      noncgpa
+    ] = await Promise.all([
+      User.findByPk(studentId, {
+        include: [
+          { model: StudentDetails, as: 'studentDetails' }
+        ]
+      }),
+      OnlineCourses.findAll({ where: { Userid: studentId } }),
+      Internship.findAll({ where: { Userid: studentId } }),
+      Achievement.findAll({ where: { Userid: studentId } }),
+      EventAttended.findAll({ where: { Userid: studentId } }),
+      Scholarship.findAll({ where: { Userid: studentId } }),
+      StudentLeave.findAll({ where: { Userid: studentId } }),
+      db.query(`SELECT * FROM student_noncgpa WHERE Userid = ?`, [studentId])
+    ]);
+
+    // Calculate NPTEL stats
+    const nptelCourses = courses.filter(c => 
+      c.provider?.toLowerCase().includes('nptel') ||
+      c.course_name?.toLowerCase().includes('nptel')
+    );
+    const nptelCompleted = nptelCourses.filter(c => c.status === 'Completed');
+    const nptelCredits = nptelCompleted.reduce((sum, c) => sum + (parseInt(c.credits) || 0), 0);
+
+    // Calculate approval stats
+    const approvalStats = {
+      approved: {
+        internships: internships.filter(i => i.tutor_approval_status === true).length,
+        courses: courses.filter(c => c.tutor_approval_status === true).length,
+        events: events.filter(e => e.tutor_approval_status === true).length,
+        achievements: achievements.filter(a => a.tutor_approval_status === true).length,
+        scholarships: scholarships.filter(s => s.tutor_approval_status === true).length,
+        leaves: leaves.filter(l => l.leave_status === 'approved').length
+      },
+      pending: {
+        internships: internships.filter(i => i.pending === true).length,
+        courses: courses.filter(c => c.pending === true).length,
+        events: events.filter(e => e.pending === true).length,
+        achievements: achievements.filter(a => a.pending === true).length,
+        scholarships: scholarships.filter(s => s.pending === true).length,
+        leaves: leaves.filter(l => l.leave_status === 'pending').length
+      },
+      rejected: {
+        internships: internships.filter(i => i.tutor_approval_status === false && !i.pending).length,
+        courses: courses.filter(c => c.tutor_approval_status === false && !c.pending).length,
+        events: events.filter(e => e.tutor_approval_status === false && !e.pending).length,
+        achievements: achievements.filter(a => a.tutor_approval_status === false && !a.pending).length,
+        scholarships: scholarships.filter(s => s.tutor_approval_status === false && !s.pending).length,
+        leaves: leaves.filter(l => l.leave_status === 'rejected').length
+      }
+    };
+
+    res.json({
+      success: true,
+      data: {
+        student: {
+          name: student?.username,
+          department: student?.studentDetails?.department,
+          regno: student?.studentDetails?.regno,
+          skillrackProfile: student?.skillrackProfile
+        },
+        nptel: {
+          total: nptelCourses.length,
+          completed: nptelCompleted.length,
+          ongoing: nptelCourses.filter(c => c.status === 'Ongoing').length,
+          credits: nptelCredits
+        },
+        noncgpa: {
+          total: noncgpa[0]?.length || 0,
+          pending: noncgpa[0]?.filter(n => !n.completed).length || 0
+        },
+        approvals: approvalStats,
+        totals: {
+          courses: courses.length,
+          internships: internships.length,
+          achievements: achievements.length,
+          events: events.length,
+          scholarships: scholarships.length,
+          leaves: leaves.length
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching dashboard stats:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};

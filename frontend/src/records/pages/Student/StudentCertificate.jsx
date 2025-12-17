@@ -22,6 +22,7 @@ const StudentCertificate = () => {
       "Passport",
       "Driving License",
       "Voter ID",
+      "Pan Card",
     ],
     extracurricular: [
       "Online Course Certificates",
