@@ -43,7 +43,7 @@ import Noncgpa  from "./routes/student/studentNonCGPARoutes.js";
 import studentFilterRoutes from './routes/studentFilterRoutes.js';
 
 import studentPdfRoutes from './routes/student/studentPdfRoutes.js';
-
+import nptelRoutes from "./routes/nptelRoutes.js";
 
 import prosubmittedRoutes from './routes/prosubmitted.js';
 import eventsRoutes from './routes/events.js';
@@ -464,6 +464,7 @@ app.use('/api/students', studentFilterRoutes);
 app.use('/api/profile', profileRoutes);
 
 app.use("/api", certificateRoutes);
+app.use("/api/nptel", nptelRoutes);
 
 // Hackathons routes
 app.post('/api/placement/hackathons', async (req, res) => {

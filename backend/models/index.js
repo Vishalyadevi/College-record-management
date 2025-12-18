@@ -29,7 +29,8 @@ import CompetencyCoding from "./CompetencyCoding.js";
 import StudentPublication from "./StudentPublication.js";
 import NonCGPACategory from "./NonCGPACategory.js";
 import StudentNonCGPA from "./StudentNonCGPA.js";
-
+import NPTELCourse from "./NPTELCourse.js";
+import StudentNPTEL from "./StudentNPTEL.js";
 
 const applyAssociations = () => {
   console.log("Applying model associations...");
@@ -352,11 +353,33 @@ StudentNonCGPA.belongsTo(User, { foreignKey: "Updated_by", as: "updater" });
 User.hasMany(StudentNonCGPA, { foreignKey: "Verified_by", as: "verifiedNonCGPARecords" });
 StudentNonCGPA.belongsTo(User, { foreignKey: "Verified_by", as: "verifier" });
 // Update the exports at the bottom to include NonCGPACategory:
+
+// User has many NPTEL enrollments
+User.hasMany(StudentNPTEL, {
+  foreignKey: "Userid",
+  as: "nptelEnrollments",
+});
+StudentNPTEL.belongsTo(User, {
+  foreignKey: "Userid",
+  as: "student",
+});
+
+// NPTELCourse has many StudentNPTEL enrollments
+NPTELCourse.hasMany(StudentNPTEL, {
+  foreignKey: "course_id",
+  as: "enrollments",
+});
+StudentNPTEL.belongsTo(NPTELCourse, {
+  foreignKey: "course_id",
+  as: "course",
+});
 export {
   sequelize,
   User,
   OnlineCourses,
   StudentDetails,
+   NPTELCourse,
+  StudentNPTEL,
   Course,
   HackathonEvent,
   Extracurricular,

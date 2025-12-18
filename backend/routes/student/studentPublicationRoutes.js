@@ -8,13 +8,7 @@ import {
   getVerifiedPublications,
   verifyPublication,
   deletePublication,
-  getPublicationStatistics,
   getAllPublications,
-  searchByPublicationType,
-  getHighImpactPublications,
-  getIndexedPublications,
-  getPublicationMetricsByYear,
-  getPublicationPortfolio,
 } from "../../controllers/student/studentPublicationController.js";
 import { authenticate } from "../../middlewares/auth.js";
 
@@ -31,18 +25,8 @@ router.get("/my-publications", authenticate, getStudentPublications);
 router.get("/verified-publications", authenticate, getVerifiedPublications);
 router.delete("/delete/:id", authenticate, deletePublication);
 
-// Statistics and Analytics
-router.get("/statistics", authenticate, getPublicationStatistics);
-router.get("/portfolio", authenticate, getPublicationPortfolio);
-router.get("/metrics-by-year", authenticate, getPublicationMetricsByYear);
-
-// Search and Filter
-router.get("/search-by-type", authenticate, searchByPublicationType);
-router.get("/high-impact", authenticate, getHighImpactPublications);
-router.get("/indexed-publications", authenticate, getIndexedPublications);
-
 // ========================
-// 👨‍🏫 TUTOR/ADMIN ROUTES
+// 👨🏫 TUTOR/ADMIN ROUTES
 // ========================
 
 router.get("/pending", authenticate, getPendingPublications);
