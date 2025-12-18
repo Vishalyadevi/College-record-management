@@ -62,9 +62,11 @@ const StudentDetails = sequelize.define('StudentDetails', {
   countryID: { type: DataTypes.INTEGER, references: { model: Country, key: 'id' } },
   pincode: { type: DataTypes.STRING(6), validate: { is: /^[0-9]{6}$/ } },
   personal_phone: { type: DataTypes.STRING(10), validate: { is: /^[6-9]\d{9}$/ } },
-  pending: { 
-    type: DataTypes.BOOLEAN, 
-    defaultValue: true 
+  city: { type: DataTypes.STRING(255) },
+  address: { type: DataTypes.TEXT },
+  pending: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
   },
   tutor_approval_status: { 
     type: DataTypes.BOOLEAN, 

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { useLocationContext } from "../../contexts/LocationContext";
 import { useAttendedEventContext } from "../../contexts/AttendedEventContext";
 import { toast } from "react-toastify";
 import { FaEdit, FaTrash, FaEye } from "react-icons/fa";
@@ -43,7 +42,6 @@ const SelectField = ({ label, name, value, onChange, options, required = false, 
 );
 
 const StudentEventAttended = () => {
-  const { states, districts, cities, fetchDistrictsByState, fetchCitiesByDistrict } = useLocationContext();
   const {
     eventsAttended,
     loading,
@@ -61,9 +59,9 @@ const StudentEventAttended = () => {
     other_event_type: "",
     institution_name: "",
     mode: "Online",
-    stateID: "",
-    districtID: "",
-    cityID: "",
+    state: "",
+    district: "",
+    city: "",
     from_date: "",
     to_date: "",
     team_size: 1,
@@ -73,6 +71,7 @@ const StudentEventAttended = () => {
     certificate_file: null,
     is_other_state_event: false,
     is_other_country_event: false,
+    is_nirf_ranked: false,
     achievement_details: {
       is_certificate_available: false,
       certificate_file: null,
@@ -93,33 +92,11 @@ const StudentEventAttended = () => {
     fetchEventsAttended();
   }, [fetchEventsAttended]);
 
-  const handleInputChange = async (e) => {
+  const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
 
     if (type === "checkbox") {
       setFormData((prev) => ({ ...prev, [name]: checked }));
-    } else if (name === "stateID") {
-      console.log("State changed to:", value);
-      setFormData((prev) => ({ ...prev, [name]: value, districtID: "", cityID: "" }));
-      if (value) {
-        try {
-          await fetchDistrictsByState(value);
-        } catch (error) {
-          console.error("Error fetching districts:", error);
-          toast.error("Failed to fetch districts for the selected state.");
-        }
-      }
-    } else if (name === "districtID") {
-      console.log("District changed to:", value);
-      setFormData((prev) => ({ ...prev, [name]: value, cityID: "" }));
-      if (value) {
-        try {
-          await fetchCitiesByDistrict(value);
-        } catch (error) {
-          console.error("Error fetching cities:", error);
-          toast.error("Failed to fetch cities for the selected district.");
-        }
-      }
     } else if (name === "team_size") {
       const newTeamSize = Math.max(1, parseInt(value, 10));
       const updatedTeamMembers = Array.from({ length: newTeamSize - 1 }, () => ({
@@ -186,56 +163,55 @@ const StudentEventAttended = () => {
   };
 
   const prepareFormData = () => {
-    let decodedData;
-    try {
-      const base64Url = token.split(".")[1];
-      decodedData = JSON.parse(atob(base64Url.replace(/-/g, "+").replace(/_/g, "/")));
-    } catch (error) {
-      toast.error("Error fetching user details");
-      return null;
-    }
+  let decodedData;
+  try {
+    const base64Url = token.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    decodedData = JSON.parse(atob(base64));
+  } catch (error) {
+    toast.error("Error fetching user details");
+    return null;
+  }
 
-    // Validate location fields
-    if (!formData.stateID || !formData.districtID || !formData.cityID) {
-      toast.error("Please select State, District, and City");
-      return null;
-    }
+  if (!formData.state?.trim() || !formData.district?.trim() || !formData.city?.trim()) {
+    toast.error("Please enter State, District, and City");
+    return null;
+  }
 
-    const formDataWithUserId = new FormData();
+  const fd = new FormData();
 
-    for (const key in formData) {
-      if (key === "team_members" || key === "achievement_details") {
-        formDataWithUserId.append(key, JSON.stringify(formData[key]));
-      } else if (key === "certificate_file" && formData[key]) {
-        formDataWithUserId.append("cer_file", formData[key]);
-      } else if (key !== "achievement_details") {
-        formDataWithUserId.append(key, formData[key]);
+  // Append all basic fields
+  Object.keys(formData).forEach((key) => {
+    if (key === "team_members" || key === "achievement_details") {
+      fd.append(key, JSON.stringify(formData[key]));
+    } else if (key === "certificate_file" && formData[key]) {
+      fd.append("cer_file", formData[key]); // note: backend must expect "cer_file"
+    } else if (key !== "achievement_details") { // this is still redundant but ok
+      const value = formData[key];
+      if (value !== null && value !== undefined) {
+        fd.append(key, value);
       }
     }
+  });
 
-    if (formData.achievement_details) {
-      const { achievement_details } = formData;
-      if (achievement_details.certificate_file) {
-        formDataWithUserId.append("achievement_certificate_file", achievement_details.certificate_file);
-      }
-      if (achievement_details.cash_prize_proof) {
-        formDataWithUserId.append("cash_prize_proof", achievement_details.cash_prize_proof);
-      }
-      if (achievement_details.memento_proof) {
-        formDataWithUserId.append("memento_proof", achievement_details.memento_proof);
-      }
-    }
+  // Handle achievement files separately
+  if (formData.achievement_details) {
+    const ach = formData.achievement_details;
+    if (ach.certificate_file) fd.append("achievement_certificate_file", ach.certificate_file);
+    if (ach.cash_prize_proof) fd.append("cash_prize_proof", ach.cash_prize_proof);
+    if (ach.memento_proof) fd.append("memento_proof", ach.memento_proof);
+  }
 
-    formDataWithUserId.append("Userid", String(decodedData.Userid));
+  fd.append("Userid", String(decodedData.Userid));
 
-    console.log("Form data being sent:", {
-      stateID: formData.stateID,
-      districtID: formData.districtID,
-      cityID: formData.cityID
-    });
+  // DEBUG: Log all entries
+  console.log("Final FormData contents:");
+  for (let [key, value] of fd.entries()) {
+    console.log(key, value);
+  }
 
-    return formDataWithUserId;
-  };
+  return fd;
+};
 
   const handleSubmit = async (e) => {
     if (!token) return toast.error("User not logged in");
@@ -296,21 +272,6 @@ const StudentEventAttended = () => {
       return date.toISOString().split('T')[0];
     };
 
-    // Fetch districts and cities sequentially
-    if (event.stateID) {
-      console.log("Fetching districts for state:", event.stateID);
-      try {
-        await fetchDistrictsByState(event.stateID);
-        if (event.districtID) {
-          console.log("Fetching cities for district:", event.districtID);
-          await fetchCitiesByDistrict(event.districtID);
-        }
-      } catch (error) {
-        console.error("Error loading location data:", error);
-        toast.error("Failed to load location data");
-      }
-    }
-
     setFormData({
       event_name: event.event_name || "",
       description: event.description || "",
@@ -319,9 +280,9 @@ const StudentEventAttended = () => {
       other_event_type: event.other_event_type || "",
       institution_name: event.institution_name || "",
       mode: event.mode || "Online",
-      stateID: event.stateID || "",
-      districtID: event.districtID || "",
-      cityID: event.cityID || "",
+      state: event.state || "",
+      district: event.district || "",
+      city: event.city || "",
       from_date: formatDateForInput(event.from_date),
       to_date: formatDateForInput(event.to_date),
       team_size: event.team_size || 1,
@@ -331,6 +292,7 @@ const StudentEventAttended = () => {
       certificate_file: null,
       is_other_state_event: event.is_other_state_event || false,
       is_other_country_event: event.is_other_country_event || false,
+      is_nirf_ranked: event.is_nirf_ranked || false,
       achievement_details: achievementDetails,
     });
 
@@ -346,9 +308,9 @@ const StudentEventAttended = () => {
       other_event_type: "",
       institution_name: "",
       mode: "Online",
-      stateID: "",
-      districtID: "",
-      cityID: "",
+      state: "",
+      district: "",
+      city: "",
       from_date: "",
       to_date: "",
       team_size: 1,
@@ -358,6 +320,7 @@ const StudentEventAttended = () => {
       certificate_file: null,
       is_other_state_event: false,
       is_other_country_event: false,
+      is_nirf_ranked: false,
       achievement_details: {
         is_certificate_available: false,
         certificate_file: null,
@@ -372,21 +335,6 @@ const StudentEventAttended = () => {
     setCurrentEventId(null);
   };
 
-  const stateOptions = states.map((state) => ({
-    value: state.id,
-    label: state.name,
-  }));
-
-  const districtOptions = districts.map((district) => ({
-    value: district.id,
-    label: district.name,
-  }));
-
-  const cityOptions = cities.map((city) => ({
-    value: city.id,
-    label: city.name,
-  }));
-
   const renderTable = (data) => (
     <div className="overflow-x-auto">
       <table className="min-w-full bg-white border border-gray-200 rounded-lg shadow-sm">
@@ -397,10 +345,11 @@ const StudentEventAttended = () => {
             <th className="py-3 px-4 text-left font-medium">Type of Event</th>
             <th className="py-3 px-4 text-left font-medium">Institution Name</th>
             <th className="py-3 px-4 text-left font-medium">Mode</th>
+            <th className="py-3 px-4 text-left font-medium">Location</th>
             <th className="py-3 px-4 text-left font-medium">Duration</th>
             <th className="py-3 px-4 text-left font-medium">Status</th>
             <th className="py-3 px-4 text-left font-medium">Team Size</th>
-            <th className="py-3 px-4 text-left font-medium">Certificate</th>
+            <th className="py-3 px-4 text-left font-medium">NIRF Ranked</th>
             <th className="py-3 px-4 text-left font-medium">Actions</th>
             <th className="py-3 px-4 text-left font-medium">View</th>
           </tr>
@@ -413,6 +362,7 @@ const StudentEventAttended = () => {
               <td className="py-3 px-4 text-gray-700">{event.type_of_event}</td>
               <td className="py-3 px-4 text-gray-700">{event.institution_name}</td>
               <td className="py-3 px-4 text-gray-700">{event.mode}</td>
+              <td className="py-3 px-4 text-gray-700">{event.city}, {event.district}, {event.state}</td>
               <td className="py-3 px-4 text-gray-700">
                 {event.from_date && event.to_date
                   ? `${new Date(event.from_date).toLocaleDateString()} - ${new Date(event.to_date).toLocaleDateString()}`
@@ -429,7 +379,7 @@ const StudentEventAttended = () => {
               </td>
               <td className="py-3 px-4 text-gray-700">{event.team_size}</td>
               <td className="py-3 px-4 text-gray-700">
-                {event.is_certificate_available ? "Yes" : "No"}
+                {event.is_nirf_ranked ? "Yes" : "No"}
               </td>
               <td className="py-3 px-4 space-x-2">
                 <button 
@@ -492,11 +442,13 @@ const StudentEventAttended = () => {
             <p><strong>Type of Event:</strong> {event.type_of_event}</p>
             <p><strong>Institution Name:</strong> {event.institution_name}</p>
             <p><strong>Mode:</strong> {event.mode}</p>
+            <p><strong>Location:</strong> {event.city}, {event.district}, {event.state}</p>
             <p><strong>Duration:</strong> {event.from_date && event.to_date
               ? `${new Date(event.from_date).toLocaleDateString()} - ${new Date(event.to_date).toLocaleDateString()}`
               : "N/A"}</p>
             <p><strong>Status:</strong> {event.participation_status}</p>
             <p><strong>Team Size:</strong> {event.team_size}</p>
+            <p><strong>NIRF Ranked:</strong> {event.is_nirf_ranked ? "Yes" : "No"}</p>
             <p><strong>Certificate Available:</strong> {event.is_certificate_available ? "Yes" : "No"}</p>
             {event.is_certificate_available && event.certificate_file && (
               <p>
@@ -529,7 +481,10 @@ const StudentEventAttended = () => {
       { label: "Description", name: "description", type: "text", required: true, placeholder: "Enter event description" },
       { label: "Event Type", name: "event_type", type: "select", options: [
         { value: "Inter College Event", label: "Inter College Event" },
-        { value: "Intra College Event", label: "Intra College Event" },
+        { value: "State", label: "State" },
+        { value: "National", label: "National" },
+        { value: "International", label: "International" },
+        { value: "Industry", label: "Industry" },
       ], required: true, placeholder: "Select event type" },
       { label: "Type of Event", name: "type_of_event", type: "select", options: [
         { value: "Competition", label: "Competition" },
@@ -557,11 +512,11 @@ const StudentEventAttended = () => {
         { value: "Online", label: "Online" },
         { value: "Offline", label: "Offline" },
       ], required: true, placeholder: "Select mode" },
-      { label: "State", name: "stateID", type: "select", options: stateOptions, required: true, placeholder: "Select state" },
+      { label: "State", name: "state", type: "text", required: true, placeholder: "Enter state" },
     ],
     [
-      { label: "District", name: "districtID", type: "select", options: districtOptions, required: true, placeholder: "Select district" },
-      { label: "City", name: "cityID", type: "select", options: cityOptions, required: true, placeholder: "Select city" },
+      { label: "District", name: "district", type: "text", required: true, placeholder: "Enter district" },
+      { label: "City", name: "city", type: "text", required: true, placeholder: "Enter city" },
       { label: "From Date", name: "from_date", type: "date", required: true, placeholder: "Select start date" },
       { label: "To Date", name: "to_date", type: "date", required: true, placeholder: "Select end date" },
     ],
@@ -679,6 +634,16 @@ const StudentEventAttended = () => {
                   className="mr-2"
                 />
                 <span>Other Country Event</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  name="is_nirf_ranked"
+                  checked={formData.is_nirf_ranked}
+                  onChange={handleInputChange}
+                  className="mr-2"
+                />
+                <span>NIRF Ranked Institute</span>
               </label>
             </div>
           </div>

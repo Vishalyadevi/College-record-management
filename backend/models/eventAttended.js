@@ -1,8 +1,5 @@
 import { DataTypes } from 'sequelize';
 import { sequelize } from '../config/mysql.js';
-import City from './City.js'; // Import City model
-import District from './District.js'; // Import District model
-import State from './State.js'; // Import State model
 
 const EventAttended = sequelize.define(
   'EventAttended',
@@ -16,27 +13,27 @@ const EventAttended = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: 'users', // References the 'users' table
+        model: 'users',
         key: 'Userid',
       },
-      onDelete: 'CASCADE', // Cascade delete if the referenced user is deleted
+      onDelete: 'CASCADE',
     },
     event_name: {
       type: DataTypes.STRING,
       allowNull: false,
       validate: {
-        notEmpty: true, // Ensure the event name is not empty
+        notEmpty: true,
       },
     },
     description: {
       type: DataTypes.TEXT,
       allowNull: false,
       validate: {
-        notEmpty: true, // Ensure the description is not empty
+        notEmpty: true,
       },
     },
     event_type: {
-      type: DataTypes.ENUM('Inter College Event', 'Intra College Event'),
+      type: DataTypes.ENUM('Inter College Event', 'State', 'National', 'International', 'Industry'),
       allowNull: false,
     },
     type_of_event: {
@@ -45,42 +42,39 @@ const EventAttended = sequelize.define(
     },
     other_event_type: {
       type: DataTypes.STRING,
-      allowNull: true, // Only required if type_of_event is 'Other'
+      allowNull: true,
     },
     institution_name: {
       type: DataTypes.STRING,
       allowNull: false,
       validate: {
-        notEmpty: true, // Ensure the institution name is not empty
+        notEmpty: true,
       },
     },
     mode: {
       type: DataTypes.ENUM('Online', 'Offline'),
       allowNull: false,
     },
-    cityID: {
-      type: DataTypes.INTEGER,
-      references: {
-        model: City, // References the City model
-        key: 'id',
-      },
+    city: {
+      type: DataTypes.STRING,
       allowNull: false,
+      validate: {
+        notEmpty: true,
+      },
     },
-    districtID: {
-      type: DataTypes.INTEGER,
-      references: {
-        model: District, // References the District model
-        key: 'id',
-      },
+    district: {
+      type: DataTypes.STRING,
       allowNull: false,
+      validate: {
+        notEmpty: true,
+      },
     },
-    stateID: {
-      type: DataTypes.INTEGER,
-      references: {
-        model: State, // References the State model
-        key: 'id',
-      },
+    state: {
+      type: DataTypes.STRING,
       allowNull: false,
+      validate: {
+        notEmpty: true,
+      },
     },
     from_date: {
       type: DataTypes.DATE,
@@ -95,11 +89,11 @@ const EventAttended = sequelize.define(
       allowNull: false,
       defaultValue: 1,
       validate: {
-        min: 1, // Ensure the team size is at least 1
+        min: 1,
       },
     },
     team_members: {
-      type: DataTypes.JSON, // Storing team members as an array of objects
+      type: DataTypes.JSON,
       allowNull: true,
       defaultValue: [],
     },
@@ -115,6 +109,10 @@ const EventAttended = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
+    is_nirf_ranked: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
     is_certificate_available: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
@@ -124,7 +122,7 @@ const EventAttended = sequelize.define(
       allowNull: true,
     },
     achievement_details: {
-      type: DataTypes.JSON, // Storing achievement details as a JSON object
+      type: DataTypes.JSON,
       allowNull: true,
       defaultValue: {
         is_certificate_available: false,
@@ -147,7 +145,7 @@ const EventAttended = sequelize.define(
     Approved_by: {
       type: DataTypes.INTEGER,
       references: {
-        model: 'users', // References the 'users' table
+        model: 'users',
         key: 'Userid',
       },
       allowNull: true,
@@ -163,7 +161,7 @@ const EventAttended = sequelize.define(
     Created_by: {
       type: DataTypes.INTEGER,
       references: {
-        model: 'users', // References the 'users' table
+        model: 'users',
         key: 'Userid',
       },
       allowNull: false,
@@ -171,16 +169,16 @@ const EventAttended = sequelize.define(
     Updated_by: {
       type: DataTypes.INTEGER,
       references: {
-        model: 'users', // References the 'users' table
+        model: 'users',
         key: 'Userid',
       },
       allowNull: true,
     },
   },
   {
-    tableName: 'event_attended', // Explicitly set the table name
-    timestamps: true, // Enable createdAt and updatedAt timestamps
-    underscored: true, // Convert camelCase to snake_case in the database
+    tableName: 'event_attended',
+    timestamps: true,
+    underscored: true,
   }
 );
 

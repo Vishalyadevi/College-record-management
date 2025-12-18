@@ -64,6 +64,8 @@ const StudentPersonalDetails = () => {
         pincode: student?.pincode || "",
         personal_phone: student?.personal_phone || "",
         deptid: student?.Deptid || "",
+        city: student?.city || "",
+        address: student?.address || "",
         deptname: student?.studentUser?.Department?.Deptname || "",
         course: "B.E",
         Semester: student?.Semester || "",
@@ -233,7 +235,8 @@ const StudentPersonalDetails = () => {
          { label: "Aadhar Card No", name: "aadhar_card_no" },
          { label: "Mother Tongue", name: "mother_tongue" },
          { label: "Caste", name: "caste" },
-         
+         { label: "City",name:"city"},
+         {label:"Address",name:"address"},
          { label: "Pincode", name: "pincode" },
         
       ].map((field, index) => (

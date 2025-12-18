@@ -1,5 +1,5 @@
 import uploadEvent from "../../utils/uploadEvent.js";
-import { User, StudentDetails, EventAttended, City, District, State } from "../../models/index.js";
+import { User, StudentDetails, EventAttended } from "../../models/index.js";
 import { sendEmail } from "../../utils/emailService.js";
 import fs from "fs";
 import path from "path";
@@ -18,9 +18,9 @@ export const addEventAttended = [
         other_event_type,
         institution_name,
         mode,
-        cityID,
-        districtID,
-        stateID,
+        city,
+        district,
+        state,
         from_date,
         to_date,
         team_size,
@@ -28,12 +28,14 @@ export const addEventAttended = [
         participation_status,
         is_other_state_event,
         is_other_country_event,
+        is_nirf_ranked,
         is_certificate_available,
         achievement_details,
       } = req.body;
 
       console.log("Received files:", req.files);
-      console.log("Location IDs:", { stateID, districtID, cityID });
+      console.log("Location data:", { state, district, city });
+      console.log("NIRF Ranked:", is_nirf_ranked);
 
       const cerFile = req.files?.cer_file?.[0]?.path.replace(/\\/g, "/") || null;
       const achievementCertFile = req.files?.achievement_certificate_file?.[0]?.path.replace(/\\/g, "/") || null;
@@ -56,8 +58,8 @@ export const addEventAttended = [
         return res.status(400).json({ message: "User ID is required" });
       }
 
-      // Validate location IDs
-      if (!stateID || !districtID || !cityID) {
+      // Validate location text fields
+      if (!state || !district || !city) {
         if (cerFile) fs.unlinkSync(cerFile);
         if (achievementCertFile) fs.unlinkSync(achievementCertFile);
         if (cashPrizeProof) fs.unlinkSync(cashPrizeProof);
@@ -96,17 +98,18 @@ export const addEventAttended = [
         other_event_type,
         institution_name,
         mode,
-        cityID: parseInt(cityID),
-        districtID: parseInt(districtID),
-        stateID: parseInt(stateID),
+        city: city.trim(),
+        district: district.trim(),
+        state: state.trim(),
         from_date,
         to_date,
         team_size,
         team_members: parsedTeamMembers || [],
         participation_status,
-        is_other_state_event,
-        is_other_country_event,
-        is_certificate_available,
+        is_other_state_event: is_other_state_event === 'true' || is_other_state_event === true,
+        is_other_country_event: is_other_country_event === 'true' || is_other_country_event === true,
+        is_nirf_ranked: is_nirf_ranked === 'true' || is_nirf_ranked === true,
+        is_certificate_available: is_certificate_available === 'true' || is_certificate_available === true,
         certificate_file: cerFile,
         achievement_details: parsedAchievementDetails || {},
         pending: true,
@@ -133,11 +136,13 @@ Event Name: ${event_name}
 Event Type: ${event_type}
 Type of Event: ${type_of_event}
 Institution: ${institution_name}
+Location: ${city}, ${district}, ${state}
+NIRF Ranked Institute: ${is_nirf_ranked === 'true' || is_nirf_ranked === true ? 'Yes' : 'No'}
 Mode: ${mode}
 Duration: From ${from_date} to ${to_date}
 Team Size: ${team_size}
 Participation Status: ${participation_status}
-Certificate Available: ${is_certificate_available ? "Yes" : "No"}
+Certificate Available: ${is_certificate_available === 'true' || is_certificate_available === true ? "Yes" : "No"}
 
 The event is currently pending your approval. Please review the details and either approve or reject the event.
 
@@ -197,10 +202,10 @@ export const updateEventAttended = [
       }
 
       console.log("Update data received:", updateData);
-      console.log("Location IDs:", { 
-        stateID: updateData.stateID, 
-        districtID: updateData.districtID, 
-        cityID: updateData.cityID 
+      console.log("Location data:", { 
+        state: updateData.state, 
+        district: updateData.district, 
+        city: updateData.city 
       });
 
       const fileUpdates = {};
@@ -239,9 +244,10 @@ export const updateEventAttended = [
       const updatePayload = {
         ...updateData,
         ...fileUpdates,
-        cityID: updateData.cityID ? parseInt(updateData.cityID) : existingEvent.cityID,
-        districtID: updateData.districtID ? parseInt(updateData.districtID) : existingEvent.districtID,
-        stateID: updateData.stateID ? parseInt(updateData.stateID) : existingEvent.stateID,
+        city: updateData.city ? updateData.city.trim() : existingEvent.city,
+        district: updateData.district ? updateData.district.trim() : existingEvent.district,
+        state: updateData.state ? updateData.state.trim() : existingEvent.state,
+        is_nirf_ranked: updateData.is_nirf_ranked === 'true' || updateData.is_nirf_ranked === true || existingEvent.is_nirf_ranked,
         Updated_by: Userid,
         pending: true,
         tutor_approval_status: false,
@@ -297,32 +303,18 @@ export const getPendingEventsAttended = async (req, res) => {
             },
           ],
         },
-        {
-          model: City,
-          as: "city",
-          attributes: ["name"],
-        },
-        {
-          model: District,
-          as: "district",
-          attributes: ["name"],
-        },
-        {
-          model: State,
-          as: "state",
-          attributes: ["name"],
-        },
       ],
     });
 
     const formattedEvents = pendingEvents.map((event) => {
-      const { eventUser, city, district, state, ...rest } = event.get({ plain: true });
+      const { eventUser, ...rest } = event.get({ plain: true });
 
       const fromDate = new Date(rest.from_date).toISOString().split("T")[0];
       const toDate = new Date(rest.to_date).toISOString().split("T")[0];
 
       const isOtherStateEvent = rest.is_other_state_event === null ? "Not Provided" : rest.is_other_state_event;
       const isOtherCountryEvent = rest.is_other_country_event === null ? "Not Provided" : rest.is_other_country_event;
+      const isNirfRanked = rest.is_nirf_ranked === null ? "Not Provided" : rest.is_nirf_ranked;
       const isCertificateAvailable = rest.is_certificate_available === null ? "Not Provided" : rest.is_certificate_available;
       const certificateFile = rest.certificate_file === null ? "Not Provided" : rest.certificate_file;
 
@@ -341,9 +333,9 @@ export const getPendingEventsAttended = async (req, res) => {
         username: eventUser?.username || "N/A",
         regno: eventUser?.studentDetails?.regno || "N/A",
         staffId: eventUser?.studentDetails?.staffId || "N/A",
-        city: city?.name || "N/A",
-        district: district?.name || "N/A",
-        state: state?.name || "N/A",
+        city: rest.city || "N/A",
+        district: rest.district || "N/A",
+        state: rest.state || "N/A",
         from_date: fromDate,
         to_date: toDate,
         team_size: rest.team_size,
@@ -351,6 +343,7 @@ export const getPendingEventsAttended = async (req, res) => {
         participation_status: rest.participation_status,
         is_other_state_event: isOtherStateEvent,
         is_other_country_event: isOtherCountryEvent,
+        is_nirf_ranked: isNirfRanked,
         is_certificate_available: isCertificateAvailable,
         certificate_file: certificateFile,
         achievement_details: achievementDetails,
@@ -375,23 +368,6 @@ export const getApprovedEventsAttended = async (req, res) => {
 
     const approvedEvents = await EventAttended.findAll({
       where: { tutor_approval_status: true, Userid: userId },
-      include: [
-        {
-          model: City,
-          as: "city",
-          attributes: ["id", "name"],
-        },
-        {
-          model: District,
-          as: "district",
-          attributes: ["id", "name"],
-        },
-        {
-          model: State,
-          as: "state",
-          attributes: ["id", "name"],
-        },
-      ],
       order: [["approved_at", "DESC"]],
     });
 
@@ -437,6 +413,7 @@ Your event attended has been removed.
 - **Event Name**: ${eventAttended.event_name}  
 - **Institution**: ${eventAttended.institution_name}  
 - **Mode**: ${eventAttended.mode}  
+- **Location**: ${eventAttended.city}, ${eventAttended.district}, ${eventAttended.state}
 - **Duration**: From ${eventAttended.from_date} to ${eventAttended.to_date}  
 
 If this was an error, contact **tutorsjf@gmail.com**.
@@ -457,6 +434,7 @@ The following event attended submitted by your student has been deleted:
 - **Event Name**: ${eventAttended.event_name}  
 - **Institution**: ${eventAttended.institution_name}  
 - **Mode**: ${eventAttended.mode}  
+- **Location**: ${eventAttended.city}, ${eventAttended.district}, ${eventAttended.state}
 - **Duration**: From ${eventAttended.from_date} to ${eventAttended.to_date}  
 
 If you need further details, contact **tutorsjf@gmail.com**.

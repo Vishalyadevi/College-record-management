@@ -455,7 +455,6 @@ app.use('/Uploads', express.static(path.join(__dirname, 'Uploads')));
 app.use('/uploads', express.static(path.join(__dirname, 'Uploads')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-
 app.use('/api/placement-drives', placementDrivesRoutes);
 app.use('/api/placement-hackathons', placementhackathonRoutes);
 app.use('/api/student/hackathons',hackathonRoutes);
@@ -465,10 +464,6 @@ app.use('/api/students', studentFilterRoutes);
 app.use('/api/profile', profileRoutes);
 
 app.use("/api", certificateRoutes);
-
-
-
-
 
 // Hackathons routes
 app.post('/api/placement/hackathons', async (req, res) => {

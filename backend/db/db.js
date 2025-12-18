@@ -1006,6 +1006,7 @@ CREATE TABLE IF NOT EXISTS registrations (
   FOREIGN KEY (drive_id) REFERENCES placement_drives(id)
 );
 `)
+
 await connection.execute(`
 
 -- Create certificates table

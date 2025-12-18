@@ -1,40 +1,24 @@
-# Online Courses Fix - TODO
+# TODO: Add City and Address Fields to Student Personal Details
 
-## Issue
+## Completed Tasks
 
-- Student online courses page showed "failed to fetch pending online course" error
+- [x] Analyzed frontend StudentPersonalDetails.jsx - fields already present
+- [x] Analyzed backend controller - already handles otherFields dynamically
+- [x] Added 'city' and 'address' fields to StudentDetails model
 
-## Root Cause
+## Database Changes Required
 
-- Frontend API endpoints in OnlineCoursesContext.jsx did not match backend routes
-- Frontend was calling:
-  - `/api/approved-courses` (non-existent)
-  - `/api/pending-online-courses` (non-existent)
-  - `/api/add-course` (non-existent)
-  - `/api/update-course/{id}` (non-existent)
-  - `/api/delete-course/{id}` (non-existent)
+To complete the implementation, run the following SQL commands on your database:
 
-## Backend Routes (from server.js)
+```sql
+ALTER TABLE student_details ADD COLUMN city VARCHAR(255);
+ALTER TABLE student_details ADD COLUMN address TEXT;
+```
 
-- Online courses routes mounted at `/api/online-courses`
-- Routes defined in `onlinecourseRoute.js`:
-  - GET `/` - getApprovedCourses
-  - GET `/pending` - getPendingOnlineCourses
-  - POST `/` - addOnlineCourse
-  - PATCH `/:courseId` - updateOnlineCourse
-  - DELETE `/:courseId` - deleteOnlineCourse
+Or if using Sequelize migrations, create a new migration file.
 
-## Fix Applied
+## Next Steps
 
-- [x] Updated fetchOnlineCourses to call `/api/online-courses`
-- [x] Updated fetchPendingCourses to call `/api/online-courses/pending`
-- [x] Updated addOnlineCourse to call `/api/online-courses`
-- [x] Updated updateOnlineCourse to call `/api/online-courses/${courseId}`
-- [x] Updated deleteOnlineCourse to call `/api/online-courses/${courseId}`
-
-## Testing
-
-- [ ] Test the online courses page to ensure it loads without errors
-- [ ] Verify pending courses are displayed correctly
-- [ ] Verify approved courses are displayed correctly
-- [ ] Test adding, updating, and deleting courses
+- [ ] Run database migration to add the new columns
+- [ ] Test the update functionality to ensure city and address are saved correctly
+- [ ] Verify the fields display properly in the frontend
