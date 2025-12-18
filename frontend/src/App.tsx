@@ -136,7 +136,7 @@ import Publication from './records/pages/Student/Publication.jsx';
 import StudentEducation from './records/pages/Student/Education.jsx';
 import NonCGPACourses from './records/pages/Student/NonCGPACourses.jsx';
 import NonCGPACategoryManagement from './records/pages/admin/NonCGPACategoryManagement.jsx';
-import ResumeGenerator from './records/pages/Student/ResumeGenerator.jsx';
+// import ResumeGenerator from './records/pages/Student/ResumeGenerator.jsx';
 
 
 
@@ -817,13 +817,13 @@ const AppRoutes: React.FC = () => {
           </RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
-      <Route path="/records/student-resume-generator" element={
+      {/* <Route path="/records/student-resume-generator" element={
         <ProtectedRoute allowedRoles={['Student']}>
           <RecordsLayoutWithLocation includeStudentProvider={true}>
             <ResumeGenerator />
           </RecordsLayoutWithLocation>
         </ProtectedRoute>
-      } />
+      } /> */}
 
       <Route path="/records/student-profile" element={
         <ProtectedRoute allowedRoles={['Student']}>
