@@ -28,7 +28,7 @@ import { StudentEducationProvider } from "./records/contexts/StudentEducationCon
 import { NonCGPAProvider } from "./records/contexts/NonCGPAContext.jsx"; // NEW
 import { NonCGPACategoryProvider } from "./records/contexts/NonCGPACategoryContext.jsx"; // NEW
 import { CertificateProvider } from "./records/contexts/CertificateContext.jsx";
-
+import { NPTELProvider } from './records/contexts/NPTELContext';
 
 
 
@@ -108,6 +108,8 @@ import EligibleStudents from './placement/components/admin/elegibleStudents';
 import AdminFeedback from './placement/components/admin/feedback';
 import StaffEligibleStudents from './placement/components/staff/eligiblestudents';
 import HackathonReport from './placement/components/admin/exportHackathon.jsx';
+import StudentNPTEL from './records/pages/Student/StudentNPTEL';
+import AdminNPTEL from './records/pages/admin/AdminNPTEL';
 
 
 // Records System Components (from records/src/)
@@ -880,6 +882,20 @@ const AppRoutes: React.FC = () => {
     </RecordsLayoutWithLocation>
   </ProtectedRoute>
 } />
+<Route path="/records/nptel" element={
+  <ProtectedRoute allowedRoles={['Student']}>
+    <RecordsLayoutWithLocation includeStudentProvider={true}>
+      <StudentNPTEL />
+    </RecordsLayoutWithLocation>
+  </ProtectedRoute>
+} />
+<Route path="/records/nptel-course" element={
+  <ProtectedRoute allowedRoles={['Superadmin','Deptadmin']}>
+    <RecordsLayoutWithLocation includeStudentProvider={true}>
+      <AdminNPTEL />
+    </RecordsLayoutWithLocation>
+  </ProtectedRoute>
+} />
 
 
 
@@ -945,6 +961,8 @@ function App() {
 
   return (
     <StudentDataProvider>
+      <NPTELProvider>
+      
           <CertificateProvider>
 
       
@@ -995,6 +1013,8 @@ function App() {
 </NonCGPACategoryProvider>
      
           </CertificateProvider>
+          </NPTELProvider>
+   
 
     </StudentDataProvider>
   );

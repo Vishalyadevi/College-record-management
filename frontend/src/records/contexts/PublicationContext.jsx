@@ -14,8 +14,6 @@ export const usePublication = () => {
 export const PublicationProvider = ({ children }) => {
   const [publications, setPublications] = useState([]);
   const [pendingPublications, setPendingPublications] = useState([]);
-  const [statistics, setStatistics] = useState(null);
-  const [portfolio, setPortfolio] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const apiBase = "http://localhost:4000/api/publications";
@@ -73,42 +71,6 @@ export const PublicationProvider = ({ children }) => {
     } catch (err) {
       setError(err.response?.data?.message || "Failed to fetch all publications");
       console.error("Fetch all publications error:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Fetch publication statistics
-  const fetchStatistics = useCallback(async (userId) => {
-    setLoading(true);
-    try {
-      const response = await axios.get(
-        `${apiBase}/statistics?UserId=${userId}`,
-        getAuthHeader()
-      );
-      setStatistics(response.data.statistics);
-      setError(null);
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to fetch statistics");
-      console.error("Fetch statistics error:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Fetch publication portfolio
-  const fetchPortfolio = useCallback(async (userId) => {
-    setLoading(true);
-    try {
-      const response = await axios.get(
-        `${apiBase}/portfolio?UserId=${userId}`,
-        getAuthHeader()
-      );
-      setPortfolio(response.data.portfolio);
-      setError(null);
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to fetch portfolio");
-      console.error("Fetch portfolio error:", err);
     } finally {
       setLoading(false);
     }
@@ -203,82 +165,24 @@ export const PublicationProvider = ({ children }) => {
     }
   };
 
-  // Search by publication type
-  const searchByType = async (userId, type) => {
-    setLoading(true);
-    try {
-      const response = await axios.get(
-        `${apiBase}/search-by-type?UserId=${userId}&type=${type}`,
-        getAuthHeader()
-      );
-      setPublications(response.data.publications || []);
-      setError(null);
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to search publications");
-      console.error("Search publications error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Get high impact publications
-  const fetchHighImpactPublications = useCallback(async (userId, minImpactFactor = 2.0) => {
-    setLoading(true);
-    try {
-      const response = await axios.get(
-        `${apiBase}/high-impact?UserId=${userId}&minImpactFactor=${minImpactFactor}`,
-        getAuthHeader()
-      );
-      setPublications(response.data.publications || []);
-      setError(null);
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to fetch high impact publications");
-      console.error("Fetch high impact publications error:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Get indexed publications
-  const fetchIndexedPublications = useCallback(async (userId) => {
-    setLoading(true);
-    try {
-      const response = await axios.get(
-        `${apiBase}/indexed-publications?UserId=${userId}`,
-        getAuthHeader()
-      );
-      setPublications(response.data.publications || []);
-      setError(null);
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to fetch indexed publications");
-      console.error("Fetch indexed publications error:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // Clear error
+  const clearError = () => setError(null);
 
   return (
     <PublicationContext.Provider
       value={{
         publications,
         pendingPublications,
-        statistics,
-        portfolio,
         loading,
         error,
         fetchUserPublications,
         fetchPendingPublications,
         fetchAllPublications,
-        fetchStatistics,
-        fetchPortfolio,
         addPublication,
         updatePublication,
         deletePublication,
         verifyPublication,
-        searchByType,
-        fetchHighImpactPublications,
-        fetchIndexedPublications,
-        clearError: () => setError(null)
+        clearError
       }}
     >
       {children}

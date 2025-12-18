@@ -83,54 +83,9 @@ const StudentPublication = sequelize.define('StudentPublication', {
     allowNull: true,
   },
 
-  page_no: {
-    type: DataTypes.STRING(50),
-    allowNull: true,
-    comment: 'Format: "start-end" or "start" pages',
-  },
-
   publication_date: {
     type: DataTypes.DATE,
     allowNull: true,
-  },
-
-  // ========================
-  // 📊 IMPACT METRICS
-  // ========================
-  impact_factor: {
-    type: DataTypes.DECIMAL(10, 4),
-    allowNull: true,
-    validate: {
-      min: 0,
-    },
-  },
-
-  // ========================
-  // 🔗 PUBLICATION LINKS
-  // ========================
-  publication_link: {
-    type: DataTypes.STRING(500),
-    allowNull: true,
-    validate: {
-      isUrl: true,
-    },
-    comment: 'Link to published paper',
-  },
-
-  pdf_link: {
-    type: DataTypes.STRING(500),
-    allowNull: true,
-    validate: {
-      isUrl: true,
-    },
-  },
-
-  preprint_link: {
-    type: DataTypes.STRING(500),
-    allowNull: true,
-    validate: {
-      isUrl: true,
-    },
   },
 
   // ========================
@@ -153,75 +108,6 @@ const StudentPublication = sequelize.define('StudentPublication', {
     type: DataTypes.DATE,
     allowNull: true,
     comment: 'Date when status was last updated',
-  },
-
-  // ========================
-  // 📝 ADDITIONAL DETAILS
-  // ========================
-  abstract: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-  },
-
-  keywords: {
-    type: DataTypes.JSON,
-    allowNull: true,
-    defaultValue: [],
-    comment: 'Array of keywords/tags',
-  },
-
-  volume: {
-    type: DataTypes.STRING(50),
-    allowNull: true,
-  },
-
-  issue: {
-    type: DataTypes.STRING(50),
-    allowNull: true,
-  },
-
-  journal_abbreviation: {
-    type: DataTypes.STRING(100),
-    allowNull: true,
-  },
-
-  issn: {
-    type: DataTypes.STRING(20),
-    allowNull: true,
-  },
-
-  isbn: {
-    type: DataTypes.STRING(20),
-    allowNull: true,
-  },
-
-  citations_count: {
-    type: DataTypes.INTEGER,
-    allowNull: true,
-    defaultValue: 0,
-  },
-
-  h_index_contribution: {
-    type: DataTypes.DECIMAL(4, 2),
-    allowNull: true,
-  },
-
-  contribution_description: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-    comment: 'Description of student contribution',
-  },
-
-  corresponding_author: {
-    type: DataTypes.BOOLEAN,
-    allowNull: true,
-    defaultValue: false,
-  },
-
-  first_author: {
-    type: DataTypes.BOOLEAN,
-    allowNull: true,
-    defaultValue: false,
   },
 
   // ========================

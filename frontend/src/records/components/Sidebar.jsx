@@ -132,6 +132,7 @@ const Sidebar = () => {
             <SidebarLink to="/records/staff-activities" icon={<FaUserTie />} label="Staff Activities" />
             <SidebarLink to="/records/student-activities" icon={<FaUserTie />} label="Student Activities" />
             <SidebarLink to="/records/noncgpa-category" icon={<FaUserTie />} label="Add Non CGPA" />
+            <SidebarLink to="/records/nptel-course" icon={<FaFileUpload />} label="NPTEL Course" />
             <SidebarLink to="/records/bulk" icon={<FaFileUpload />} label="Bulk Import" />
           </>
         );
@@ -145,6 +146,8 @@ const Sidebar = () => {
             <SidebarLink to="/records/staff-activities" icon={<FaUserTie />} label="Staff Activities" />
             <SidebarLink to="/records/student-activities" icon={<FaUserTie />} label="Student Activities" />
             <SidebarLink to="/records/noncgpa-category" icon={<FaUserTie />} label="Add Non CGPA" />
+                        <SidebarLink to="/records/nptel-course" icon={<FaFileUpload />} label="NPTEL Course" />
+
             <SidebarLink to="/records/bulk" icon={<FaFileUpload />} label="Bulk Import" />
           </>
         );
@@ -198,6 +201,7 @@ const Sidebar = () => {
             <SidebarLink to="/records/student-project" icon={<FaLaptopCode />} label="Projects" />
             <SidebarLink to="/records/student-competency" icon={<FaBook />} label="Competency & Coding" />
             <SidebarLink to="/records/student-publication" icon={<FaBook />} label="Publications" />
+            <SidebarLink to="/records/nptel" icon={<FaFileUpload />} label="NPTEL Course" />
             <SidebarLink to="/records/noncgpa" icon={<FaAward />} label="Non CGPA" />
 
             {/* Placement Dropdown for Student */}
