@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaEdit, FaTrash } from "react-icons/fa";
+import { FaEdit, FaTrash, FaUpload, FaEye, FaDownload } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { useHackathon } from "../../contexts/HackathonContext";
 
@@ -25,13 +25,18 @@ const HackathonEvents = () => {
     status: "participate",
   });
 
+  const [certificateFile, setCertificateFile] = useState(null);
+  const [certificatePreview, setCertificatePreview] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [localLoading, setLocalLoading] = useState(false);
-  const userId = localStorage.getItem("userId");
-
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [viewingCertificate, setViewingCertificate] = useState(null);
+  //const userId = localStorage.getItem("userId");
+const user = JSON.parse(localStorage.getItem("user") || "{}");
+const userId = user?.Userid;
   useEffect(() => {
     if (userId) {
-      fetchStudentEvents(userId);
+      fetchStudentEvents();
     }
   }, [userId, fetchStudentEvents]);
 
@@ -41,6 +46,39 @@ const HackathonEvents = () => {
       ...formData,
       [name]: value,
     });
+  };
+
+  const handleCertificateChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+      if (!validTypes.includes(file.type)) {
+        alert('Please upload a valid file (JPG, PNG, or PDF)');
+        e.target.value = '';
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size should not exceed 5MB');
+        e.target.value = '';
+        return;
+      }
+
+      setCertificateFile(file);
+
+      // Create preview for images
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setCertificatePreview(reader.result);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        setCertificatePreview(null);
+      }
+    }
   };
 
   const validateForm = () => {
@@ -68,28 +106,48 @@ const HackathonEvents = () => {
   };
 
   const handleSubmit = async (e) => {
+    console.log("Current localStorage user:", localStorage.getItem("user"));
+console.log("Extracted userId:", userId);
+console.log("Sending Userid:", parseInt(userId));
     e.preventDefault();
     clearError();
     setLocalLoading(true);
-    
+    setUploadProgress(0);
+
     try {
       validateForm();
 
-      const eventData = {
-        ...formData,
-        Userid: parseInt(userId),
-        level_cleared: parseInt(formData.level_cleared),
-        rounds: parseInt(formData.rounds),
-      };
+      // Debug logging
+      console.log("Form data:", formData);
+      console.log("User ID:", userId);
+
+      const submitData = new FormData();
+      submitData.append('event_name', formData.event_name);
+      submitData.append('organized_by', formData.organized_by);
+      submitData.append('from_date', formData.from_date);
+      submitData.append('to_date', formData.to_date);
+      submitData.append('level_cleared', parseInt(formData.level_cleared));
+      submitData.append('rounds', parseInt(formData.rounds));
+      submitData.append('status', formData.status);
+      submitData.append('Userid', parseInt(userId));
+
+      // Log FormData contents
+      for (let [key, value] of submitData.entries()) {
+        console.log(`${key}: ${value}`);
+      }
+
+      if (certificateFile) {
+        submitData.append('certificate', certificateFile);
+      }
 
       if (editingId) {
-        await updateHackathonEvent(editingId, eventData);
+        await updateHackathonEvent(editingId, submitData);
       } else {
-        await addHackathonEvent(eventData);
+        await addHackathonEvent(submitData);
       }
 
       // Refresh the events list
-      await fetchStudentEvents(userId);
+      await fetchStudentEvents();
 
       // Reset form
       setFormData({
@@ -101,9 +159,13 @@ const HackathonEvents = () => {
         rounds: 1,
         status: "participate",
       });
+      setCertificateFile(null);
+      setCertificatePreview(null);
       setEditingId(null);
+      setUploadProgress(0);
     } catch (err) {
       console.error("Error submitting hackathon event:", err);
+      alert(err.message || "Failed to submit hackathon event");
     } finally {
       setLocalLoading(false);
     }
@@ -120,13 +182,15 @@ const HackathonEvents = () => {
       status: event.status,
     });
     setEditingId(event.id);
+    setCertificateFile(null);
+    setCertificatePreview(null);
   };
 
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this hackathon event?")) {
       try {
         await deleteHackathonEvent(id);
-        await fetchStudentEvents(userId);
+        await fetchStudentEvents();
       } catch (err) {
         console.error("Error deleting event:", err);
       }
@@ -144,7 +208,58 @@ const HackathonEvents = () => {
       rounds: 1,
       status: "participate",
     });
+    setCertificateFile(null);
+    setCertificatePreview(null);
     clearError();
+  };
+
+  const handleViewCertificate = async (eventId) => {
+    try {
+      const token = localStorage.getItem('token');
+const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        setViewingCertificate(url);
+      } else {
+        alert('Failed to load certificate');
+      }
+    } catch (err) {
+      console.error('Error viewing certificate:', err);
+      alert('Failed to load certificate');
+    }
+  };
+
+  const handleDownloadCertificate = async (eventId, eventName) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/student/hackathon/certificate/${eventId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${eventName}_certificate.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        alert('Failed to download certificate');
+      }
+    } catch (err) {
+      console.error('Error downloading certificate:', err);
+      alert('Failed to download certificate');
+    }
   };
 
   const getStatusColor = (status) => {
@@ -279,6 +394,53 @@ const HackathonEvents = () => {
             </div>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <div className="col-span-1">
+              <label className="block text-gray-700 font-medium mb-1">
+                Certificate Upload
+                <span className="text-xs text-gray-500 ml-2">(JPG, PNG, PDF - Max 5MB)</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,application/pdf"
+                  onChange={handleCertificateChange}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                  id="certificate-upload"
+                />
+                {certificateFile && (
+                  <div className="mt-2 text-sm text-green-600 flex items-center">
+                    <FaUpload className="mr-2" />
+                    {certificateFile.name}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {certificatePreview && (
+            <div className="mb-4">
+              <label className="block text-gray-700 font-medium mb-2">Certificate Preview:</label>
+              <img 
+                src={certificatePreview} 
+                alt="Certificate Preview" 
+                className="max-w-md h-auto border rounded shadow-md"
+              />
+            </div>
+          )}
+
+          {uploadProgress > 0 && uploadProgress < 100 && (
+            <div className="mb-4">
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div 
+                  className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
+                  style={{ width: `${uploadProgress}%` }}
+                ></div>
+              </div>
+              <p className="text-sm text-gray-600 mt-1">Uploading... {uploadProgress}%</p>
+            </div>
+          )}
+
           <div className="flex justify-center space-x-4">
             {editingId && (
               <motion.button
@@ -315,7 +477,7 @@ const HackathonEvents = () => {
           <p className="text-gray-500">No hackathon events available.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse border border-gray-300"style={{ minWidth: '2000px', width: '100%' }}>
+            <table className="w-full border-collapse border border-gray-300" style={{ minWidth: '2000px', width: '100%' }}>
               <thead className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
                 <tr>
                   <th className="border border-gray-300 p-3 text-left">Event Name</th>
@@ -325,6 +487,7 @@ const HackathonEvents = () => {
                   <th className="border border-gray-300 p-3 text-left">Level</th>
                   <th className="border border-gray-300 p-3 text-left">Rounds</th>
                   <th className="border border-gray-300 p-3 text-left">Type</th>
+                  <th className="border border-gray-300 p-3 text-left">Certificate</th>
                   <th className="border border-gray-300 p-3 text-left">Status</th>
                   <th className="border border-gray-300 p-3 text-left">Actions</th>
                 </tr>
@@ -351,6 +514,28 @@ const HackathonEvents = () => {
                     <td className="border border-gray-300 p-3">{event.level_cleared}/10</td>
                     <td className="border border-gray-300 p-3">{event.rounds}</td>
                     <td className="border border-gray-300 p-3 capitalize">{event.status}</td>
+                    <td className="border border-gray-300 p-3">
+                      {event.hasCertificate ? (
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleViewCertificate(event.id)}
+                            className="p-1 text-blue-600 hover:text-blue-800 transition"
+                            title="View Certificate"
+                          >
+                            <FaEye />
+                          </button>
+                          <button
+                            onClick={() => handleDownloadCertificate(event.id, event.event_name)}
+                            className="p-1 text-green-600 hover:text-green-800 transition"
+                            title="Download Certificate"
+                          >
+                            <FaDownload />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-sm">No Certificate</span>
+                      )}
+                    </td>
                     <td className="border border-gray-300 p-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(
                         event.pending ? "pending" : 
@@ -396,6 +581,37 @@ const HackathonEvents = () => {
           </div>
         )}
       </motion.div>
+
+      {/* Certificate Viewer Modal */}
+      {viewingCertificate && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+          onClick={() => {
+            URL.revokeObjectURL(viewingCertificate);
+            setViewingCertificate(null);
+          }}
+        >
+          <div className="bg-white rounded-lg max-w-4xl max-h-[90vh] overflow-auto p-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold">Certificate Preview</h3>
+              <button
+                onClick={() => {
+                  URL.revokeObjectURL(viewingCertificate);
+                  setViewingCertificate(null);
+                }}
+                className="text-gray-600 hover:text-gray-800 text-2xl"
+              >
+                &times;
+              </button>
+            </div>
+            <iframe
+              src={viewingCertificate}
+              className="w-full h-[70vh] border"
+              title="Certificate"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

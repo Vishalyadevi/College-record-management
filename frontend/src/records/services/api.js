@@ -318,7 +318,39 @@ export const updateRecognitionEntry = (id, data) => api.put(`/recognition/${id}`
 export const deleteRecognitionEntry = (id) => api.delete(`/recognition/${id}`);
 */
 // Add these updated functions to your existing api.js file
+// Add these functions to your api.js file
 
+// Dashboard Statistics
+export const getDashboardStats = (studentId) => 
+  api.get(`/dashboard/stats/${studentId}`);
+
+// Non-CGPA Data
+export const getNonCGPAData = (studentId) => 
+  api.get(`/dashboard/noncgpa/${studentId}`);
+
+// SkillRack Data
+export const getSkillRackData = (studentId) => 
+  api.get(`/dashboard/skillrack/${studentId}`);
+
+// Alternative: Get all dashboard data in one call
+export const getAllDashboardData = async (studentId) => {
+  try {
+    const [stats, noncgpa, skillrack] = await Promise.all([
+     // api.get(`/dashboard/stats/${studentId}`).catch(() => ({ data: null })),
+      api.get(`/dashboard/noncgpa/${studentId}`).catch(() => ({ data: { data: [] } })),
+      api.get(`/dashboard/skillrack/${studentId}`).catch(() => ({ data: { data: null } }))
+    ]);
+
+    return {
+      stats: stats.data,
+      noncgpa: noncgpa.data.data || [],
+      skillrack: skillrack.data.data
+    };
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error);
+    throw error;
+  }
+};
 // Recognition services - Updated with PDF support
 export const getRecognitionEntries = () => api.get('/recognition');
 
@@ -383,7 +415,7 @@ export const updateSeedMoneyEntry = (id, data) => {
 export const deleteSeedMoneyEntry = (id) => api.delete(`/seed-money/${id}`);
 
 // REAL-TIME DASHBOARD STATS SERVICE
-export const getDashboardStats = async () => {
+/*export const getDashboardStats = async () => {
   try {
     // Fetch all data concurrently for better performance
     const [
@@ -443,7 +475,7 @@ export const getDashboardStats = async () => {
     throw error;
   }
 };
-
+*/
 // ALTERNATIVE: If your backend has a dedicated dashboard stats endpoint
 export const getDashboardStatsOptimized = () => api.get('/other/dashboard-stats');
 

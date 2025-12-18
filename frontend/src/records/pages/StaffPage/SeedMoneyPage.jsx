@@ -324,7 +324,7 @@ const SeedMoneyPage = () => {
               className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium rounded-lg shadow-lg transform transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus size={18} />
-              Add New Entry
+              Add Seed Money 
             </button>
           </div>
         </div>
@@ -451,7 +451,7 @@ const SeedMoneyPage = () => {
                   name="proofLink"
                   accept=".pdf,application/pdf"
                   onChange={handleChange}
-                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100 cursor-pointer"
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
                 />
               )}
               
@@ -475,7 +475,7 @@ const SeedMoneyPage = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
                       <FileText size={16} className="text-blue-600 mr-2" />
-                      <span className="text-sm text-blue-800">Current document available</span>
+                      <span className="text-sm text-blue-700">Current document available</span>
                     </div>
                     <button
                       type="button"

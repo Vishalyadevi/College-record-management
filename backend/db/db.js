@@ -7,8 +7,8 @@ dotenv.config();
 const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || 'Vishal2005#',
-  database: process.env.DB_NAME || 'record'
+  password: process.env.DB_PASSWORD || 'root',
+  database: process.env.DB_NAME || 'schema1'
 };
 
 // Create connection pool
@@ -959,6 +959,7 @@ CREATE TABLE IF NOT EXISTS hackathons (
   contest_link VARCHAR(500) NOT NULL,
   date DATE NOT NULL,
   host_by VARCHAR(255) NOT NULL,
+  certificate longblob,
   eligibility_year ENUM('1st Year', '2nd Year', '3rd Year', '4th Year', 'All Years') NOT NULL,
   department ENUM('CSE', 'ECE', 'EEE', 'MECH', 'CIVIL', 'IT', 'All Departments') NOT NULL,
   attempt_date DATE NOT NULL,

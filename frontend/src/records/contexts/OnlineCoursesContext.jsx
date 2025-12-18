@@ -26,7 +26,7 @@ export const OnlineCoursesProvider = ({ children }) => {
   const fetchOnlineCourses = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${backendUrl}/api/approved-courses`, {
+      const response = await axios.get(`${backendUrl}/api/online-courses`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       setOnlineCourses(response.data.courses || []);
@@ -44,7 +44,7 @@ export const OnlineCoursesProvider = ({ children }) => {
   const fetchPendingCourses = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${backendUrl}/api/pending-online-courses`, {
+      const response = await axios.get(`${backendUrl}/api/online-courses/pending`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       setPendingCourses(response.data.courses || []);
@@ -62,7 +62,7 @@ export const OnlineCoursesProvider = ({ children }) => {
   const addOnlineCourse = async (formData) => {
     setLoading(true);
     try {
-      const response = await axios.post(`${backendUrl}/api/add-course`, formData, {
+      const response = await axios.post(`${backendUrl}/api/online-courses`, formData, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
           "Content-Type": "multipart/form-data",
@@ -85,7 +85,7 @@ export const OnlineCoursesProvider = ({ children }) => {
   const updateOnlineCourse = async (courseId, formData) => {
     setLoading(true);
     try {
-      const response = await axios.patch(`${backendUrl}/api/update-course/${courseId}`, formData, {
+      const response = await axios.patch(`${backendUrl}/api/online-courses/${courseId}`, formData, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
           "Content-Type": "multipart/form-data",
@@ -108,7 +108,7 @@ export const OnlineCoursesProvider = ({ children }) => {
   const deleteOnlineCourse = async (courseId) => {
     setLoading(true);
     try {
-      const response = await axios.delete(`${backendUrl}/api/delete-course/${courseId}`, {
+      const response = await axios.delete(`${backendUrl}/api/online-courses/${courseId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       toast.success("Online course deleted successfully!");
