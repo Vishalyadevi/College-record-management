@@ -81,7 +81,7 @@ const applyAssociations = () => {
   StudentDetails.belongsTo(Country, { foreignKey: "countryID", as: "country" });
   StudentDetails.belongsTo(State, { foreignKey: "stateID", as: "state" });
   StudentDetails.belongsTo(District, { foreignKey: "districtID", as: "district" });
-  StudentDetails.belongsTo(City, { foreignKey: "cityID", as: "city" });
+  StudentDetails.belongsTo(City, { foreignKey: "cityID", as: "cityDetail" });
 
   /** =====================
    *  🟢 LOCATION ASSOCIATIONS
@@ -156,9 +156,9 @@ EventAttended.belongsTo(User, { foreignKey: "Updated_by", as: "updater" });
 // Approved_by association
 User.hasMany(EventAttended, { foreignKey: "Approved_by", as: "tutorApprovedAttendedEvents" });
 EventAttended.belongsTo(User, { foreignKey: "Approved_by", as: "tutor" });
-EventAttended.belongsTo(City, { foreignKey: 'cityID', as: 'city' });
-EventAttended.belongsTo(District, { foreignKey: 'districtID', as: 'district' });
-EventAttended.belongsTo(State, { foreignKey: 'stateID', as: 'state' });
+EventAttended.belongsTo(City, { foreignKey: 'cityID', as: 'eventCity' });
+EventAttended.belongsTo(District, { foreignKey: 'districtID', as: 'eventDistrict' });
+EventAttended.belongsTo(State, { foreignKey: 'stateID', as: 'eventState' });
 
 
 StudentLeave.belongsTo(User, { foreignKey: "Userid", as: "LeaveUser" });

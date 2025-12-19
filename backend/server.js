@@ -146,7 +146,7 @@ const feedbackUpload = multer({ storage: feedbackStorage, fileFilter: feedbackFi
 app.use(cors());
 
 // Register routes that need multipart/form-data before body parsers
-app.use("/api/hackathon", hackathonRoutes);
+
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -403,7 +403,7 @@ app.use('/api', internRoutes);
 app.use('/api', dashboardRoutes);
 app.use("/api/bulk", bulkRoutes);
 app.use('/api/student', studentPdfRoutes);
-
+app.use("/api/hackathon", hackathonRoutes);
 app.use("/api", studentRoutes);
 app.use("/api/staff", PersonalInfo);
 app.use('/api', staffRoutes);

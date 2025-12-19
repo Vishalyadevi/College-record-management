@@ -1,6 +1,9 @@
 import multer from 'multer';
 import path from 'path';
+import express from 'express';
+import { EventAttended } from '../../models/index.js';
 
+const router = express.Router();
 // Configure storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -105,3 +108,4 @@ router.post('/add-event-attended', uploadFields, async (req, res) => {
     res.status(400).json({ message: error.message || "Failed to add event" });
   }
 });
+export default router;
