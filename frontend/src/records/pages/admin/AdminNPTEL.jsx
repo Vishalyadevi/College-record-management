@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaEdit, FaTrash, FaPlus } from "react-icons/fa";
+import { Edit2, Trash2, Plus, CheckCircle, XCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNPTEL } from "../../contexts/NPTELContext";
 

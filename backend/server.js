@@ -94,8 +94,8 @@ const __dirname = path.dirname(__filename);
 const db = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || 'root',
-  database: process.env.DB_NAME || 'schema1',
+  password: process.env.DB_PASSWORD || 'Vishal2005#',
+  database: process.env.DB_NAME || 'record',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,

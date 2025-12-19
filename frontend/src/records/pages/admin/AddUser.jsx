@@ -206,26 +206,21 @@ const AddUser = () => {
         payload.regno = formData.regno.trim();
         payload.year = formData.year;
         payload.course = formData.course;
-        payload.Deptid = parseInt(formData.Deptid); // Convert to number
+        payload.Deptid = parseInt(formData.Deptid);
         payload.batch = formData.batch.trim();
-        payload.TutorId = parseInt(formData.TutorId); // Send as TutorId, not staffId
+        payload.TutorId = parseInt(formData.TutorId);
         
-        // Debug: Log the tutor mapping
         console.log("Student payload - TutorId:", formData.TutorId);
       } 
       else if (formData.role === "Staff") {
         payload.staffId = formData.staffId.trim();
-        payload.Deptid = parseInt(formData.Deptid); // Convert to number
+        payload.Deptid = parseInt(formData.Deptid);
       } 
       else if (["DeptAdmin", "IrAdmin", "PgAdmin", "AcademicAdmin", "NewgenAdmin", "PlacementAdmin"].includes(formData.role)) {
-        payload.Deptid = parseInt(formData.Deptid); // Convert to number
+        payload.Deptid = parseInt(formData.Deptid);
       }
 
-      console.log("=== FULL PAYLOAD DETAILS ===");
       console.log("Payload being sent:", payload);
-      console.log("Payload keys:", Object.keys(payload));
-      console.log("Payload values:", Object.values(payload));
-      console.log("===========================");
 
       const response = await axios.post(
         `${backendUrl}/api/add-user`,
@@ -241,13 +236,7 @@ const AddUser = () => {
       toast.success(response.data.message || "User added successfully!");
       resetForm();
     } catch (error) {
-      console.error("=== ERROR DETAILS ===");
-      console.error("Full error:", error);
-      console.error("Error response:", error.response);
-      console.error("Error response data:", error.response?.data);
-      console.error("Error message:", error.response?.data?.message);
-      console.error("====================");
-      
+      console.error("Error:", error);
       const errorMessage = error.response?.data?.message || error.response?.data?.error || "Failed to add user. Please try again.";
       toast.error(errorMessage);
     } finally {
@@ -346,7 +335,7 @@ const AddUser = () => {
 
   if (availableRoles.length === 0 && user) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gradient-to-r from-blue-50 to-purple-50">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-r from-blue-50 to-purple-50 ml-60 p-6">
         <div className="bg-white p-8 rounded-lg shadow-lg">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Access Denied</h2>
           <p className="text-gray-600">You do not have permission to add users.</p>
@@ -356,98 +345,93 @@ const AddUser = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gradient-to-r from-blue-50 to-purple-50 overflow-hidden fixed left-60 right-10 top-12">
-      <div className="flex-1 p-6 overflow-auto">
-        <form
-          onSubmit={onSubmitHandler}
-          className="mx-auto w-full max-w-4xl h-[calc(100vh-3rem)] overflow-auto"
-        >
-          <div className="flex justify-between items-center mb-6">
-            <p className="text-2xl font-semibold text-gray-800">
-              Add New User
-              {user?.role === "DeptAdmin" && (
-                <span className="text-sm text-gray-500 ml-2">
-                  (Limited to {filteredDepartments[0]?.Deptname})
-                </span>
+    <div className="min-h-screen bg-gradient-to-r from-blue-50 to-purple-50 ml-70 p-6">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex justify-between items-center mb-6">
+          <p className="text-2xl font-semibold text-gray-800">
+            Add New User
+            {user?.role === "DeptAdmin" && (
+              <span className="text-sm text-gray-500 ml-2">
+                (Limited to {filteredDepartments[0]?.Deptname})
+              </span>
+            )}
+          </p>
+          <div className="flex space-x-4">
+            <button
+              type="button"
+              onClick={resetForm}
+              className="bg-gradient-to-r from-gray-500 to-gray-600 text-white p-3 rounded-lg shadow-lg hover:from-gray-600 hover:to-gray-700 transition-all flex items-center"
+              disabled={loading}
+            >
+              <FaUndo className="text-lg" />
+            </button>
+            <button
+              onClick={onSubmitHandler}
+              className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg shadow-lg hover:from-blue-600 hover:to-purple-700 transition-all flex items-center"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <FaSpinner className="animate-spin text-lg mr-2" />
+                  Adding...
+                </>
+              ) : (
+                <>
+                  <FaPlus className="text-lg mr-2" />
+                  Add User
+                </>
               )}
-            </p>
-            <div className="flex space-x-4">
-              <button
-                type="button"
-                onClick={resetForm}
-                className="bg-gradient-to-r from-gray-500 to-gray-600 text-white p-3 rounded-lg shadow-lg hover:from-gray-600 hover:to-gray-700 transition-all flex items-center"
-                disabled={loading}
-              >
-                <FaUndo className="text-lg" />
-              </button>
-              <button
-                type="submit"
-                className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg shadow-lg hover:from-blue-600 hover:to-purple-700 transition-all flex items-center"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <FaSpinner className="animate-spin text-lg mr-2" />
-                    Adding...
-                  </>
-                ) : (
-                  <>
-                    <FaPlus className="text-lg mr-2" />
-                    Add User
-                  </>
-                )}
-              </button>
-            </div>
+            </button>
           </div>
+        </div>
 
-          <div className="bg-white p-8 border border-gray-200 rounded-lg shadow-lg">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 text-gray-700">
-              <div className="space-y-4">
+        <div className="bg-white p-8 border border-gray-200 rounded-lg shadow-lg">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 text-gray-700">
+            <div className="space-y-4">
+              <FormField
+                label="Role"
+                name="role"
+                value={formData.role}
+                onChange={onChangeHandler}
+                type="select"
+                options={availableRoles}
+                required
+                placeholder="Select User Role"
+              />
+              {leftFields.map((field) => (
                 <FormField
-                  label="Role"
-                  name="role"
-                  value={formData.role}
+                  key={field.name}
+                  label={field.label}
+                  name={field.name}
+                  value={formData[field.name]}
                   onChange={onChangeHandler}
-                  type="select"
-                  options={availableRoles}
-                  required
-                  placeholder="Select User Role"
+                  type={field.type}
+                  options={field.options}
+                  required={field.required}
+                  placeholder={field.placeholder}
+                  disabled={field.disabled}
                 />
-                {leftFields.map((field) => (
-                  <FormField
-                    key={field.name}
-                    label={field.label}
-                    name={field.name}
-                    value={formData[field.name]}
-                    onChange={onChangeHandler}
-                    type={field.type}
-                    options={field.options}
-                    required={field.required}
-                    placeholder={field.placeholder}
-                    disabled={field.disabled}
-                  />
-                ))}
-              </div>
+              ))}
+            </div>
 
-              <div className="space-y-4">
-                {rightFields.map((field) => (
-                  <FormField
-                    key={field.name}
-                    label={field.label}
-                    name={field.name}
-                    value={formData[field.name]}
-                    onChange={onChangeHandler}
-                    type={field.type}
-                    options={field.options}
-                    required={field.required}
-                    placeholder={field.placeholder}
-                    disabled={field.disabled}
-                  />
-                ))}
-              </div>
+            <div className="space-y-4">
+              {rightFields.map((field) => (
+                <FormField
+                  key={field.name}
+                  label={field.label}
+                  name={field.name}
+                  value={formData[field.name]}
+                  onChange={onChangeHandler}
+                  type={field.type}
+                  options={field.options}
+                  required={field.required}
+                  placeholder={field.placeholder}
+                  disabled={field.disabled}
+                />
+              ))}
             </div>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

@@ -192,7 +192,7 @@ const Sidebar = () => {
             <SidebarLink to="/records/student-event-organized" icon={<FaAward />} label="Events Organized" />
             <SidebarLink to="/records/student-certificates" icon={<FaCertificate />} label="Certifications" />
             <SidebarLink to="/records/student-online-courses" icon={<FaLaptopCode />} label="Online Courses" />
-            <SidebarLink to="/records/student-achievements" icon={<FaMedal />} label="Achievements" />
+            {/* <SidebarLink to="/records/student-achievements" icon={<FaMedal />} label="Achievements" /> */}
             <SidebarLink to="/records/student-internships" icon={<FaSchool />} label="Internships" />
             <SidebarLink to="/records/student-scholarships" icon={<FaAward />} label="Scholarships" />
             <SidebarLink to="/records/student-leave" icon={<FaPlane />} label="Leave Request" />
