@@ -1,387 +1,357 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { RefreshCw, AlertCircle, TrendingUp, Users, Briefcase, FileSpreadsheet, FileText, Calendar, Award, BookOpen, BookMarked } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { getDashboardStats, createPollingService } from '../../services/api';
-import { Chart as ChartJS, ArcElement, Tooltip, Legend, RadialLinearScale, PointElement, LineElement } from 'chart.js';
-import { Pie, PolarArea } from 'react-chartjs-2';
+import React, { useState, useEffect } from 'react';
+import { RefreshCw, AlertCircle, TrendingUp, Users, Briefcase, FileSpreadsheet, FileText, Calendar, Award, BookOpen, BookMarked, Download, Sparkles } from 'lucide-react';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
+import { Doughnut, Bar } from 'react-chartjs-2';
 
-ChartJS.register(ArcElement, Tooltip, Legend, RadialLinearScale, PointElement, LineElement);
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
 const Dashboard = () => {
-  const navigate = useNavigate();
-  
   const [stats, setStats] = useState({
-    seedmoney: 0,
+    seedmoney: 1,
     scholars: 0,
-    proposals: 0,
-    projectProposals: 0,
-    events: 0,
+    proposals: 2,
+    projectProposals: 2,
+    events: 1,
     industry: 0,
-    certifications: 0,
+    certifications: 1,
     publications: 0,
-    eventsOrganized: 0,
-    hIndex: 0,
+    eventsOrganized: 2,
+    hIndex: 2,
     resourcePerson: 0,
     recognition: 0,
-    patents: 0,
-    projectMentors: 0
+    patents: 1,
+    projectMentors: 4
   });
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [lastUpdated, setLastUpdated] = useState(null);
-  const pollingCleanupRef = useRef(null);
+  const [loading, setLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [notification, setNotification] = useState(null);
 
-  const updateStatsIfIncreased = useCallback((newStats) => {
-    setStats((prevStats) => {
-      let updated = false;
-      const updatedStats = { ...prevStats };
-      for (const key in newStats) {
-        if (newStats[key] > (prevStats[key] || 0)) {
-          updatedStats[key] = newStats[key];
-          updated = true;
-        }
-      }
-      return updated ? updatedStats : prevStats;
-    });
-    setLastUpdated(new Date());
-  }, []);
-
-  const loadStats = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await getDashboardStats();
-      setStats(response.data);
-      setLastUpdated(new Date());
-    } catch (err) {
-      console.error('Error loading dashboard stats:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    // Initial load
-    loadStats();
-
-    // Start polling for real-time updates
-    pollingCleanupRef.current = createPollingService(updateStatsIfIncreased, 5000);
-
-    return () => {
-      // Cleanup polling on unmount
-      if (pollingCleanupRef.current) {
-        pollingCleanupRef.current();
-      }
-    };
-  }, [loadStats, updateStatsIfIncreased]);
+  // Get user ID from localStorage or context (adjust based on your auth setup)
+  const getUserId = () => {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    return user.Userid || user.id;
+  };
 
   const statItems = [
-    { 
-      key: 'seedmoney', 
-      label: 'Seed Money', 
-      gradient: 'bg-gradient-to-br from-indigo-500 to-indigo-700',
-      hoverGradient: 'hover:from-indigo-600 hover:to-indigo-800',
-      icon: <FileText size={24} />,
-      path: '/records/seed-money'
-    },
-    { 
-      key: 'scholars', 
-      label: 'Scholars', 
-      gradient: 'bg-gradient-to-br from-purple-500 to-purple-700',
-      hoverGradient: 'hover:from-purple-600 hover:to-purple-800',
-      icon: <Users size={24} />,
-      path: '/records/scholars'
-    },
-    { 
-      key: 'proposals', 
-      label: 'Consultancy', 
-      gradient: 'bg-gradient-to-br from-green-500 to-green-700',
-      hoverGradient: 'hover:from-green-600 hover:to-green-800',
-      icon: <Briefcase size={24} />,
-      path: '/records/proposals'
-    },
-    { 
-      key: 'projectProposals', 
-      label: 'Funded Project', 
-      gradient: 'bg-gradient-to-br from-emerald-500 to-emerald-700',
-      hoverGradient: 'hover:from-emerald-600 hover:to-emerald-800',
-      icon: <FileSpreadsheet size={24} />,
-      path: '/records/project-proposal'
-    },
-    { 
-      key: 'events', 
-      label: 'Events Attended', 
-      gradient: 'bg-gradient-to-br from-yellow-500 to-yellow-700',
-      hoverGradient: 'hover:from-yellow-600 hover:to-yellow-800',
-      icon: <Calendar size={24} />,
-      path: '/records/events'
-    },
-    { 
-      key: 'industry', 
-      label: 'Industry Knowhow', 
-      gradient: 'bg-gradient-to-br from-orange-500 to-orange-700',
-      hoverGradient: 'hover:from-orange-600 hover:to-orange-800',
-      icon: <Briefcase size={24} />,
-      path: '/records/industry'
-    },
-    { 
-      key: 'certifications', 
-      label: 'Certification Courses', 
-      gradient: 'bg-gradient-to-br from-red-500 to-red-700',
-      hoverGradient: 'hover:from-red-600 hover:to-red-800',
-      icon: <Award size={24} />,
-      path: '/records/certifications'
-    },
-    { 
-      key: 'publications', 
-      label: 'Publications', 
-      gradient: 'bg-gradient-to-br from-pink-500 to-pink-700',
-      hoverGradient: 'hover:from-pink-600 hover:to-pink-800',
-      icon: <BookOpen size={24} />,
-      path: '/records/book-chapters'
-    },
-    { 
-      key: 'eventsOrganized', 
-      label: 'Events Organized', 
-      gradient: 'bg-gradient-to-br from-rose-500 to-rose-700',
-      hoverGradient: 'hover:from-rose-600 hover:to-rose-800',
-      icon: <BookMarked size={24} />,
-      path: '/records/events-organized'
-    },
-    { 
-      key: 'hIndex', 
-      label: 'H-Index', 
-      gradient: 'bg-gradient-to-br from-cyan-500 to-cyan-700',
-      hoverGradient: 'hover:from-cyan-600 hover:to-cyan-800',
-      icon: <FileText size={24} />,
-      path: '/records/h-index'
-    },
-    { 
-      key: 'resourcePerson', 
-      label: 'Resource Person', 
-      gradient: 'bg-gradient-to-br from-teal-500 to-teal-700',
-      hoverGradient: 'hover:from-teal-600 hover:to-teal-800',
-      icon: <Users size={24} />,
-      path: '/records/resource-person'
-    },
-    { 
-      key: 'recognition', 
-      label: 'Recognition', 
-      gradient: 'bg-gradient-to-br from-slate-500 to-slate-700',
-      hoverGradient: 'hover:from-slate-600 hover:to-slate-800',
-      icon: <Award size={24} />,
-      path: '/records/recognition'
-    },
-    { 
-      key: 'patents', 
-      label: 'Patent/Product Development', 
-      gradient: 'bg-gradient-to-br from-gray-500 to-gray-700',
-      hoverGradient: 'hover:from-gray-600 hover:to-gray-800',
-      icon: <FileText size={24} />,
-      path: '/records/patent-product'
-    },
-    { 
-      key: 'projectMentors', 
-      label: 'Project Mentors', 
-      gradient: 'bg-gradient-to-br from-violet-500 to-violet-700',
-      hoverGradient: 'hover:from-violet-600 hover:to-violet-800',
-      icon: <Users size={24} />,
-      path: '/records/project-mentors'
-    }
+    { key: 'seedmoney', label: 'Seed Money', color: 'from-violet-400 via-purple-500 to-indigo-500', bgGlow: 'shadow-purple-500/50', icon: <FileText size={20} /> },
+    { key: 'scholars', label: 'Scholars', color: 'from-pink-400 via-rose-500 to-red-500', bgGlow: 'shadow-pink-500/50', icon: <Users size={20} /> },
+    { key: 'proposals', label: 'Consultancy', color: 'from-emerald-400 via-teal-500 to-cyan-500', bgGlow: 'shadow-emerald-500/50', icon: <Briefcase size={20} /> },
+    { key: 'projectProposals', label: 'Funded Project', color: 'from-blue-400 via-indigo-500 to-purple-500', bgGlow: 'shadow-blue-500/50', icon: <FileSpreadsheet size={20} /> },
+    { key: 'events', label: 'Events Attended', color: 'from-amber-400 via-orange-500 to-red-500', bgGlow: 'shadow-amber-500/50', icon: <Calendar size={20} /> },
+    { key: 'industry', label: 'Industry Knowhow', color: 'from-lime-400 via-green-500 to-emerald-500', bgGlow: 'shadow-lime-500/50', icon: <Briefcase size={20} /> },
+    { key: 'certifications', label: 'Certifications', color: 'from-fuchsia-400 via-pink-500 to-rose-500', bgGlow: 'shadow-fuchsia-500/50', icon: <Award size={20} /> },
+    { key: 'publications', label: 'Publications', color: 'from-cyan-400 via-blue-500 to-indigo-500', bgGlow: 'shadow-cyan-500/50', icon: <BookOpen size={20} /> },
+    { key: 'eventsOrganized', label: 'Events Organized', color: 'from-rose-400 via-red-500 to-pink-500', bgGlow: 'shadow-rose-500/50', icon: <BookMarked size={20} /> },
+    { key: 'hIndex', label: 'H-Index', color: 'from-teal-400 via-cyan-500 to-blue-500', bgGlow: 'shadow-teal-500/50', icon: <FileText size={20} /> },
+    { key: 'resourcePerson', label: 'Resource Person', color: 'from-yellow-400 via-amber-500 to-orange-500', bgGlow: 'shadow-yellow-500/50', icon: <Users size={20} /> },
+    { key: 'recognition', label: 'Recognition', color: 'from-indigo-400 via-purple-500 to-pink-500', bgGlow: 'shadow-indigo-500/50', icon: <Award size={20} /> },
+    { key: 'patents', label: 'Patent/Product', color: 'from-green-400 via-emerald-500 to-teal-500', bgGlow: 'shadow-green-500/50', icon: <FileText size={20} /> },
+    { key: 'projectMentors', label: 'Project Mentors', color: 'from-purple-400 via-fuchsia-500 to-pink-500', bgGlow: 'shadow-purple-500/50', icon: <Users size={20} /> }
   ];
 
-  // Create categories array from statItems for charts
   const categories = statItems.map(item => ({
     name: item.label,
     count: stats[item.key] || 0
   }));
 
-  const chartData = {
+  const doughnutData = {
     labels: categories.map(cat => cat.name),
-    datasets: [
-      {
-        data: categories.map(cat => cat.count),
-        backgroundColor: [
-          'rgba(153, 102, 255, 0.6)',
-          'rgba(16, 185, 129, 0.6)',
-          'rgba(245, 158, 11, 0.6)',
-          'rgba(239, 68, 68, 0.6)',
-          'rgba(99, 102, 241, 0.6)',
-          'rgba(34, 197, 94, 0.6)',
-          'rgba(236, 72, 153, 0.6)',
-          'rgba(14, 165, 233, 0.6)',
-          'rgba(168, 85, 247, 0.6)',
-          'rgba(6, 182, 212, 0.6)',
-          'rgba(20, 184, 166, 0.6)',
-          'rgba(100, 116, 139, 0.6)',
-          'rgba(107, 114, 128, 0.6)',
-          'rgba(124, 58, 237, 0.6)',
-        ],
-        borderWidth: 1,
-      },
-    ],
+    datasets: [{
+      data: categories.map(cat => cat.count),
+      backgroundColor: [
+        'rgba(139, 92, 246, 0.9)', 'rgba(244, 114, 182, 0.9)', 'rgba(52, 211, 153, 0.9)',
+        'rgba(99, 102, 241, 0.9)', 'rgba(251, 191, 36, 0.9)', 'rgba(132, 204, 22, 0.9)',
+        'rgba(236, 72, 153, 0.9)', 'rgba(34, 211, 238, 0.9)', 'rgba(251, 113, 133, 0.9)',
+        'rgba(20, 184, 166, 0.9)', 'rgba(250, 204, 21, 0.9)', 'rgba(168, 85, 247, 0.9)',
+        'rgba(52, 211, 153, 0.9)', 'rgba(217, 70, 239, 0.9)',
+      ],
+      borderWidth: 3,
+      borderColor: '#1e1b4b',
+    }],
   };
 
-  const polarData = {
+  const barData = {
     labels: categories.map(cat => cat.name),
-    datasets: [
-      {
-        data: categories.map(cat => cat.count),
-        backgroundColor: [
-          'rgba(153, 102, 255, 0.5)',
-          'rgba(16, 185, 129, 0.5)',
-          'rgba(245, 158, 11, 0.5)',
-          'rgba(239, 68, 68, 0.5)',
-          'rgba(99, 102, 241, 0.5)',
-          'rgba(34, 197, 94, 0.5)',
-          'rgba(236, 72, 153, 0.5)',
-          'rgba(14, 165, 233, 0.5)',
-          'rgba(168, 85, 247, 0.5)',
-          'rgba(6, 182, 212, 0.5)',
-          'rgba(20, 184, 166, 0.5)',
-          'rgba(100, 116, 139, 0.5)',
-          'rgba(107, 114, 128, 0.5)',
-          'rgba(124, 58, 237, 0.5)',
-        ],
-        borderWidth: 1,
-      },
-    ],
+    datasets: [{
+      label: 'Count',
+      data: categories.map(cat => cat.count),
+      backgroundColor: [
+        'rgba(139, 92, 246, 0.8)', 'rgba(244, 114, 182, 0.8)', 'rgba(52, 211, 153, 0.8)',
+        'rgba(99, 102, 241, 0.8)', 'rgba(251, 191, 36, 0.8)', 'rgba(132, 204, 22, 0.8)',
+        'rgba(236, 72, 153, 0.8)', 'rgba(34, 211, 238, 0.8)', 'rgba(251, 113, 133, 0.8)',
+        'rgba(20, 184, 166, 0.8)', 'rgba(250, 204, 21, 0.8)', 'rgba(168, 85, 247, 0.8)',
+        'rgba(52, 211, 153, 0.8)', 'rgba(217, 70, 239, 0.8)',
+      ],
+      borderWidth: 0,
+      borderRadius: 8,
+    }],
   };
-
-  if (loading) {
-    return (
-      <div className="animate-pulse">
-        <div className="bg-white rounded-lg shadow-md h-32 mb-6"></div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-lg shadow-md h-64"></div>
-          <div className="bg-white rounded-lg shadow-md h-64"></div>
-          <div className="bg-white rounded-lg shadow-md h-64"></div>
-        </div>
-      </div>
-    );
-  }
 
   const totalCount = Object.values(stats).reduce((sum, val) => sum + (val || 0), 0);
 
+  const showNotification = (message, type = 'success') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+  const handleExportPDF = async () => {
+    const userId = getUserId();
+    
+    if (!userId) {
+      showNotification('User not authenticated. Please log in.', 'error');
+      return;
+    }
+
+    setPdfLoading(true);
+
+    try {
+      // Call the backend API to generate PDF
+      const response = await fetch(`http://localhost:5000/api/pdf/faculty-profile/${userId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/pdf',
+          // Add authentication token if required
+          // 'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to generate PDF: ${response.statusText}`);
+      }
+
+      // Convert response to blob
+      const blob = await response.blob();
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `faculty_profile_${userId}_${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      showNotification('PDF generated and downloaded successfully!', 'success');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      showNotification(`Failed to generate PDF: ${error.message}`, 'error');
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  const handleRefresh = () => {
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      setLastUpdated(new Date());
+      showNotification('Data refreshed successfully!');
+    }, 1000);
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Academic Dashboard</h1>
-            <p className="text-gray-600">Overview of your academic achievements and activities</p>
-          </div>
+    <div className="h-screen bg-white overflow-hidden">
+      {/* Animated Background Effect */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-100 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-indigo-100 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" style={{animationDelay: '2s'}}></div>
+        <div className="absolute top-1/2 left-1/2 w-80 h-80 bg-purple-100 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" style={{animationDelay: '4s'}}></div>
+      </div>
 
-          <div className="flex items-center gap-4 mt-4 sm:mt-0">
-            {lastUpdated && (
-              <span className="text-sm text-gray-500">
-                Last updated: {lastUpdated.toLocaleTimeString()}
-              </span>
-            )}
-            <button
-              onClick={loadStats}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
-          </div>
-        </div>
-
-        {/* Error Alert */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-            <div>
-              <h3 className="font-medium text-red-800">Connection Error</h3>
-              <p className="text-red-700 text-sm mt-1">
-                {error}. Showing cached data or default values.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Summary Card */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <TrendingUp className="w-6 h-6 text-blue-600" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">Total Achievements</h2>
-              <p className="text-gray-600 text-sm">Combined count across all categories</p>
-            </div>
-          </div>
-          <div className="text-4xl font-bold text-blue-600">
-            {loading ? (
-              <div className="animate-pulse bg-gray-200 h-12 w-24 rounded"></div>
+      {/* Notification Toast */}
+      {notification && (
+        <div className={`fixed top-4 right-4 z-50 px-6 py-4 rounded-xl shadow-2xl ${
+          notification.type === 'success' 
+            ? 'bg-gradient-to-r from-green-500 to-emerald-600' 
+            : 'bg-gradient-to-r from-red-500 to-rose-600'
+        } text-white font-semibold animate-slide-in-right`}>
+          <div className="flex items-center gap-3">
+            {notification.type === 'success' ? (
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
             ) : (
-              totalCount
+              <AlertCircle className="w-6 h-6" />
             )}
+            <span>{notification.message}</span>
           </div>
         </div>
+      )}
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
-          {statItems.map(({ key, label, gradient, hoverGradient, icon, path }) => (
-            <div
-              key={key}
-              onClick={() => navigate(path)}
-              className={`${gradient} ${hoverGradient} rounded-xl shadow-lg p-6 cursor-pointer transform transition-all duration-300 hover:scale-105 hover:shadow-xl`}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="text-white text-2xl">
-                  {icon}
-                </div>
-                {loading && (
-                  <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
-                )}
+      <div className="relative h-full p-4 flex flex-col">
+        <div className="max-w-[1920px] mx-auto w-full h-full flex flex-col">
+          
+          {/* Modern Header */}
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl shadow-lg">
+                <Sparkles className="w-6 h-6 text-white" />
               </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-800">Academic Dashboard</h1>
+              </div>
+            </div>
 
-              <h3 className="text-sm font-medium text-white/90 mb-2">
-                {label}
-              </h3>
-
-              <div className="text-3xl font-bold text-white">
-                {loading ? (
-                  <div className="animate-pulse bg-white/20 h-8 w-12 rounded"></div>
-                ) : (
-                  stats[key] || 0
-                )}
+            <div className="flex items-center gap-3">
+              <div className="px-3 py-1.5 bg-white/10 backdrop-blur-md rounded-lg border border-white/20">
+                <span className="text-xs text-gray-500">{lastUpdated.toLocaleTimeString()}</span>
               </div>
               
-              {/* Subtle indicator for clickability */}
-              <div className="mt-3 flex items-center text-white/70 text-xs">
-                <span>View Details</span>
-                <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
+              <button
+                onClick={handleRefresh}
+                disabled={loading}
+                className="flex items-center gap-2 px-3 py-1.5 bg-white/10 backdrop-blur-md border border-white/20 text-gray-800 rounded-lg hover:bg-white/20 disabled:opacity-50 transition-all text-sm"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+
+              {/* Premium PDF Button */}
+              <button
+                onClick={handleExportPDF}
+                disabled={pdfLoading}
+                className="relative flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-pink-500 via-rose-500 to-orange-500 text-white rounded-xl hover:shadow-2xl hover:shadow-pink-500/50 transition-all transform hover:scale-105 text-sm font-semibold group overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-30 transform -skew-x-12 transition-all duration-700 group-hover:translate-x-full"></div>
+                <Download className={`w-4 h-4 relative z-10 ${pdfLoading ? 'animate-bounce' : ''}`} />
+                <span className="relative z-10">{pdfLoading ? 'Generating...' : 'Export PDF'}</span>
+                <div className="absolute inset-0 rounded-xl bg-white opacity-0 group-hover:opacity-10"></div>
+              </button>
+            </div>
+          </div>
+
+          {/* Main Content */}
+          <div className="flex-1 grid grid-cols-12 gap-4 overflow-hidden">
+            
+            {/* Left Column - Stats Cards */}
+            <div className="col-span-8 flex flex-col gap-4 overflow-hidden">
+              
+              {/* Hero Summary Card */}
+              <div className="relative bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-2xl shadow-2xl p-5 overflow-hidden group hover:shadow-purple-500/50 transition-all">
+                <div className="absolute inset-0 bg-black/10"></div>
+                <div className="absolute -right-8 -top-8 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
+                <div className="relative flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-white/20 backdrop-blur-sm rounded-2xl">
+                      <TrendingUp className="w-8 h-8 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-white">Total Achievements</h2>
+                      <p className="text-sm text-white/80">Combined count across all categories</p>
+                    </div>
+                  </div>
+                  <div className="text-6xl font-black text-white drop-shadow-2xl">{totalCount}</div>
+                </div>
+              </div>
+
+              {/* Rectangle Stats Cards Grid */}
+              <div className="flex-1 grid grid-cols-4 gap-3 overflow-auto">
+                {statItems.map(({ key, label, color, bgGlow, icon }) => (
+                  <div
+                    key={key}
+                    className={`relative bg-gradient-to-br ${color} rounded-xl shadow-xl hover:shadow-2xl ${bgGlow} p-4 cursor-pointer transform transition-all duration-300 hover:scale-105 group overflow-hidden`}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-20 transform -skew-x-12 transition-all duration-500"></div>
+                    <div className="absolute top-3 right-3 w-2 h-2 bg-white rounded-full opacity-60 group-hover:animate-ping"></div>
+                    
+                    <div className="relative flex flex-col h-full">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-white drop-shadow-lg">{icon}</div>
+                      </div>
+                      <h3 className="text-xs font-bold text-white mb-2 leading-tight flex-1">{label}</h3>
+                      <div className="text-4xl font-black text-white drop-shadow-lg mb-2">{stats[key] || 0}</div>
+                      <div className="text-white/70 text-[10px] font-semibold">Click to view →</div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          ))}
-        </div>
 
-        {/* Charts */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg shadow-md p-4">
-            <h3 className="text-lg font-semibold mb-4 text-gray-700">Distribution of Activities</h3>
-            <div className="h-64">
-              <Pie data={chartData} options={{ maintainAspectRatio: false }} />
+            {/* Right Column - Charts */}
+            <div className="col-span-4 flex flex-col gap-4 overflow-hidden">
+              
+              {/* Doughnut Chart */}
+              <div className="flex-1 bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl p-4 border border-white/20">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-bold text-gray-800">Distribution Overview</h3>
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                </div>
+                <div className="h-[calc(100%-2.5rem)]">
+                  <Doughnut 
+                    data={doughnutData} 
+                    options={{ 
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                          titleColor: 'white',
+                          bodyColor: 'white',
+                          padding: 12,
+                          borderColor: 'rgba(255, 255, 255, 0.2)',
+                          borderWidth: 1
+                        }
+                      },
+                      cutout: '65%'
+                    }} 
+                  />
+                </div>
+              </div>
+              
+              {/* Bar Chart */}
+              <div className="flex-1 bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl p-4 border border-white/20">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-bold text-gray-800">Activity Comparison</h3>
+                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
+                </div>
+                <div className="h-[calc(100%-2.5rem)]">
+                  <Bar 
+                    data={barData} 
+                    options={{ 
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                          titleColor: 'white',
+                          bodyColor: 'white',
+                          padding: 12,
+                          borderColor: 'rgba(255, 255, 255, 0.2)',
+                          borderWidth: 1
+                        }
+                      },
+                      scales: {
+                        x: {
+                          ticks: {
+                            color: 'rgba(0, 0, 0, 0.8)',
+                            font: { size: 9 },
+                            maxRotation: 45,
+                            minRotation: 45
+                          },
+                          grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        y: {
+                          ticks: {
+                            color: 'rgba(0, 0, 0, 0.8)',
+                            font: { size: 10 }
+                          },
+                          grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        }
+                      }
+                    }} 
+                  />
+                </div>
+              </div>
             </div>
           </div>
-          
-          <div className="bg-white rounded-lg shadow-md p-4">
-            <h3 className="text-lg font-semibold mb-4 text-gray-700">Activity Overview</h3>
-            <div className="h-64">
-              <PolarArea data={polarData} options={{ maintainAspectRatio: false }} />
-            </div>
-          </div>
         </div>
-
       </div>
     </div>
   );

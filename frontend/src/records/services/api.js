@@ -135,8 +135,20 @@ export const deleteScholar = (id) => api.delete(`/scholars/${id}`);
 // Consultancy Proposals services
 export const getProposals = () => api.get('/proposals');
 export const getProposal = (id) => api.get(`/proposals/${id}`);
-export const createProposal = (data) => api.post('/proposals', data);
-export const updateProposal = (id, data) => api.put(`/proposals/${id}`, data);
+export const createProposal = (data) => {
+  return api.post('/proposals', data, {
+    headers: {
+      'Content-Type': undefined, // Let browser set multipart/form-data with boundary
+    },
+  });
+};
+export const updateProposal = (id, data) => {
+  return api.put(`/proposals/${id}`, data, {
+    headers: {
+      'Content-Type': undefined, // Let browser set multipart/form-data with boundary
+    },
+  });
+};
 export const deleteProposal = (id) => api.delete(`/proposals/${id}`);
 
 // Consultancy Payment Details services
@@ -263,8 +275,20 @@ export const deleteBookChapter = (id) => api.delete(`/book-chapters/${id}`);
 // Events Organized services
 export const getEventsOrganized = () => api.get('/events-organized');
 export const getEventOrganized = (id) => api.get(`/events-organized/${id}`);
-export const createEventOrganized = (data) => api.post('/events-organized', data);
-export const updateEventOrganized = (id, data) => api.put(`/events-organized/${id}`, data);
+export const createEventOrganized = (data) => {
+  return api.post('/events-organized', data, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
+export const updateEventOrganized = (id, data) => {
+  return api.put(`/events-organized/${id}`, data, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
 export const deleteEventOrganized = (id) => api.delete(`/events-organized/${id}`);
 
 
@@ -352,8 +376,16 @@ export const getRecognitionPDF = async (id) => {
 // Patent/Product Development services
 export const getPatentEntries = () => api.get('/patent-product');
 export const getPatentEntry = (id) => api.get(`/patent-product/${id}`);
-export const createPatentEntry = (data) => api.post('/patent-product', data);
-export const updatePatentEntry = (id, data) => api.put(`/patent-product/${id}`, data);
+export const createPatentEntry = (data) => api.post('/patent-product', data, {
+  headers: {
+    'Content-Type': 'multipart/form-data',
+  },
+});
+export const updatePatentEntry = (id, data) => api.put(`/patent-product/${id}`, data, {
+  headers: {
+    'Content-Type': 'multipart/form-data',
+  },
+});
 export const deletePatentEntry = (id) => api.delete(`/patent-product/${id}`);
 
 // Project Mentors services

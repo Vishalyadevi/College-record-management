@@ -93,12 +93,14 @@ const __dirname = path.dirname(__filename);
 const db = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || 'Vishal2005#',
+  password: process.env.DB_PASSWORD || 'Monisha_018',
   database: process.env.DB_NAME || 'record',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
 });
+
+
 
 // Email transporter setup
 const transporter = nodemailer.createTransport({
@@ -142,7 +144,12 @@ const feedbackFileFilter = (req, file, cb) => {
 const feedbackUpload = multer({ storage: feedbackStorage, fileFilter: feedbackFileFilter });
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174', 'http://127.0.0.1:5174', 'http://localhost:3000'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With']
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(bodyParser.json());

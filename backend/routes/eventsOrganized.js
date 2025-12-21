@@ -1,6 +1,22 @@
 import express from 'express';
+import multer from 'multer';
 import { pool } from '../db/db.js';
 import { authenticate as authenticateToken } from '../middlewares/auth.js';
+
+// Configure multer for memory storage (for BLOB storage)
+const memoryUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF files are allowed'), false);
+    }
+  },
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  }
+});
 
 const router = express.Router();
 
@@ -9,7 +25,7 @@ router.get('/', authenticateToken, async (req, res) => {
   try {
     const [rows] = await pool.query(
       'SELECT * FROM events_organized WHERE Userid = ? ORDER BY created_at DESC', 
-      [req.user.Userid] // ✅ Changed from req.user.id to req.user.Userid
+      [req.user.Userid]
     );
     res.status(200).json(rows);
   } catch (error) {
@@ -23,7 +39,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const [rows] = await pool.query(
       'SELECT * FROM events_organized WHERE id = ? AND Userid = ?', 
-      [req.params.id, req.user.Userid] // ✅ Changed from req.user.id to req.user.Userid
+      [req.params.id, req.user.Userid]
     );
     
     if (rows.length === 0) {
@@ -38,7 +54,10 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // Create new events organized entry
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, memoryUpload.fields([
+  { name: 'proof', maxCount: 1 },
+  { name: 'documentation', maxCount: 1 }
+]), async (req, res) => {
   const { 
     program_name, 
     program_title,
@@ -50,9 +69,7 @@ router.post('/', authenticateToken, async (req, res) => {
     days,
     sponsored_by,
     amount_sanctioned,
-    participants,
-    proof_link,
-    documentation_link
+    participants
   } = req.body;
   
   try {
@@ -62,9 +79,8 @@ router.post('/', authenticateToken, async (req, res) => {
     console.log('req.user.Userid:', req.user.Userid);
     
     // Basic validation
-    if (!program_name?.trim() || !program_title?.trim() || !coordinator_name?.trim() || 
-        !speaker_details?.trim() || !from_date || !to_date || days === undefined || 
-        participants === undefined) {
+    if (!program_name?.trim() || !program_title?.trim() || !coordinator_name?.trim() ||
+        !speaker_details?.trim() || !from_date || !to_date || !days || !participants) {
       return res.status(400).json({ message: 'Required fields missing' });
     }
     
@@ -117,15 +133,19 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'Sponsored by field cannot exceed 100 characters' });
     }
     
+    // Extract file buffers if uploaded
+    const proofBuffer = req.files['proof'] ? req.files['proof'][0].buffer : null;
+    const documentationBuffer = req.files['documentation'] ? req.files['documentation'][0].buffer : null;
+    
     // Insert new events organized entry
     const [result] = await pool.query(
       `INSERT INTO events_organized (
         Userid, program_name, program_title, coordinator_name, co_coordinator_names,
         speaker_details, from_date, to_date, days, sponsored_by, amount_sanctioned, 
-        participants, proof_link, documentation_link
+        participants, proof, documentation
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        req.user.Userid, // ✅ Changed from req.user.id to req.user.Userid
+        req.user.Userid,
         program_name.trim(), 
         program_title.trim(), 
         coordinator_name.trim(), 
@@ -137,8 +157,8 @@ router.post('/', authenticateToken, async (req, res) => {
         sponsored_by?.trim() || null, 
         sanctionedAmount,
         participantsCount, 
-        proof_link?.trim() || null, 
-        documentation_link?.trim() || null
+        proofBuffer,
+        documentationBuffer
       ]
     );
     
@@ -156,7 +176,10 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 // Update events organized entry
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/:id', authenticateToken, memoryUpload.fields([
+  { name: 'proof', maxCount: 1 },
+  { name: 'documentation', maxCount: 1 }
+]), async (req, res) => {
   const { 
     program_name, 
     program_title,
@@ -168,15 +191,13 @@ router.put('/:id', authenticateToken, async (req, res) => {
     days,
     sponsored_by,
     amount_sanctioned,
-    participants,
-    proof_link,
-    documentation_link
+    participants
   } = req.body;
   
   try {
     // Basic validation
-    if (!program_name?.trim() || !program_title?.trim() || !coordinator_name?.trim() || 
-        !speaker_details?.trim() || !from_date || !to_date || days === undefined || 
+    if (!program_name?.trim() || !program_title?.trim() || !coordinator_name?.trim() ||
+        !speaker_details?.trim() || !from_date || !to_date || !days ||
         participants === undefined) {
       return res.status(400).json({ message: 'Required fields missing' });
     }
@@ -233,19 +254,25 @@ router.put('/:id', authenticateToken, async (req, res) => {
     // Check if events organized entry exists and belongs to user
     const [rows] = await pool.query(
       'SELECT * FROM events_organized WHERE id = ? AND Userid = ?', 
-      [req.params.id, req.user.Userid] // ✅ Changed from req.user.id to req.user.Userid
+      [req.params.id, req.user.Userid]
     );
     
     if (rows.length === 0) {
       return res.status(404).json({ message: 'Event entry not found or access denied' });
     }
     
+    const existingEvent = rows[0];
+    
+    // Extract file buffers if uploaded, else keep existing
+    const proofBuffer = req.files['proof'] ? req.files['proof'][0].buffer : existingEvent.proof;
+    const documentationBuffer = req.files['documentation'] ? req.files['documentation'][0].buffer : existingEvent.documentation;
+    
     // Update events organized entry
     const [result] = await pool.query(
       `UPDATE events_organized SET 
         program_name = ?, program_title = ?, coordinator_name = ?, co_coordinator_names = ?,
         speaker_details = ?, from_date = ?, to_date = ?, days = ?, sponsored_by = ?, amount_sanctioned = ?,
-        participants = ?, proof_link = ?, documentation_link = ?, updated_at = CURRENT_TIMESTAMP
+        participants = ?, proof = ?, documentation = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND Userid = ?`,
       [
         program_name.trim(), 
@@ -259,10 +286,10 @@ router.put('/:id', authenticateToken, async (req, res) => {
         sponsored_by?.trim() || null, 
         sanctionedAmount,
         participantsCount, 
-        proof_link?.trim() || null, 
-        documentation_link?.trim() || null,
+        proofBuffer,
+        documentationBuffer,
         req.params.id, 
-        req.user.Userid // ✅ Changed from req.user.id to req.user.Userid
+        req.user.Userid
       ]
     );
     
@@ -280,13 +307,73 @@ router.put('/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Serve proof PDF by event ID
+router.get('/proof/:id', authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT proof FROM events_organized WHERE id = ? AND Userid = ?', [req.params.id, req.user.Userid]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Event entry not found' });
+    }
+
+    const proofBuffer = rows[0].proof;
+
+    if (!proofBuffer) {
+      return res.status(404).json({ message: 'Proof PDF not available' });
+    }
+
+    // Set appropriate headers for PDF viewing
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline');
+    res.setHeader('Content-Length', proofBuffer.length);
+    res.setHeader('Cache-Control', 'no-cache');
+
+    // Send the buffer data
+    res.send(proofBuffer);
+
+  } catch (error) {
+    console.error('Error fetching proof file:', error);
+    res.status(500).json({ message: 'Server error while retrieving PDF' });
+  }
+});
+
+// Serve documentation PDF by event ID
+router.get('/documentation/:id', authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT documentation FROM events_organized WHERE id = ? AND Userid = ?', [req.params.id, req.user.Userid]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Event entry not found' });
+    }
+
+    const documentationBuffer = rows[0].documentation;
+
+    if (!documentationBuffer) {
+      return res.status(404).json({ message: 'Documentation PDF not available' });
+    }
+
+    // Set appropriate headers for PDF viewing
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline');
+    res.setHeader('Content-Length', documentationBuffer.length);
+    res.setHeader('Cache-Control', 'no-cache');
+
+    // Send the buffer data
+    res.send(documentationBuffer);
+
+  } catch (error) {
+    console.error('Error fetching documentation file:', error);
+    res.status(500).json({ message: 'Server error while retrieving PDF' });
+  }
+});
+
 // Delete events organized entry
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
     // Check if events organized entry exists and belongs to user
     const [rows] = await pool.query(
       'SELECT * FROM events_organized WHERE id = ? AND Userid = ?', 
-      [req.params.id, req.user.Userid] // ✅ Changed from req.user.id to req.user.Userid
+      [req.params.id, req.user.Userid]
     );
     
     if (rows.length === 0) {
@@ -296,7 +383,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     // Delete events organized entry
     const [result] = await pool.query(
       'DELETE FROM events_organized WHERE id = ? AND Userid = ?', 
-      [req.params.id, req.user.Userid] // ✅ Changed from req.user.id to req.user.Userid
+      [req.params.id, req.user.Userid]
     );
     
     if (result.affectedRows === 0) {
