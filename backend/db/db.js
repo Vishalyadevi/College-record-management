@@ -215,23 +215,26 @@ async function initializeDatabase() {
     `);
 
     await connection.query(`
-      CREATE TABLE IF NOT EXISTS consultancy_proposals (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        Userid INT NOT NULL,
-        pi_name VARCHAR(255) NOT NULL,
-        co_pi_names TEXT,
-        project_title VARCHAR(500) NOT NULL,
-        industry VARCHAR(255) NOT NULL,
-        from_date DATE NOT NULL,
-        to_date DATE NOT NULL,
-        amount DECIMAL(15,2) NOT NULL,
-        proof TEXT,
-        organization_name VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE
-      )
-    `);
+  CREATE TABLE IF NOT EXISTS consultancy_proposals (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    Userid INT NOT NULL,
+    pi_name VARCHAR(255) NOT NULL,
+    co_pi_names TEXT,
+    project_title VARCHAR(500) NOT NULL,
+    industry VARCHAR(255) NOT NULL,
+    from_date DATE NOT NULL,
+    to_date DATE NOT NULL,
+    amount DECIMAL(15,2) NOT NULL,
+    proof LONGBLOB,
+    yearly_report LONGBLOB,
+    order_copy LONGBLOB,
+    final_report LONGBLOB,
+    organization_name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE
+  )
+`);
 
     // Create payment details table
     await connection.query(`
@@ -383,12 +386,16 @@ async function initializeDatabase() {
       CREATE TABLE IF NOT EXISTS h_index (
         id INT AUTO_INCREMENT PRIMARY KEY,
         Userid INT NOT NULL,
-        faculty_name VARCHAR(100) NOT NULL,
         citations INT NOT NULL,
         h_index INT NOT NULL,
+        i_index DECIMAL(10,2) NOT NULL,
+        google_citations INT NOT NULL,
+        scopus_citations INT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE
+        FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE,
+        INDEX idx_userid (Userid),
+        INDEX idx_created_at (created_at)
       )
     `);
 
@@ -519,6 +526,28 @@ async function initializeDatabase() {
         FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE
       )
     `);
+    await connection.query(`
+  CREATE TABLE IF NOT EXISTS events_organized (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    Userid INT NOT NULL,
+    program_name VARCHAR(255) NOT NULL,
+    program_title VARCHAR(255) NOT NULL,
+    coordinator_name VARCHAR(100) NOT NULL,
+    co_coordinator_names TEXT,
+    speaker_details TEXT NOT NULL,
+    from_date DATE NOT NULL,
+    to_date DATE NOT NULL,
+    days INT NOT NULL,
+    sponsored_by VARCHAR(100),
+    amount_sanctioned DECIMAL(10,2),
+    participants INT NOT NULL,
+    proof LONGBLOB,
+    documentation LONGBLOB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE
+  )
+`);
 
    await connection.query(`
       CREATE TABLE IF NOT EXISTS seed_money (
@@ -554,37 +583,40 @@ async function initializeDatabase() {
 
     // Create patent_product table
     await connection.query(`
-      CREATE TABLE IF NOT EXISTS patent_product (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        Userid INT NOT NULL,
-        project_title VARCHAR(255) NOT NULL,
-        patent_status VARCHAR(50) NOT NULL,
-        month_year VARCHAR(50) NOT NULL,
-        patent_proof_link TEXT,
-        working_model BOOLEAN DEFAULT FALSE,
-        working_model_proof_link TEXT,
-        prototype_developed BOOLEAN DEFAULT FALSE,
-        prototype_proof_link TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE
-      )
-    `);
+  CREATE TABLE IF NOT EXISTS patent_product (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    Userid INT NOT NULL,
+    project_title VARCHAR(255) NOT NULL,
+    patent_status VARCHAR(50) NOT NULL,
+    month_year VARCHAR(50) NOT NULL,
+    patent_proof_link LONGBLOB,
+    working_model BOOLEAN DEFAULT FALSE,
+    working_model_proof_link LONGBLOB,
+    prototype_developed BOOLEAN DEFAULT FALSE,
+    prototype_proof_link LONGBLOB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE,
+    INDEX idx_userid (Userid),
+    INDEX idx_patent_status (patent_status),
+    INDEX idx_created_at (created_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+`);
 
     await connection.query(`
-      CREATE TABLE IF NOT EXISTS project_mentors (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        Userid INT NOT NULL,
-        project_title VARCHAR(255) NOT NULL,
-        student_details TEXT NOT NULL,
-        event_details VARCHAR(255) NOT NULL,
-        participation_status VARCHAR(100) NOT NULL,
-        certificate_link TEXT,
-        proof_link TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE
-      )
+      CREATE TABLE project_mentors (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  Userid INT NOT NULL,
+  project_title VARCHAR(255) NOT NULL,
+  student_details TEXT NOT NULL,
+  event_details VARCHAR(255) NOT NULL,
+  participation_status VARCHAR(100) NOT NULL,
+  certificate_link LONGBLOB,
+  proof_link LONGBLOB,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE
+);
     `);
 
     // Create sponsored_research table
@@ -607,26 +639,20 @@ async function initializeDatabase() {
 
     // Create events_organized table
     await connection.query(`
-      CREATE TABLE IF NOT EXISTS events_organized (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        Userid INT NOT NULL,
-        program_name VARCHAR(255) NOT NULL,
-        program_title VARCHAR(255) NOT NULL,
-        coordinator_name VARCHAR(100) NOT NULL,
-        co_coordinator_names TEXT,
-        speaker_details TEXT NOT NULL,
-        from_date DATE NOT NULL,
-        to_date DATE NOT NULL,
-        days INT NOT NULL,
-        sponsored_by VARCHAR(100),
-        amount_sanctioned DECIMAL(10,2),
-        participants INT NOT NULL,
-        proof_link TEXT,
-        documentation_link TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE
-      )
+      CREATE TABLE IF NOT EXISTS h_index (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      Userid INT NOT NULL,
+      citations INT NOT NULL,
+      h_index INT NOT NULL,
+      i_index DECIMAL(10,2) NOT NULL,
+      google_citations INT NOT NULL,
+      scopus_citations INT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE,
+      INDEX idx_userid (Userid),
+      INDEX idx_created_at (created_at)
+    );
     `);
 await connection.execute(`
     CREATE TABLE IF NOT EXISTS Batch (
