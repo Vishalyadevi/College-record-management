@@ -1,24 +1,39 @@
-# TODO: Add City and Address Fields to Student Personal Details
+# TODO: Event Organized API Issue - RESOLVED
 
-## Completed Tasks
+## Problem
 
-- [x] Analyzed frontend StudentPersonalDetails.jsx - fields already present
-- [x] Analyzed backend controller - already handles otherFields dynamically
-- [x] Added 'city' and 'address' fields to StudentDetails model
+- Frontend StudentEventOrganized page failing to submit events
+- POST /api/add-event returning 500 error
 
-## Database Changes Required
+## Root Cause
 
-To complete the implementation, run the following SQL commands on your database:
+- Userid sent as string from frontend, but EventOrganized model expects INTEGER
+- Foreign key constraint failure during EventOrganized.create()
 
-```sql
-ALTER TABLE student_details ADD COLUMN city VARCHAR(255);
-ALTER TABLE student_details ADD COLUMN address TEXT;
-```
+## Investigation Done
 
-Or if using Sequelize migrations, create a new migration file.
+- ✅ Identified Userid type mismatch (string vs INTEGER)
+- ✅ Verified EventOrganized model uses 'events_organized_student' table
+- ✅ Confirmed route registration and controller mapping
+
+## Solution Applied
+
+- [x] Fixed Userid parsing in addEvent and updateEvent controllers
+- [x] Fixed deleteEvent to use correct destroy method
+- [x] Ensured consistent integer handling for Userid
 
 ## Next Steps
 
-- [ ] Run database migration to add the new columns
-- [ ] Test the update functionality to ensure city and address are saved correctly
-- [ ] Verify the fields display properly in the frontend
+- [ ] Test the /api/add-event endpoint functionality
+- [ ] Verify frontend can submit events organized successfully
+- [ ] Check tutor email notifications work
+
+## Files Modified
+
+- `backend/controllers/student/eventController.js`: Fixed Userid parsing and delete method
+
+## Files to Check
+
+- Frontend console for successful API calls to /api/add-event
+- Backend logs for EventOrganized.create() success
+- Tutor email notifications

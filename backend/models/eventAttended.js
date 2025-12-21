@@ -69,7 +69,7 @@ const EventAttended = sequelize.define(
         notEmpty: true,
       },
     },
-    state: {
+    event_state: {
       type: DataTypes.STRING,
       allowNull: false,
       validate: {

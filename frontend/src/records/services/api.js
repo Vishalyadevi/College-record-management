@@ -260,11 +260,23 @@ export const createBookChapter = (data) => api.post('/book-chapters', data);
 export const updateBookChapter = (id, data) => api.put(`/book-chapters/${id}`, data);
 export const deleteBookChapter = (id) => api.delete(`/book-chapters/${id}`);
 
-// Events Organized services
+// Events Organized services - Updated to handle file uploads
 export const getEventsOrganized = () => api.get('/events-organized');
 export const getEventOrganized = (id) => api.get(`/events-organized/${id}`);
-export const createEventOrganized = (data) => api.post('/events-organized', data);
-export const updateEventOrganized = (id, data) => api.put(`/events-organized/${id}`, data);
+export const createEventOrganized = (data) => {
+  return api.post('/events-organized', data, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
+export const updateEventOrganized = (id, data) => {
+  return api.put(`/events-organized/${id}`, data, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
 export const deleteEventOrganized = (id) => api.delete(`/events-organized/${id}`);
 
 

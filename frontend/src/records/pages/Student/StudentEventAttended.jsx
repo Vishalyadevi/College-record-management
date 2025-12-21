@@ -59,7 +59,7 @@ const StudentEventAttended = () => {
     other_event_type: "",
     institution_name: "",
     mode: "Online",
-    state: "",
+    event_state: "",
     district: "",
     city: "",
     from_date: "",
@@ -162,7 +162,7 @@ const StudentEventAttended = () => {
     );
   };
 
-  const prepareFormData = () => {
+const prepareFormData = () => {
   let decodedData;
   try {
     const base64Url = token.split(".")[1];
@@ -173,36 +173,56 @@ const StudentEventAttended = () => {
     return null;
   }
 
-  if (!formData.state?.trim() || !formData.district?.trim() || !formData.city?.trim()) {
+  if (!formData.event_state?.trim() || !formData.district?.trim() || !formData.city?.trim()) {
     toast.error("Please enter State, District, and City");
     return null;
   }
 
   const fd = new FormData();
 
-  // Append all basic fields
-  Object.keys(formData).forEach((key) => {
-    if (key === "team_members" || key === "achievement_details") {
-      fd.append(key, JSON.stringify(formData[key]));
-    } else if (key === "certificate_file" && formData[key]) {
-      fd.append("cer_file", formData[key]); // note: backend must expect "cer_file"
-    } else if (key !== "achievement_details") { // this is still redundant but ok
-      const value = formData[key];
-      if (value !== null && value !== undefined) {
-        fd.append(key, value);
-      }
+  // Append basic fields (excluding nested objects and files)
+  const basicFields = [
+    'event_name', 'description', 'event_type', 'type_of_event', 
+    'other_event_type', 'institution_name', 'mode', 'event_state',
+    'district', 'city', 'from_date', 'to_date', 'team_size',
+    'participation_status', 'is_certificate_available', 
+    'is_other_state_event', 'is_other_country_event', 'is_nirf_ranked'
+  ];
+
+  basicFields.forEach(key => {
+    const value = formData[key];
+    if (value !== null && value !== undefined && value !== '') {
+      fd.append(key, value);
     }
   });
 
-  // Handle achievement files separately
-  if (formData.achievement_details) {
-    const ach = formData.achievement_details;
-    if (ach.certificate_file) fd.append("achievement_certificate_file", ach.certificate_file);
-    if (ach.cash_prize_proof) fd.append("cash_prize_proof", ach.cash_prize_proof);
-    if (ach.memento_proof) fd.append("memento_proof", ach.memento_proof);
+  // Append team_members as JSON string
+  fd.append('team_members', JSON.stringify(formData.team_members));
+
+  // Handle certificate file for Participation status
+  if (formData.certificate_file instanceof File) {
+    fd.append('certificate_file', formData.certificate_file);
   }
 
-  fd.append("Userid", String(decodedData.Userid));
+  // Handle achievement details
+  const achievementDetails = {
+    is_certificate_available: formData.achievement_details.is_certificate_available,
+    is_cash_prize: formData.achievement_details.is_cash_prize,
+    cash_prize_amount: formData.achievement_details.cash_prize_amount,
+    is_memento: formData.achievement_details.is_memento,
+  };
+  fd.append('achievement_details', JSON.stringify(achievementDetails));
+
+  // Append achievement files separately
+  if (formData.achievement_details.certificate_file instanceof File) {
+    fd.append('achievement_certificate_file', formData.achievement_details.certificate_file);
+  }
+  if (formData.achievement_details.cash_prize_proof instanceof File) {
+    fd.append('cash_prize_proof', formData.achievement_details.cash_prize_proof);
+  }
+  if (formData.achievement_details.memento_proof instanceof File) {
+    fd.append('memento_proof', formData.achievement_details.memento_proof);
+  }
 
   // DEBUG: Log all entries
   console.log("Final FormData contents:");
@@ -280,7 +300,7 @@ const StudentEventAttended = () => {
       other_event_type: event.other_event_type || "",
       institution_name: event.institution_name || "",
       mode: event.mode || "Online",
-      state: event.state || "",
+      event_state: event.event_state || "",
       district: event.district || "",
       city: event.city || "",
       from_date: formatDateForInput(event.from_date),
@@ -308,7 +328,7 @@ const StudentEventAttended = () => {
       other_event_type: "",
       institution_name: "",
       mode: "Online",
-      state: "",
+      event_state: "",
       district: "",
       city: "",
       from_date: "",
@@ -336,79 +356,146 @@ const StudentEventAttended = () => {
   };
 
   const renderTable = (data) => (
-    <div className="overflow-x-auto">
-      <table className="min-w-full bg-white border border-gray-200 rounded-lg shadow-sm">
-        <thead>
-          <tr className="bg-gradient-to-r from-blue-500 to-purple-500 text-white">
-            <th className="py-3 px-4 text-left font-medium">Event Name</th>
-            <th className="py-3 px-4 text-left font-medium">Event Type</th>
-            <th className="py-3 px-4 text-left font-medium">Type of Event</th>
-            <th className="py-3 px-4 text-left font-medium">Institution Name</th>
-            <th className="py-3 px-4 text-left font-medium">Mode</th>
-            <th className="py-3 px-4 text-left font-medium">Location</th>
-            <th className="py-3 px-4 text-left font-medium">Duration</th>
-            <th className="py-3 px-4 text-left font-medium">Status</th>
-            <th className="py-3 px-4 text-left font-medium">Team Size</th>
-            <th className="py-3 px-4 text-left font-medium">NIRF Ranked</th>
-            <th className="py-3 px-4 text-left font-medium">Actions</th>
-            <th className="py-3 px-4 text-left font-medium">View</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((event, index) => (
-            <tr key={index} className={`${index % 2 === 0 ? "bg-gray-50" : "bg-white"} hover:bg-gray-100 transition-colors`}>
-              <td className="py-3 px-4 text-gray-700">{event.event_name}</td>
-              <td className="py-3 px-4 text-gray-700">{event.event_type}</td>
-              <td className="py-3 px-4 text-gray-700">{event.type_of_event}</td>
-              <td className="py-3 px-4 text-gray-700">{event.institution_name}</td>
-              <td className="py-3 px-4 text-gray-700">{event.mode}</td>
-              <td className="py-3 px-4 text-gray-700">{event.city}, {event.district}, {event.state}</td>
-              <td className="py-3 px-4 text-gray-700">
-                {event.from_date && event.to_date
-                  ? `${new Date(event.from_date).toLocaleDateString()} - ${new Date(event.to_date).toLocaleDateString()}`
-                  : "N/A"}
-              </td>
-              <td className="py-3 px-4">
-                <span
-                  className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    event.participation_status === "Achievement" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
-                  }`}
+  <div className="w-full">
+    <div className="overflow-x-auto shadow-lg rounded-lg border border-gray-200 max-w-full">
+      <div className="inline-block min-w-full align-middle">
+        <div className="overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-200 table-fixed">
+            <thead className="bg-gradient-to-r from-blue-500 to-purple-500 sticky top-0 z-10">
+              <tr>
+                <th className="py-3 px-2 text-left font-semibold text-white whitespace-nowrap w-12">S.No</th>
+                <th className="py-3 px-2 text-left font-semibold text-white whitespace-nowrap w-48">Event Name</th>
+                <th className="py-3 px-2 text-left font-semibold text-white whitespace-nowrap w-32">Event Type</th>
+                <th className="py-3 px-2 text-left font-semibold text-white whitespace-nowrap w-32">Type</th>
+                <th className="py-3 px-2 text-left font-semibold text-white whitespace-nowrap w-40">Institution</th>
+                <th className="py-3 px-2 text-left font-semibold text-white whitespace-nowrap w-20">Mode</th>
+                <th className="py-3 px-2 text-left font-semibold text-white whitespace-nowrap w-48">Location</th>
+                <th className="py-3 px-2 text-left font-semibold text-white whitespace-nowrap w-32">Duration</th>
+                <th className="py-3 px-2 text-left font-semibold text-white whitespace-nowrap w-24">Status</th>
+                <th className="py-3 px-2 text-left font-semibold text-white whitespace-nowrap w-20">Team</th>
+                <th className="py-3 px-2 text-left font-semibold text-white whitespace-nowrap w-20">NIRF</th>
+                <th className="py-3 px-2 text-left font-semibold text-white whitespace-nowrap w-24 sticky right-[60px] bg-gradient-to-r from-blue-500 to-purple-500">Actions</th>
+                <th className="py-3 px-2 text-left font-semibold text-white whitespace-nowrap w-16 sticky right-0 bg-gradient-to-r from-blue-500 to-purple-500">View</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {data.map((event, index) => (
+                <tr
+                  key={event.id || index}
+                  className={`${
+                    index % 2 === 0 ? "bg-gray-50" : "bg-white"
+                  } hover:bg-blue-50 transition-colors`}
                 >
-                  {event.participation_status}
-                </span>
-              </td>
-              <td className="py-3 px-4 text-gray-700">{event.team_size}</td>
-              <td className="py-3 px-4 text-gray-700">
-                {event.is_nirf_ranked ? "Yes" : "No"}
-              </td>
-              <td className="py-3 px-4 space-x-2">
-                <button 
-                  onClick={() => handleEdit(event)} 
-                  className="text-blue-500 hover:text-blue-700 transition"
-                >
-                  <FaEdit className="inline-block text-xl" />
-                </button>
-                <button 
-                  onClick={() => deleteEventAttended(event.id)} 
-                  className="text-red-500 hover:text-red-700 transition"
-                >
-                  <FaTrash className="inline-block text-xl" />
-                </button>
-              </td>
-              <td className="py-3 px-4">
-                <button
-                  onClick={() => setSelectedEvent(event)}
-                  className="text-purple-500 hover:text-purple-700 transition"
-                >
-                  <FaEye className="inline-block text-xl" />
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                  <td className="py-3 px-2 text-gray-700 whitespace-nowrap text-sm">{index + 1}</td>
+                  <td className="py-3 px-2 text-gray-700 font-medium text-sm">
+                    <div className="truncate max-w-48" title={event.event_name}>
+                      {event.event_name}
+                    </div>
+                  </td>
+                  <td className="py-3 px-2 text-gray-700 text-sm">
+                    <div className="truncate max-w-32" title={event.event_type}>
+                      {event.event_type}
+                    </div>
+                  </td>
+                  <td className="py-3 px-2 text-gray-700 text-sm">
+                    <div className="truncate max-w-32" title={event.type_of_event}>
+                      {event.type_of_event}
+                    </div>
+                  </td>
+                  <td className="py-3 px-2 text-gray-700 text-sm">
+                    <div className="truncate max-w-40" title={event.institution_name}>
+                      {event.institution_name}
+                    </div>
+                  </td>
+                  <td className="py-3 px-2 text-gray-700">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      event.mode === "Online" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"
+                    }`}>
+                      {event.mode}
+                    </span>
+                  </td>
+                  <td className="py-3 px-2 text-gray-700 text-sm">
+                    <div className="truncate max-w-48" title={`${event.city}, ${event.district}, ${event.event_state}`}>
+                      {event.city}, {event.district}, {event.event_state}
+                    </div>
+                  </td>
+                  <td className="py-3 px-2 text-gray-700 text-xs">
+                    {event.from_date && event.to_date ? (
+                      <div className="flex flex-col">
+                        <span>{new Date(event.from_date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}</span>
+                        <span className="text-gray-500">-</span>
+                        <span>{new Date(event.to_date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}</span>
+                      </div>
+                    ) : (
+                      "N/A"
+                    )}
+                  </td>
+                  <td className="py-3 px-2">
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
+                        event.participation_status === "Achievement"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-yellow-100 text-yellow-700"
+                      }`}
+                    >
+                      {event.participation_status === "Achievement" ? "Achieved" : "Participated"}
+                    </span>
+                  </td>
+                  <td className="py-3 px-2 text-gray-700 text-center text-sm">{event.team_size}</td>
+                  <td className="py-3 px-2 text-center">
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        event.is_nirf_ranked ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-700"
+                      }`}
+                    >
+                      {event.is_nirf_ranked ? "Yes" : "No"}
+                    </span>
+                  </td>
+                  <td className="py-3 px-2 sticky right-[60px] bg-inherit">
+                    <div className="flex space-x-1">
+                      <button
+                        onClick={() => handleEdit(event)}
+                        className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1.5 rounded-full transition-all"
+                        title="Edit Event"
+                      >
+                        <FaEdit className="text-sm" />
+                      </button>
+                      <button
+                        onClick={() => deleteEventAttended(event.id)}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded-full transition-all"
+                        title="Delete Event"
+                      >
+                        <FaTrash className="text-sm" />
+                      </button>
+                    </div>
+                  </td>
+                  <td className="py-3 px-2 sticky right-0 bg-inherit">
+                    <button
+                      onClick={() => setSelectedEvent(event)}
+                      className="text-purple-500 hover:text-purple-700 hover:bg-purple-50 p-1.5 rounded-full transition-all"
+                      title="View Details"
+                    >
+                      <FaEye className="text-sm" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
-  );
+    <div className="mt-4 text-sm text-gray-600 flex items-center justify-center">
+      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
+      </svg>
+      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+      </svg>
+      Scroll horizontally to view all columns
+    </div>
+  </div>
+);
 
   const EventDetailsModal = ({ event, onClose }) => {
     if (!event) return null;
@@ -442,7 +529,7 @@ const StudentEventAttended = () => {
             <p><strong>Type of Event:</strong> {event.type_of_event}</p>
             <p><strong>Institution Name:</strong> {event.institution_name}</p>
             <p><strong>Mode:</strong> {event.mode}</p>
-            <p><strong>Location:</strong> {event.city}, {event.district}, {event.state}</p>
+            <p><strong>Location:</strong> {event.city}, {event.district}, {event.event_state}</p>
             <p><strong>Duration:</strong> {event.from_date && event.to_date
               ? `${new Date(event.from_date).toLocaleDateString()} - ${new Date(event.to_date).toLocaleDateString()}`
               : "N/A"}</p>
@@ -454,7 +541,7 @@ const StudentEventAttended = () => {
               <p>
                 <strong>Certificate:</strong>{" "}
                 <a
-                  href={event.certificate_file}
+                  href={`http://localhost:4000/uploads/events/${event.certificate_file}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-500 hover:underline"
@@ -512,7 +599,7 @@ const StudentEventAttended = () => {
         { value: "Online", label: "Online" },
         { value: "Offline", label: "Offline" },
       ], required: true, placeholder: "Select mode" },
-      { label: "State", name: "state", type: "text", required: true, placeholder: "Enter state" },
+      { label: "State", name: "event_state", type: "text", required: true, placeholder: "Enter state" },
     ],
     [
       { label: "District", name: "district", type: "text", required: true, placeholder: "Enter district" },

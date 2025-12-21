@@ -27,7 +27,7 @@ import activityRoutes from "./routes/admin/activityRoutes.js";
 import ScholarshipRoutes from './routes/student/ScholarshipRoutes.js';
 import eventRoutes from './routes/student/eventRoutes.js'
 import eventAttendedRoutes from './routes/student/eventAttendedRoutes.js';
-import OnlineCoursesRoutes from './routes/student/onlinecourseRoute.js'
+import OnlineCoursesRoutes from './routes/student/onlinecourseRoute.js';
 import achievementRoutes from './routes/student/achievementRoutes.js'
 import courseRoutes from './routes/student/CourseRoutes.js';
 import biodataRoutes from './routes/student/bioDataRoutes.js';
@@ -76,7 +76,7 @@ import profileRoutes from './routes/placement/profile.js';
 import adminPanelRoutes from './routes/adminPanelRoutes.js';
 import studentPanelRoutes from './routes/studentPanelRoutes.js';
 import certificateRoutes from "./routes/student/certificateRoutes.js";
-
+import fs from 'fs';
 // Fixed import path
 import PersonalInfo from './routes/staff/personalRoutes.js';
 import placementRoutes from './routes/placementRoutes.js';
@@ -116,6 +116,14 @@ const baseStorage = multer.diskStorage({
   filename: (req, file, cb) => cb(null, `${Date.now()}${path.extname(file.originalname)}`),
 });
 
+
+
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(process.cwd(), 'uploads', 'events');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log('✅ Created uploads/events directory');
+}
 const baseFileFilter = (req, file, cb) => {
   const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
   if (!allowedTypes.includes(file.mimetype)) {
@@ -393,11 +401,12 @@ async function initializeDatabases() {
 }
 
 initializeDatabases();
-
+app.use('/api', studentRoutes);
 // Fixed: Use proper route registration order and placement login route
 app.use('/api/placement', placementRoutes);
 app.use('/api', authRoutes); 
 app.use('/api', adminRoutes);
+app.use('/api',eventAttendedRoutes);
 app.use('/api', tableRoutes);
 app.use('/api', internRoutes);
 app.use('/api', dashboardRoutes);
@@ -443,7 +452,6 @@ app.use('/api', locationRoutes);
 app.use('/api', activityRoutes);
 app.use('/api', ScholarshipRoutes);
 app.use('/api', eventRoutes);
-app.use('/api', eventAttendedRoutes);
 app.use('/api', leaveRoutes);
 app.use('/api/online-courses', OnlineCoursesRoutes);
 app.use('/api', achievementRoutes);
