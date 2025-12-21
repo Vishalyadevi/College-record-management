@@ -92,7 +92,7 @@ export const NPTELProvider = ({ children }) => {
     setLoading(true);
     try {
       const response = await axios.get(
-        `${apiBase}/courses`,
+        `${apiBase}/admin/courses`,
         getAuthHeader()
       );
       setCourses(response.data.courses || []);

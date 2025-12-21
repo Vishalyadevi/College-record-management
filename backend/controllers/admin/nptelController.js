@@ -128,25 +128,43 @@ export const deleteNPTELCourse = async (req, res) => {
 // Get all NPTEL courses (Admin & Student)
 export const getAllNPTELCourses = async (req, res) => {
   try {
+    console.log("📚 Fetching NPTEL courses...");
+    
+    // First, check total count without filter
+    const totalCount = await NPTELCourse.count();
+    console.log(`Total courses in DB: ${totalCount}`);
+    
+    // Check active courses count
+    const activeCount = await NPTELCourse.count({
+      where: { is_active: true }
+    });
+    console.log(`Active courses: ${activeCount}`);
+    
+    // Fetch courses - Try without the is_active filter first
     const courses = await NPTELCourse.findAll({
-      where: { is_active: true },
+      // Remove or comment out this line temporarily to test
+      // where: { is_active: true },
       order: [['createdAt', 'DESC']],
     });
+
+    console.log(`Courses fetched: ${courses.length}`);
 
     res.status(200).json({
       success: true,
       count: courses.length,
+      totalInDB: totalCount,
+      activeInDB: activeCount,
       courses,
     });
   } catch (error) {
     console.error("Error fetching courses:", error);
     res.status(500).json({ 
       message: "Error fetching courses", 
-      error: error.message 
+      error: error.message,
+      stack: error.stack // Add stack trace for debugging
     });
   }
 };
-
 // Get single course by ID
 export const getNPTELCourseById = async (req, res) => {
   try {

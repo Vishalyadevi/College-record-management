@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Edit2, Trash2, Plus, CheckCircle, XCircle } from "lucide-react";
+import { FaEdit, FaTrash, FaCheckCircle, FaTimesCircle } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { useNPTEL } from "../../contexts/NPTELContext";
 
@@ -17,16 +17,16 @@ const StudentNPTEL = () => {
     clearError,
   } = useNPTEL();
 
-  const [selectedCourse, setSelectedCourse] = useState(null);
   const [showEnrollForm, setShowEnrollForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
+    course_id: "",
     assessment_marks: "",
     exam_marks: "",
     status: "In Progress",
-    credit_transfer: "No",
   });
-  const [showCreditConfirmation, setShowCreditConfirmation] = useState(false);
+  const [showCreditModal, setShowCreditModal] = useState(false);
+  const [selectedEnrollment, setSelectedEnrollment] = useState(null);
 
   const userId = parseInt(localStorage.getItem("userId"));
 
@@ -39,33 +39,7 @@ const StudentNPTEL = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    
-    if (name === "credit_transfer" && value === "Yes") {
-      setShowCreditConfirmation(true);
-    } else {
-      setFormData({ ...formData, [name]: value });
-    }
-  };
-
-  const confirmCreditTransfer = (confirmed) => {
-    if (confirmed) {
-      setFormData({ ...formData, credit_transfer: "Yes" });
-    } else {
-      setFormData({ ...formData, credit_transfer: "No" });
-    }
-    setShowCreditConfirmation(false);
-  };
-
-  const handleEnrollClick = (course) => {
-    setSelectedCourse(course);
-    setShowEnrollForm(true);
-    setEditingId(null);
-    setFormData({
-      assessment_marks: "",
-      exam_marks: "",
-      status: "In Progress",
-      credit_transfer: "No",
-    });
+    setFormData({ ...formData, [name]: value });
   };
 
   const handleSubmit = async (e) => {
@@ -75,11 +49,11 @@ const StudentNPTEL = () => {
     try {
       const data = {
         Userid: userId,
-        course_id: selectedCourse.id,
+        course_id: parseInt(formData.course_id),
         assessment_marks: parseFloat(formData.assessment_marks) || 0,
         exam_marks: parseFloat(formData.exam_marks) || 0,
         status: formData.status,
-        credit_transfer: formData.credit_transfer,
+        credit_transfer: "No", // Default to No when adding
       };
 
       if (editingId) {
@@ -96,23 +70,21 @@ const StudentNPTEL = () => {
 
   const resetForm = () => {
     setFormData({
+      course_id: "",
       assessment_marks: "",
       exam_marks: "",
       status: "In Progress",
-      credit_transfer: "No",
     });
-    setSelectedCourse(null);
     setShowEnrollForm(false);
     setEditingId(null);
   };
 
   const handleEdit = (enrollment) => {
-    setSelectedCourse(enrollment.course);
     setFormData({
+      course_id: enrollment.course_id,
       assessment_marks: enrollment.assessment_marks || "",
       exam_marks: enrollment.exam_marks || "",
       status: enrollment.status,
-      credit_transfer: enrollment.credit_transfer,
     });
     setEditingId(enrollment.id);
     setShowEnrollForm(true);
@@ -125,6 +97,35 @@ const StudentNPTEL = () => {
       } catch (err) {
         console.error("Error deleting enrollment:", err);
       }
+    }
+  };
+
+  const handleRowClick = (enrollment) => {
+    // Only allow credit transfer if enrollment is pending (not verified)
+    if (enrollment.pending) {
+      setSelectedEnrollment(enrollment);
+      setShowCreditModal(true);
+    }
+  };
+
+  const handleCreditTransfer = async (transferCredit) => {
+    if (!selectedEnrollment) return;
+
+    try {
+      const data = {
+        Userid: userId,
+        course_id: selectedEnrollment.course_id,
+        assessment_marks: selectedEnrollment.assessment_marks,
+        exam_marks: selectedEnrollment.exam_marks,
+        status: selectedEnrollment.status,
+        credit_transfer: transferCredit ? "Yes" : "No",
+      };
+
+      await updateEnrollment(selectedEnrollment.id, data);
+      setShowCreditModal(false);
+      setSelectedEnrollment(null);
+    } catch (err) {
+      console.error("Error updating credit transfer:", err);
     }
   };
 
@@ -148,6 +149,16 @@ const StudentNPTEL = () => {
     return "text-red-600";
   };
 
+  const getAvailableCourses = () => {
+    const enrolledCourseIds = enrollments.map(e => e.course_id);
+    return courses.filter(course => !enrolledCourseIds.includes(course.id));
+  };
+
+  const getSelectedCourseName = () => {
+    const course = courses.find(c => c.id === parseInt(formData.course_id));
+    return course ? course.course_name : "";
+  };
+
   return (
     <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow-md w-full min-h-screen">
       <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
@@ -166,37 +177,79 @@ const StudentNPTEL = () => {
         </div>
       )}
 
-      {/* Credit Transfer Confirmation Modal */}
-      {showCreditConfirmation && (
+      {/* Credit Transfer Modal */}
+      {showCreditModal && selectedEnrollment && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white p-6 rounded-lg shadow-xl max-w-md"
+            className="bg-white p-6 rounded-lg shadow-xl max-w-lg"
           >
             <h3 className="text-xl font-bold text-gray-800 mb-4">
-              Confirm Credit Transfer
+              Credit Transfer - {selectedEnrollment.course?.course_name}
             </h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to transfer credits for this course? Your grade will be calculated based on your marks.
+            
+            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div><strong>Assessment Marks:</strong></div>
+                <div>{selectedEnrollment.assessment_marks}</div>
+                <div><strong>Exam Marks:</strong></div>
+                <div>{selectedEnrollment.exam_marks}</div>
+                <div><strong>Total Marks:</strong></div>
+                <div className="font-bold">{selectedEnrollment.total_marks}</div>
+                <div><strong>Grade:</strong></div>
+                <div className={`font-bold text-lg ${getGradeColor(selectedEnrollment.grade)}`}>
+                  {selectedEnrollment.grade}
+                </div>
+              </div>
+            </div>
+
+            <p className="text-gray-600 mb-4">
+              Current Status: <strong>{selectedEnrollment.credit_transfer === "Yes" ? "Credit Transfer Enabled" : "No Credit Transfer"}</strong>
             </p>
+
+            <p className="text-gray-700 mb-6">
+              Do you want to transfer credits for this course? Your grade <strong>{selectedEnrollment.grade}</strong> will be considered for credit transfer.
+            </p>
+
             <div className="flex justify-end space-x-4">
               <button
-                onClick={() => confirmCreditTransfer(false)}
-                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition"
+                onClick={() => {
+                  setShowCreditModal(false);
+                  setSelectedEnrollment(null);
+                }}
+                className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition"
               >
-                No
+                Cancel
               </button>
               <button
-                onClick={() => confirmCreditTransfer(true)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                onClick={() => handleCreditTransfer(false)}
+                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
               >
-                Yes
+                No Transfer
+              </button>
+              <button
+                onClick={() => handleCreditTransfer(true)}
+                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+              >
+                Yes, Transfer Credits
               </button>
             </div>
           </motion.div>
         </div>
       )}
+
+      {/* Add/Edit Course Button */}
+      <div className="mb-6 flex justify-end">
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setShowEnrollForm(!showEnrollForm)}
+          className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
+        >
+          {showEnrollForm ? "Cancel" : "Add New Course"}
+        </motion.button>
+      </div>
 
       {/* Enrollment Form */}
       {showEnrollForm && (
@@ -207,38 +260,35 @@ const StudentNPTEL = () => {
           className="w-full p-6 bg-white rounded-lg shadow-lg mb-6"
         >
           <h3 className="text-xl font-semibold text-gray-800 mb-4">
-            {editingId ? "Update Enrollment" : `Enroll in ${selectedCourse?.course_name}`}
+            {editingId ? "Update Course Enrollment" : "Add Course Enrollment"}
           </h3>
 
           <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
+              <div className="md:col-span-2">
                 <label className="block text-gray-700 font-medium mb-1">
-                  Course Name
+                  Select Course *
                 </label>
-                <input
-                  type="text"
-                  value={selectedCourse?.course_name || ""}
-                  className="w-full p-2 border rounded bg-gray-100"
-                  disabled
-                />
+                <select
+                  name="course_id"
+                  value={formData.course_id}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                  disabled={editingId}
+                >
+                  <option value="">-- Select a Course --</option>
+                  {(editingId ? courses : getAvailableCourses()).map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.course_name} - {course.instructor_name} ({course.provider_name})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
                 <label className="block text-gray-700 font-medium mb-1">
-                  Instructor
-                </label>
-                <input
-                  type="text"
-                  value={selectedCourse?.instructor_name || ""}
-                  className="w-full p-2 border rounded bg-gray-100"
-                  disabled
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-700 font-medium mb-1">
-                  Assessment Marks (0-100)
+                  Assessment Marks (0-100) *
                 </label>
                 <input
                   type="number"
@@ -250,12 +300,13 @@ const StudentNPTEL = () => {
                   max="100"
                   step="0.01"
                   placeholder="0.00"
+                  required
                 />
               </div>
 
               <div>
                 <label className="block text-gray-700 font-medium mb-1">
-                  Exam Marks (0-100)
+                  Exam Marks (0-100) *
                 </label>
                 <input
                   type="number"
@@ -267,18 +318,20 @@ const StudentNPTEL = () => {
                   max="100"
                   step="0.01"
                   placeholder="0.00"
+                  required
                 />
               </div>
 
               <div>
                 <label className="block text-gray-700 font-medium mb-1">
-                  Status
+                  Status *
                 </label>
                 <select
                   name="status"
                   value={formData.status}
                   onChange={handleInputChange}
                   className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
                 >
                   <option value="In Progress">In Progress</option>
                   <option value="Completed">Completed</option>
@@ -288,28 +341,22 @@ const StudentNPTEL = () => {
 
               <div>
                 <label className="block text-gray-700 font-medium mb-1">
-                  Credit Transfer
+                  Total Marks (Preview)
                 </label>
-                <select
-                  name="credit_transfer"
-                  value={formData.credit_transfer}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="No">No</option>
-                  <option value="Yes">Yes</option>
-                </select>
+                <input
+                  type="text"
+                  value={(parseFloat(formData.assessment_marks) || 0) + (parseFloat(formData.exam_marks) || 0)}
+                  className="w-full p-2 border rounded bg-gray-100 font-bold"
+                  disabled
+                />
               </div>
             </div>
 
-            {formData.credit_transfer === "Yes" && (
-              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-800">
-                  <strong>Note:</strong> Your grade will be calculated based on total marks:
-                  Assessment + Exam = {(parseFloat(formData.assessment_marks) || 0) + (parseFloat(formData.exam_marks) || 0)} marks
-                </p>
-              </div>
-            )}
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                <strong>Note:</strong> After adding the course, you can click on the row in the table to enable/disable credit transfer.
+              </p>
+            </div>
 
             <div className="flex justify-center space-x-4 mt-6">
               <motion.button
@@ -328,7 +375,7 @@ const StudentNPTEL = () => {
                 className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
                 disabled={loading}
               >
-                {loading ? "Processing..." : editingId ? "Update" : "Enroll"}
+                {loading ? "Processing..." : editingId ? "Update" : "Add Course"}
               </motion.button>
             </div>
           </form>
@@ -345,29 +392,38 @@ const StudentNPTEL = () => {
         <h3 className="text-xl font-semibold text-gray-800 mb-4">
           My Enrolled Courses
         </h3>
+        
+        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p className="text-sm text-yellow-800">
+            💡 <strong>Tip:</strong> Click on any row to manage credit transfer for that course
+          </p>
+        </div>
+
         {enrollments.length === 0 && !loading ? (
-          <p className="text-gray-500">No enrollments yet.</p>
+          <p className="text-gray-500">No enrollments yet. Add your first course above!</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse border border-gray-300">
+            <table className="min-w-full border-collapse border border-gray-300 table-auto">
               <thead className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
                 <tr>
-                  <th className="border border-gray-300 p-3 text-left">Course</th>
-                  <th className="border border-gray-300 p-3 text-left">Provider</th>
-                  <th className="border border-gray-300 p-3 text-left">Instructor</th>
-                  <th className="border border-gray-300 p-3 text-left">Department</th>
-                  <th className="border border-gray-300 p-3 text-left">Weeks</th>
-                  <th className="border border-gray-300 p-3 text-left">Status</th>
-                  <th className="border border-gray-300 p-3 text-left">Marks</th>
-                  <th className="border border-gray-300 p-3 text-left">Grade</th>
-                  <th className="border border-gray-300 p-3 text-left">Credit Transfer</th>
-                  <th className="border border-gray-300 p-3 text-left">Verification</th>
-                  <th className="border border-gray-300 p-3 text-left">Actions</th>
+                  <th className="border border-gray-300 p-3 text-left w-auto">Course</th>
+                  <th className="border border-gray-300 p-3 text-left w-32">Provider</th>
+                  <th className="border border-gray-300 p-3 text-left w-auto">Instructor</th>
+                  <th className="border border-gray-300 p-3 text-left w-24">Status</th>
+                  <th className="border border-gray-300 p-3 text-left w-32">Marks</th>
+                  <th className="border border-gray-300 p-3 text-left w-20">Grade</th>
+                  <th className="border border-gray-300 p-3 text-left w-32">Credit Transfer</th>
+                  <th className="border border-gray-300 p-3 text-left w-28">Verification</th>
+                  <th className="border border-gray-300 p-3 text-left w-24">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {enrollments.map((enrollment) => (
-                  <tr key={enrollment.id} className="bg-white hover:bg-gray-50 transition">
+                  <tr 
+                    key={enrollment.id} 
+                    onClick={() => handleRowClick(enrollment)}
+                    className={`bg-white hover:bg-blue-50 transition ${enrollment.pending ? 'cursor-pointer' : 'cursor-not-allowed opacity-75'}`}
+                  >
                     <td className="border border-gray-300 p-3 font-medium">
                       {enrollment.course?.course_name}
                     </td>
@@ -378,19 +434,13 @@ const StudentNPTEL = () => {
                       {enrollment.course?.instructor_name}
                     </td>
                     <td className="border border-gray-300 p-3">
-                      {enrollment.course?.department || "N/A"}
-                    </td>
-                    <td className="border border-gray-300 p-3">
-                      {enrollment.course?.weeks}
-                    </td>
-                    <td className="border border-gray-300 p-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(enrollment.status)}`}>
                         {enrollment.status}
                       </span>
                     </td>
                     <td className="border border-gray-300 p-3">
                       <div className="text-sm">
-                        <div>Assessment: {enrollment.assessment_marks}</div>
+                        <div>Assess: {enrollment.assessment_marks}</div>
                         <div>Exam: {enrollment.exam_marks}</div>
                         <div className="font-semibold">Total: {enrollment.total_marks}</div>
                       </div>
@@ -405,14 +455,14 @@ const StudentNPTEL = () => {
                         {enrollment.credit_transfer === "Yes" ? (
                           <>
                             <FaCheckCircle className="text-green-600 mr-2" />
-                            <span className="text-sm">
+                            <span className="text-sm font-semibold text-green-700">
                               Yes ({enrollment.credit_transfer_grade})
                             </span>
                           </>
                         ) : (
                           <>
                             <FaTimesCircle className="text-red-600 mr-2" />
-                            <span className="text-sm">No</span>
+                            <span className="text-sm font-semibold text-red-700">No</span>
                           </>
                         )}
                       </div>
@@ -433,7 +483,7 @@ const StudentNPTEL = () => {
                       </span>
                     </td>
                     <td className="border border-gray-300 p-3">
-                      <div className="flex space-x-2">
+                      <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => handleEdit(enrollment)}
                           className={`p-1 ${enrollment.pending ? 
@@ -460,55 +510,6 @@ const StudentNPTEL = () => {
                 ))}
               </tbody>
             </table>
-          </div>
-        )}
-      </motion.div>
-
-      {/* Available Courses */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full p-6 bg-white rounded-lg shadow-lg"
-      >
-        <h3 className="text-xl font-semibold text-gray-800 mb-4">
-          Available Courses
-        </h3>
-        {courses.length === 0 && !loading ? (
-          <p className="text-gray-500">No courses available.</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {courses.map((course) => {
-              const isEnrolled = enrollments.some(e => e.course_id === course.id);
-              return (
-                <motion.div
-                  key={course.id}
-                  whileHover={{ scale: 1.02 }}
-                  className="p-4 border-2 border-gray-200 rounded-lg hover:border-blue-400 transition"
-                >
-                  <h4 className="font-bold text-lg text-gray-800 mb-2">
-                    {course.course_name}
-                  </h4>
-                  <div className="text-sm text-gray-600 space-y-1 mb-3">
-                    <p><strong>Provider:</strong> {course.provider_name}</p>
-                    <p><strong>Instructor:</strong> {course.instructor_name}</p>
-                    <p><strong>Department:</strong> {course.department || "N/A"}</p>
-                    <p><strong>Duration:</strong> {course.weeks} weeks</p>
-                  </div>
-                  <button
-                    onClick={() => handleEnrollClick(course)}
-                    disabled={isEnrolled}
-                    className={`w-full py-2 rounded-lg font-semibold transition ${
-                      isEnrolled
-                        ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                        : "bg-blue-600 text-white hover:bg-blue-700"
-                    }`}
-                  >
-                    {isEnrolled ? "Already Enrolled" : "Enroll Now"}
-                  </button>
-                </motion.div>
-              );
-            })}
           </div>
         )}
       </motion.div>

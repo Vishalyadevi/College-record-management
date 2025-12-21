@@ -177,6 +177,7 @@ import StaffActivitiesPage from './records/pages/admin/StaffActivities';
 import StudentActivitiesPage from './records/pages/admin/StudentActivities';
 import StaffFeedback from './placement/components/staff/stafffeedback';
 import StaffMou from './records/pages/StaffPage/MOUPage';
+import UploadSemMarksStaff from './records/pages/StaffPage/UploadSemMarks.jsx';
 
 // Authentication helper functions
 const getToken = (): string | null => {
@@ -552,6 +553,12 @@ const AppRoutes: React.FC = () => {
           <Sidebar /><StaffHackathon />
         </ProtectedRoute>
       } />
+      <Route path="/records/upload-semmarks" element={
+        <ProtectedRoute allowedRoles={['Staff']}>
+          <Sidebar /><UploadSemMarksStaff />
+        </ProtectedRoute>
+      } />
+
 
       {/* ==================== RECORDS SYSTEM ROUTES ==================== */}
       {/* Records Public Routes */}

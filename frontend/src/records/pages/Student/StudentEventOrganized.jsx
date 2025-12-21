@@ -183,16 +183,15 @@ const StudentEventOrganized = () => {
         staff_incharge: editingEvent.staff_incharge,
         start_date: editingEvent.start_date,
         end_date: editingEvent.end_date,
-        number_of_participants: editingEvent.number_of_participants,
+        number_of_participants: parseInt(editingEvent.number_of_participants),
         mode: editingEvent.mode,
-        funding_agency: editingEvent.funding_agency || "",
-        funding_amount: editingEvent.funding_amount || "",
+        funding_agency: editingEvent.funding_agency || null,
+        funding_amount: editingEvent.funding_amount ? parseFloat(editingEvent.funding_amount) : null,
         Userid: String(decodedData.Userid),
       };
 
       if (editingEvent.id) {
         await updateEvent(editingEvent.id, eventData);
-        toast.success("Event updated successfully!");
       } else {
         await addEvent(eventData);
       }
@@ -213,7 +212,7 @@ const StudentEventOrganized = () => {
       });
     } catch (error) {
       console.error("Error submitting event:", error);
-      toast.error("Failed to submit event. Please try again.");
+      // Error toast is already shown in context
     } finally {
       setIsSubmitting(false);
     }
@@ -239,7 +238,7 @@ const StudentEventOrganized = () => {
     }
   }, [deleteEvent]);
 
-  if (loading) {
+  if (loading && events.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -261,10 +260,6 @@ const StudentEventOrganized = () => {
     );
   }
 
-  if (!Array.isArray(events)) {
-    return <div className="text-center text-red-600">Invalid events data. Expected an array.</div>;
-  }
-
   return (
     <div className="p-6 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg shadow-sm w-full min-h-screen">
       <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
@@ -282,7 +277,7 @@ const StudentEventOrganized = () => {
         <motion.button
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
-          type="submit"
+          type="button"
           onClick={handleSubmit}
           disabled={isSubmitting}
           className="absolute top-4 right-4 p-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full shadow-md hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
@@ -294,7 +289,7 @@ const StudentEventOrganized = () => {
         <h3 className="text-xl font-semibold text-gray-800 mb-4">
           {editingEvent.id ? "Edit Event" : "Add Event"}
         </h3>
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Row 1 */}
           <div>
             <Label htmlFor="event_name">Event Name</Label>
@@ -410,7 +405,7 @@ const StudentEventOrganized = () => {
               placeholder="Enter funding amount (optional)"
             />
           </div>
-        </form>
+        </div>
       </motion.div>
 
       {/* Filter Controls */}

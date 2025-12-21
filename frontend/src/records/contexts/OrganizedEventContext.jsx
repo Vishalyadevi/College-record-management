@@ -1,4 +1,3 @@
-// OrganizedEventContext.js
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -16,6 +15,8 @@ export const OrganizedEventProvider = ({ children }) => {
   const fetchEvents = useCallback(async () => {
     if (!token || !UserId) {
       console.log("Missing token or UserId");
+      setEvents([]);
+      setLoading(false);
       return;
     }
 
@@ -30,13 +31,10 @@ export const OrganizedEventProvider = ({ children }) => {
         axios.get(`${backendUrl}/api/approved-events?UserId=${UserId}`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        axios.get(`${backendUrl}/api/pending-events?UserId=${UserId}`, {
+        axios.get(`${backendUrl}/api/pending-events`, {
           headers: { Authorization: `Bearer ${token}` },
         })
       ]);
-
-      console.log("Approved Response:", approvedRes);
-      console.log("Pending Response:", pendingRes);
 
       let allEvents = [];
 
@@ -46,20 +44,14 @@ export const OrganizedEventProvider = ({ children }) => {
           ? approvedRes.value.data 
           : approvedRes.value.data.events || [];
         
-        const processedApproved = approvedData.map(item => {
-          if (item.event && typeof item.event === 'object') {
-            return {
-              ...item.event,
-              approval_status: 'Approved'
-            };
-          }
-          return {
-            ...item,
+        const processedApproved = approvedData
+          .filter(event => event.Userid === parseInt(UserId))
+          .map(event => ({
+            ...event,
             approval_status: 'Approved'
-          };
-        });
+          }));
         allEvents = [...allEvents, ...processedApproved];
-        console.log("Processed Approved Events:", processedApproved);
+        console.log("Processed Approved Events:", processedApproved.length);
       }
 
       // Process pending events
@@ -68,44 +60,39 @@ export const OrganizedEventProvider = ({ children }) => {
           ? pendingRes.value.data 
           : pendingRes.value.data.events || [];
         
-        const processedPending = pendingData.map(item => {
-          if (item.event && typeof item.event === 'object') {
-            return {
-              ...item.event,
-              approval_status: 'Pending'
-            };
-          }
-          return {
-            ...item,
+        const processedPending = pendingData
+          .filter(event => event.Userid === parseInt(UserId))
+          .map(event => ({
+            ...event,
             approval_status: 'Pending'
-          };
-        });
+          }));
         allEvents = [...allEvents, ...processedPending];
-        console.log("Processed Pending Events:", processedPending);
+        console.log("Processed Pending Events:", processedPending.length);
       }
 
-      console.log("All Events Combined:", allEvents);
+      console.log("Total Events Combined:", allEvents.length);
       setEvents(allEvents);
 
-      if (allEvents.length === 0) {
-        console.log("No events found");
-      }
     } catch (err) {
       console.error("Error fetching events:", err);
-      console.error("Error response:", err.response?.data);
       setError(err.message);
-      setEvents([]); // Set empty array on error
+      setEvents([]);
     } finally {
       setLoading(false);
     }
   }, [token, UserId, backendUrl]);
 
   const addEvent = useCallback(async (eventData) => {
-    if (!token) return toast.error("Unauthorized: No token found");
+    if (!token) {
+      toast.error("Unauthorized: No token found");
+      return;
+    }
 
     setLoading(true);
 
     try {
+      console.log("Adding event:", eventData);
+      
       const response = await axios.post(`${backendUrl}/api/add-event`, eventData, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -115,41 +102,32 @@ export const OrganizedEventProvider = ({ children }) => {
 
       console.log("Add event response:", response.data);
 
-      // Extract the event from response (handle nested structure)
-      let newEvent;
-      if (response.data.event && typeof response.data.event === 'object') {
-        newEvent = {
-          ...response.data.event,
-          approval_status: response.data.approval_status || 'Pending'
-        };
-      } else {
-        newEvent = {
-          ...response.data,
-          approval_status: response.data.approval_status || 'Pending'
-        };
+      if (response.data.success) {
+        toast.success("Event added successfully! Awaiting approval.");
+        // Refetch events to get the latest data
+        setTimeout(() => fetchEvents(), 500);
       }
-
-      setEvents((prevEvents) => [...prevEvents, newEvent]);
-      toast.success("Event added successfully! Awaiting approval.");
-      
-      // Optionally refetch to ensure sync with backend
-      setTimeout(() => fetchEvents(), 1000);
     } catch (err) {
       console.error("Error adding event:", err);
-      console.error("Error response:", err.response?.data);
-      setError(err.message);
-      toast.error("Failed to add event.");
+      const errorMessage = err.response?.data?.message || err.message || "Failed to add event";
+      toast.error(errorMessage);
+      throw err;
     } finally {
       setLoading(false);
     }
   }, [token, backendUrl, fetchEvents]);
 
   const updateEvent = useCallback(async (id, eventData) => {
-    if (!token) return toast.error("Unauthorized: No token found");
+    if (!token) {
+      toast.error("Unauthorized: No token found");
+      return;
+    }
 
     setLoading(true);
 
     try {
+      console.log("Updating event:", id, eventData);
+      
       const response = await axios.put(
         `${backendUrl}/api/update-event/${id}`,
         eventData,
@@ -163,60 +141,54 @@ export const OrganizedEventProvider = ({ children }) => {
 
       console.log("Update event response:", response.data);
 
-      // Extract updated event (handle nested structure)
-      let updatedEvent;
-      if (response.data.event && typeof response.data.event === 'object') {
-        updatedEvent = {
-          ...response.data.event,
-          approval_status: response.data.approval_status || 'Pending'
-        };
-      } else {
-        updatedEvent = {
-          ...response.data,
-          approval_status: response.data.approval_status || 'Pending'
-        };
+      if (response.data.success) {
+        toast.success("Event updated successfully!");
+        // Refetch events to get the latest data
+        setTimeout(() => fetchEvents(), 500);
       }
-
-      setEvents((prevEvents) =>
-        prevEvents.map((event) => (event.id === id ? updatedEvent : event))
-      );
-      toast.success("Event updated successfully!");
-      
-      // Optionally refetch to ensure sync with backend
-      setTimeout(() => fetchEvents(), 1000);
     } catch (err) {
       console.error("Error updating event:", err);
-      console.error("Error response:", err.response?.data);
-      setError(err.message);
-      toast.error("Failed to update event.");
+      const errorMessage = err.response?.data?.message || err.message || "Failed to update event";
+      toast.error(errorMessage);
+      throw err;
     } finally {
       setLoading(false);
     }
   }, [token, backendUrl, fetchEvents]);
 
   const deleteEvent = useCallback(async (id) => {
-    if (!token) return toast.error("Unauthorized: No token found");
+    if (!token) {
+      toast.error("Unauthorized: No token found");
+      return;
+    }
 
     setLoading(true);
 
     try {
-      await axios.delete(`${backendUrl}/api/delete-event/${id}`, {
+      console.log("Deleting event:", id);
+      
+      const response = await axios.delete(`${backendUrl}/api/delete-event/${id}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      setEvents((prevEvents) => prevEvents.filter((event) => event.id !== id));
-      toast.success("Event deleted successfully!");
+      console.log("Delete event response:", response.data);
+
+      if (response.data.success) {
+        toast.success("Event deleted successfully!");
+        // Refetch events to get the latest data
+        setTimeout(() => fetchEvents(), 500);
+      }
     } catch (err) {
       console.error("Error deleting event:", err);
-      console.error("Error response:", err.response?.data);
-      setError(err.message);
-      toast.error("Failed to delete event.");
+      const errorMessage = err.response?.data?.message || err.message || "Failed to delete event";
+      toast.error(errorMessage);
+      throw err;
     } finally {
       setLoading(false);
     }
-  }, [token, backendUrl]);
+  }, [token, backendUrl, fetchEvents]);
 
   useEffect(() => {
     fetchEvents();
@@ -239,4 +211,10 @@ export const OrganizedEventProvider = ({ children }) => {
   );
 };
 
-export const useOrganizedEventContext = () => useContext(OrganizedEventContext);
+export const useOrganizedEventContext = () => {
+  const context = useContext(OrganizedEventContext);
+  if (!context) {
+    throw new Error('useOrganizedEventContext must be used within OrganizedEventProvider');
+  }
+  return context;
+};

@@ -35,7 +35,7 @@ import biodataRoutes from './routes/student/bioDataRoutes.js';
 import hackathonRoutes from './routes/student/hackathonRouts.js';
 import extracurricularRoutes from "./routes/student/extracurricularRoutes.js";
 import projectRoutes from "./routes/student/projectRoutes.js";
-// import StudentEducationRoutes from "./routes/student/educationRoutes.js";
+//import StudentEducationRoutes from "./routes/student/educationRoutes.js";
 import publicationRoutes from "./routes/student/studentPublicationRoutes.js";
 import nonCGPACategoryRoutes from "./routes/admin/nonCGPACategoryRoutes.js";
 import CompetencyCoding  from "./routes/student/competencyCodingRoutes.js";

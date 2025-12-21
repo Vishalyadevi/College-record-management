@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
+import { FaEdit, FaTrash } from 'react-icons/fa';
 import { Edit2, Trash2, Plus, CheckCircle, XCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNPTEL } from "../../contexts/NPTELContext";
+
 
 const AdminNPTEL = () => {
   const {
@@ -340,16 +342,16 @@ const AdminNPTEL = () => {
           <p className="text-gray-500">No courses available.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse border border-gray-300">
+            <table className="min-w-full border-collapse border border-gray-300 table-auto">
               <thead className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
                 <tr>
-                  <th className="border border-gray-300 p-3 text-left">Course Name</th>
-                  <th className="border border-gray-300 p-3 text-left">Provider</th>
-                  <th className="border border-gray-300 p-3 text-left">Instructor</th>
-                  <th className="border border-gray-300 p-3 text-left">Department</th>
-                  <th className="border border-gray-300 p-3 text-left">Weeks</th>
-                  <th className="border border-gray-300 p-3 text-left">Grade Boundaries</th>
-                  <th className="border border-gray-300 p-3 text-left">Actions</th>
+                  <th className="border border-gray-300 p-3 text-left w-auto">Course Name</th>
+                  <th className="border border-gray-300 p-3 text-left w-32">Provider</th>
+                  <th className="border border-gray-300 p-3 text-left w-auto">Instructor</th>
+                  <th className="border border-gray-300 p-3 text-left w-32">Department</th>
+                  <th className="border border-gray-300 p-3 text-left w-20">Weeks</th>
+                  <th className="border border-gray-300 p-3 text-left w-auto min-w-[400px]">Grade Boundaries</th>
+                  <th className="border border-gray-300 p-3 text-left w-24">Actions</th>
                 </tr>
               </thead>
               <tbody>

@@ -157,6 +157,7 @@ const Sidebar = () => {
             <SidebarLink to="/records/staff" icon={<FaTachometerAlt />} label="Main Dashboard" />
             <SidebarLink to="/records/staff-dashboard" icon={<FaChalkboardTeacher />} label="Approval Dashboard" />
             <SidebarLink to="/records/myward" icon={<FaUsers />} label="My Ward" />
+            <SidebarLink to="/records/upload-semmarks" icon={<FaUsers />} label="Upload Student GPA & CGPA" />
             <SidebarLink to="/records/personal" icon={<FaUserGraduate />} label="Personal" />
             <SidebarLink to="/records/education" icon={<FaBook />} label="Education" />
             <SidebarLink to="/records/scholars" icon={<FaUsers />} label="Scholars" />
