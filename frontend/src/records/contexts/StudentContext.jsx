@@ -26,7 +26,7 @@ export const StudentProvider = ({ children }) => {
           setIsAuthenticated(false);
           setLoading(false);
           console.log("User not authenticated - skipping data fetch");
-          return; // Exit early instead of throwing error
+          return;
         }
 
         setIsAuthenticated(true);
@@ -137,6 +137,41 @@ export const StudentProvider = ({ children }) => {
     return { deptStudentCounts, deptStaffCounts };
   }, [usersWithDepartments]);
 
+  // Calculate city-wise student distribution
+  const cityWiseCounts = useMemo(() => {
+    const counts = {};
+    
+    (Array.isArray(students) ? students : []).forEach((student) => {
+      const city = student.city || "Not Specified";
+      counts[city] = (counts[city] || 0) + 1;
+    });
+
+    // Sort by count (descending) and return top cities
+    return Object.entries(counts)
+      .sort(([, a], [, b]) => b - a)
+      .reduce((acc, [city, count]) => {
+        acc[city] = count;
+        return acc;
+      }, {});
+  }, [students]);
+
+  // Get total student count
+  const totalStudents = useMemo(() => {
+    return Array.isArray(students) ? students.length : 0;
+  }, [students]);
+
+  // Get total staff count
+  const totalStaff = useMemo(() => {
+    return Array.isArray(staff) ? staff.length : 0;
+  }, [staff]);
+
+  // Get students by city
+  const getStudentsByCity = (city) => {
+    return (Array.isArray(students) ? students : []).filter(
+      (student) => student.city === city
+    );
+  };
+
   return (
     <StudentContext.Provider
       value={{
@@ -148,11 +183,18 @@ export const StudentProvider = ({ children }) => {
         batchWiseCounts,
         usersWithDepartments,
         departmentWiseCounts,
+        cityWiseCounts,
+        totalStudents,
+        totalStaff,
+        getStudentsByCity,
       }}
     >
       {loading ? (
-        <div style={{ textAlign: "center", marginTop: "50px" }}>
-          <h3>Loading data...</h3>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600 mx-auto mb-4"></div>
+            <h3 className="text-xl font-semibold text-gray-700">Loading data...</h3>
+          </div>
         </div>
       ) : (
         children

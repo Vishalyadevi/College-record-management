@@ -1,253 +1,185 @@
-import React, { useState, useEffect, useContext } from "react";
-import { FaEdit, FaTrash, FaCalendarAlt, FaFileUpload, FaEye, FaTimes } from "react-icons/fa";
-import { motion } from "framer-motion";
-import { useLeave } from "../../contexts/LeaveContext";
-import { useUser } from "../../contexts/UserContext";
+import React, { useState, useEffect } from "react";
+import { 
+  FaEdit, 
+  FaTrash, 
+  FaCalendarAlt, 
+  FaFileUpload, 
+  FaEye, 
+  FaTimes, 
+  FaInfoCircle,
+  FaCheckCircle,
+  FaTimesCircle,
+  FaClock
+} from "react-icons/fa";
+import { motion, AnimatePresence } from "framer-motion";
+import axios from "axios";
 
 const backendUrl = "http://localhost:4000";
 
 const StudentLeave = () => {
-  const {
-    pendingLeaves,
-    approvedLeaves,
-    loading,
-    error,
-    addLeave,
-    updateLeave,
-    deleteLeave,
-    fetchPendingLeaves,
-    fetchApprovedLeaves,
-  } = useLeave();
-
-  const { user } = useUser();
+  const [leaves, setLeaves] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [editingLeave, setEditingLeave] = useState(null);
+  const [showForm, setShowForm] = useState(false);
 
-  // Fetch leaves on component mount
+  // Fetch student's own leaves
+  const fetchMyLeaves = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${backendUrl}/api/student/my-leaves`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      setLeaves(response.data.leaves || []);
+      setError(null);
+    } catch (error) {
+      console.error("Error fetching leaves:", error);
+      setError("Failed to fetch your leaves.");
+      setLeaves([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    fetchPendingLeaves();
-    fetchApprovedLeaves();
-  }, [fetchPendingLeaves, fetchApprovedLeaves]);
+    fetchMyLeaves();
+  }, []);
 
-  // Filter leaves to show only those applied by the current user
-  const userLeaves = [...pendingLeaves, ...approvedLeaves]
-    .filter((leave) => leave.Userid === user.Userid)
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // Sort by most recent
-
-  // Handle Edit Click
   const handleEdit = (leave) => {
-    // Only allow editing pending leaves
     if (leave.leave_status === "pending") {
       setEditingLeave(leave);
+      setShowForm(true);
     }
   };
 
-  // Handle Delete Click
   const handleDelete = async (id) => {
-    await deleteLeave(id);
-    fetchPendingLeaves();
-    fetchApprovedLeaves();
-  };
-
-  // Handle Save or Update Leave
-  const handleSaveLeave = async (leaveData) => {
-    if (editingLeave) {
-      await updateLeave(editingLeave.id, leaveData);
-    } else {
-      await addLeave(leaveData);
+    if (window.confirm("Are you sure you want to delete this leave request?")) {
+      try {
+        setLoading(true);
+        await axios.delete(`${backendUrl}/api/student/delete-leave/${id}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        });
+        await fetchMyLeaves();
+        alert("Leave request deleted successfully!");
+      } catch (error) {
+        console.error("Error deleting leave:", error);
+        alert("Failed to delete leave request");
+      } finally {
+        setLoading(false);
+      }
     }
-    setEditingLeave(null); // Reset editing state after saving
-    fetchPendingLeaves(); // Refresh pending leaves
-    fetchApprovedLeaves(); // Refresh approved leaves
   };
 
-  // Handle Cancel Edit
+  const handleSaveLeave = async (leaveData) => {
+    try {
+      setLoading(true);
+      const formData = new FormData();
+      formData.append("leave_type", leaveData.leave_type);
+      formData.append("start_date", leaveData.start_date);
+      formData.append("end_date", leaveData.end_date);
+      formData.append("reason", leaveData.reason);
+
+      if (leaveData.document) {
+        formData.append("document", leaveData.document);
+      }
+
+      if (editingLeave) {
+        await axios.patch(
+          `${backendUrl}/api/student/update-leave/${editingLeave.id}`,
+          formData,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
+        alert("Leave request updated successfully!");
+      } else {
+        await axios.post(`${backendUrl}/api/student/add-leave`, formData, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            "Content-Type": "multipart/form-data",
+          },
+        });
+        alert("Leave request submitted successfully!");
+      }
+
+      setEditingLeave(null);
+      setShowForm(false);
+      await fetchMyLeaves();
+    } catch (error) {
+      console.error("Error saving leave:", error);
+      alert(error.response?.data?.message || "Failed to save leave request");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCancelEdit = () => {
-    setEditingLeave(null); // Reset editing state
+    setEditingLeave(null);
+    setShowForm(false);
   };
 
   return (
-    <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow-md w-full min-h-screen">
-      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-        Leave Management
-      </h2>
+    <div className="p-6 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 min-h-screen">
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="max-w-7xl mx-auto"
+      >
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            My Leave Requests
+          </h2>
+          {!showForm && (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowForm(true)}
+              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg shadow-lg hover:shadow-xl transition-all font-semibold"
+            >
+              + Apply New Leave
+            </motion.button>
+          )}
+        </div>
 
-      {/* Form and Table */}
-      <div className="space-y-6">
-        {/* Leave Form */}
-        <LeaveForm
-          onSave={handleSaveLeave}
-          editingLeave={editingLeave}
-          onCancelEdit={handleCancelEdit}
-        />
+        <AnimatePresence>
+          {showForm && (
+            <LeaveForm
+              onSave={handleSaveLeave}
+              editingLeave={editingLeave}
+              onCancel={handleCancelEdit}
+              loading={loading}
+            />
+          )}
+        </AnimatePresence>
 
-        {/* Leave Details Table */}
-        {loading ? (
-          <div className="flex justify-center items-center h-40">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        {loading && !showForm ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
           </div>
         ) : error ? (
-          <p className="text-center text-red-500">{error}</p>
+          <div className="text-center text-red-500 p-8 bg-white rounded-lg shadow-md">
+            {error}
+          </div>
         ) : (
-          <LeaveDetails
-            leaves={userLeaves}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-          />
+          <LeaveList leaves={leaves} onEdit={handleEdit} onDelete={handleDelete} />
         )}
-      </div>
+      </motion.div>
     </div>
   );
 };
 
-// Leave Details Component
-const LeaveDetails = ({ leaves, onEdit, onDelete }) => {
-  // Function to format date as "date/month/year"
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const day = date.getDate();
-    const month = date.getMonth() + 1; // Months are zero-based
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  };
-
-  // Ensure leaves is an array before using .map()
-  if (!leaves || !Array.isArray(leaves)) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full p-6 bg-white rounded-lg shadow-md"
-      >
-        <h3 className="text-xl font-semibold text-gray-800 mb-4">Leave Details</h3>
-        <p className="text-center p-4">No leave records found.</p>
-      </motion.div>
-    );
-  }
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="w-full p-6 bg-white rounded-lg shadow-md"
-    >
-      <h3 className="text-xl font-semibold text-gray-800 mb-4">Leave Details</h3>
-
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse border border-gray-300">
-          <thead className="bg-gradient-to-r from-blue-500 to-purple-500 text-white">
-            <tr>
-              <th className="border border-gray-300 p-3 text-left">Leave Type</th>
-              <th className="border border-gray-300 p-3 text-left">Start Date</th>
-              <th className="border border-gray-300 p-3 text-left">End Date</th>
-              <th className="border border-gray-300 p-3 text-left">Reason</th>
-              <th className="border border-gray-300 p-3 text-left">Status</th>
-              <th className="border border-gray-300 p-3 text-left">Document</th>
-              <th className="border border-gray-300 p-3 text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {leaves.length > 0 ? (
-              leaves.map((leave) => (
-                <tr key={leave.id} className="bg-white hover:bg-gray-50 transition-all">
-                  <td className="border border-gray-300 p-3">{leave.leave_type}</td>
-                  <td className="border border-gray-300 p-3">{formatDate(leave.start_date)}</td>
-                  <td className="border border-gray-300 p-3">{formatDate(leave.end_date)}</td>
-                  <td className="border border-gray-300 p-3">{leave.reason}</td>
-                  <td className="border border-gray-300 p-3">
-                    <span
-                      className={`px-2 py-1 rounded-full text-sm ${
-                        leave.leave_status === "pending"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : leave.leave_status === "approved"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {leave.leave_status}
-                    </span>
-                  </td>
-                  <td className="border border-gray-300 p-3">
-                    {leave.document ? (
-                      <a
-                        href={`${backendUrl}/uploads/leaves/${encodeURI(leave.document.replace(/\\/g, "/"))}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-500 hover:text-blue-700"
-                      >
-                        <FaEye size={18} />
-                      </a>
-                    ) : (
-                      "-"
-                    )}
-                  </td>
-                  <td className="border border-gray-300 p-3">
-                    <div className="flex justify-center space-x-4">
-                      {/* Edit Button - Only show for pending leaves */}
-                      {leave.leave_status === "pending" && (
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={() => onEdit(leave)}
-                          className="p-2 rounded-full bg-blue-100 hover:bg-blue-200 text-blue-600 transition-all duration-200"
-                          title="Edit"
-                        >
-                          <FaEdit size={18} />
-                        </motion.button>
-                      )}
-
-                      {/* Delete Button - Only show for pending leaves */}
-                      {leave.leave_status === "pending" && (
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={() => onDelete(leave.id)}
-                          className="p-2 rounded-full bg-red-100 hover:bg-red-200 text-red-600 transition-all duration-200"
-                          title="Delete"
-                        >
-                          <FaTrash size={18} />
-                        </motion.button>
-                      )}
-
-                      {/* For approved/rejected leaves, show a disabled state or nothing */}
-                      {leave.leave_status !== "pending" && (
-                        <span className="text-gray-400 p-2" title="No actions available">
-                          <FaTimes size={18} />
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={7} className="text-center p-4">
-                  No leave records found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </motion.div>
-  );
-};
-
-// Leave Form Component (Remains the same as in your original code)
-const LeaveForm = ({ onSave, editingLeave, onCancelEdit }) => {
+const LeaveForm = ({ onSave, editingLeave, onCancel, loading }) => {
   const [leaveData, setLeaveData] = useState({
     leave_type: "Sick",
     start_date: "",
     end_date: "",
     reason: "",
-    leave_status: "pending",
     document: null,
   });
 
-  const [documentPreview, setDocumentPreview] = useState(null);
-
-  // Function to format date for input[type="date"]
   const formatDateForInput = (dateString) => {
     if (!dateString) return "";
     const date = new Date(dateString);
@@ -264,24 +196,17 @@ const LeaveForm = ({ onSave, editingLeave, onCancelEdit }) => {
         start_date: formatDateForInput(editingLeave.start_date),
         end_date: formatDateForInput(editingLeave.end_date),
         reason: editingLeave.reason,
-        leave_status: editingLeave.leave_status,
         document: null,
       });
-      if (editingLeave.document) {
-        setDocumentPreview(editingLeave.document);
-      }
-    } else {
-      setLeaveData({
-        leave_type: "Sick",
-        start_date: "",
-        end_date: "",
-        reason: "",
-        leave_status: "pending",
-        document: null,
-      });
-      setDocumentPreview(null);
     }
   }, [editingLeave]);
+
+  const calculateDays = () => {
+    if (!leaveData.start_date || !leaveData.end_date) return 0;
+    const start = new Date(leaveData.start_date);
+    const end = new Date(leaveData.end_date);
+    return Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -292,154 +217,337 @@ const LeaveForm = ({ onSave, editingLeave, onCancelEdit }) => {
     const file = e.target.files[0];
     if (file) {
       setLeaveData({ ...leaveData, document: file });
-      setDocumentPreview(URL.createObjectURL(file));
     }
-  };
-
-  const calculateDays = () => {
-    if (!leaveData.start_date || !leaveData.end_date) return 0;
-    const start = new Date(leaveData.start_date);
-    const end = new Date(leaveData.end_date);
-    return Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     const days = calculateDays();
 
-    if (days > 5 && !leaveData.document) {
+    if (days <= 0) {
+      alert("End date must be after start date");
+      return;
+    }
+
+    if (days > 5 && !leaveData.document && !editingLeave?.document) {
       alert("Document is required for leaves longer than 5 days.");
       return;
     }
 
     onSave(leaveData);
-    setLeaveData({
-      leave_type: "Sick",
-      start_date: "",
-      end_date: "",
-      reason: "",
-      leave_status: "pending",
-      document: null,
-    });
-    setDocumentPreview(null);
   };
+
+  const days = calculateDays();
+  const requiresDeptApproval = days > 3;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="w-full p-6 bg-white rounded-lg shadow-md"
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      className="bg-white rounded-xl shadow-xl p-6 mb-6"
     >
-      <h3 className="text-xl font-semibold text-gray-800 mb-4">
-        {editingLeave ? "Edit Leave" : "Apply Leave"}
+      <h3 className="text-2xl font-bold text-gray-800 mb-4">
+        {editingLeave ? "Edit Leave Request" : "Apply for Leave"}
       </h3>
 
+      {requiresDeptApproval && (
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="mb-4 p-4 bg-gradient-to-r from-orange-50 to-red-50 border-l-4 border-orange-500 rounded-lg"
+        >
+          <div className="flex items-start">
+            <FaInfoCircle className="text-orange-500 mt-1 mr-3 flex-shrink-0" size={20} />
+            <div>
+              <p className="font-semibold text-orange-800">Department Admin Approval Required</p>
+              <p className="text-sm text-orange-700 mt-1">
+                This leave request exceeds 3 days and will require approval from your Department Admin before being finalized.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Leave Type */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block font-medium">Leave Type</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Leave Type *
+            </label>
             <select
               name="leave_type"
               value={leaveData.leave_type}
               onChange={handleChange}
-              className="w-full border p-2 rounded"
+              className="w-full border-2 border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               required
             >
-              <option value="Sick">Sick</option>
-              <option value="Casual">Casual</option>
-              <option value="Emergency">Emergency</option>
+              <option value="Sick">Sick Leave</option>
+              <option value="Casual">Casual Leave</option>
+              <option value="Emergency">Emergency Leave</option>
             </select>
           </div>
 
-          {/* Reason Field */}
           <div>
-            <label className="block font-medium">Reason</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Reason *
+            </label>
             <input
               type="text"
               name="reason"
-              className="w-full p-2 border rounded"
               value={leaveData.reason}
               onChange={handleChange}
+              placeholder="Brief reason for leave"
+              className="w-full border-2 border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               required
             />
           </div>
 
-          {/* Start Date */}
           <div>
-            <label className="block font-medium">Start Date</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Start Date *
+            </label>
             <div className="relative">
               <input
                 type="date"
                 name="start_date"
                 value={leaveData.start_date}
                 onChange={handleChange}
-                className="w-full border p-2 rounded pl-10"
+                className="w-full border-2 border-gray-300 p-3 rounded-lg pl-10 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 required
               />
-              <FaCalendarAlt className="absolute left-3 top-3 text-gray-500" />
+              <FaCalendarAlt className="absolute left-3 top-4 text-gray-400" />
             </div>
           </div>
 
-          {/* End Date */}
           <div>
-            <label className="block font-medium">End Date</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              End Date *
+            </label>
             <div className="relative">
               <input
                 type="date"
                 name="end_date"
                 value={leaveData.end_date}
                 onChange={handleChange}
-                className="w-full border p-2 rounded pl-10"
+                className="w-full border-2 border-gray-300 p-3 rounded-lg pl-10 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 required
               />
-              <FaCalendarAlt className="absolute left-3 top-3 text-gray-500" />
+              <FaCalendarAlt className="absolute left-3 top-4 text-gray-400" />
             </div>
           </div>
         </div>
 
-        {/* Days Calculation */}
-        <div className="text-sm text-gray-600">
-          Total Days: {calculateDays()} {calculateDays() > 1 ? "days" : "day"}
-        </div>
+        {days > 0 && (
+          <div className="flex items-center space-x-4 p-4 bg-blue-50 rounded-lg">
+            <div className="text-blue-800">
+              <span className="font-semibold">Total Days:</span>{" "}
+              <span className="text-2xl font-bold">{days}</span>
+            </div>
+            {requiresDeptApproval && (
+              <span className="px-3 py-1 bg-orange-200 text-orange-800 rounded-full text-xs font-semibold">
+                Requires Dept Approval
+              </span>
+            )}
+          </div>
+        )}
 
-        {/* Document Upload (If leave exceeds 5 days) */}
-        {calculateDays() > 5 && (
-          <div className="mt-4">
-            <label className="block font-medium">Upload Document</label>
+        {days > 5 && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Upload Document * (Required for leaves &gt; 5 days)
+            </label>
             <div className="relative">
               <input
                 type="file"
                 onChange={handleFileChange}
-                className="w-full border p-2 rounded pl-10"
-                required={calculateDays() > 5 && !editingLeave}
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                className="w-full border-2 border-gray-300 p-3 rounded-lg pl-10 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                required={days > 5 && !editingLeave?.document}
               />
-              <FaFileUpload className="absolute left-3 top-3 text-gray-500" />
+              <FaFileUpload className="absolute left-3 top-4 text-gray-400" />
             </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Accepted formats: PDF, DOC, DOCX, JPG, PNG (Max 5MB)
+            </p>
           </div>
         )}
 
-        {/* Submit and Cancel Buttons */}
-        <div className="mt-6 flex space-x-4">
-          <button
+        <div className="flex space-x-4 pt-4">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             type="submit"
-            className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-6 py-2 rounded hover:from-blue-600 hover:to-purple-600 transition-all"
+            disabled={loading}
+            className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {editingLeave ? "Update Leave" : "Apply Leave"}
-          </button>
-          {editingLeave && (
-            <button
-              type="button"
-              onClick={onCancelEdit}
-              className="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600 transition-all"
-            >
-              Cancel
-            </button>
-          )}
+            {loading ? "Processing..." : editingLeave ? "Update Leave" : "Submit Leave Request"}
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            type="button"
+            onClick={onCancel}
+            disabled={loading}
+            className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-all"
+          >
+            Cancel
+          </motion.button>
         </div>
       </form>
     </motion.div>
+  );
+};
+
+const LeaveList = ({ leaves, onEdit, onDelete }) => {
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-GB");
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case "approved":
+        return <FaCheckCircle className="text-green-500" />;
+      case "rejected":
+        return <FaTimesCircle className="text-red-500" />;
+      default:
+        return <FaClock className="text-yellow-500" />;
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "approved":
+        return "bg-green-100 text-green-800 border-green-300";
+      case "rejected":
+        return "bg-red-100 text-red-800 border-red-300";
+      default:
+        return "bg-yellow-100 text-yellow-800 border-yellow-300";
+    }
+  };
+
+  if (!leaves || leaves.length === 0) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="bg-white rounded-xl shadow-lg p-12 text-center"
+      >
+        <div className="text-gray-400 mb-4">
+          <FaCalendarAlt size={64} className="mx-auto" />
+        </div>
+        <h3 className="text-xl font-semibold text-gray-700 mb-2">No Leave Requests Yet</h3>
+        <p className="text-gray-500">Click "Apply New Leave" to create your first leave request</p>
+      </motion.div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {leaves.map((leave, index) => (
+        <motion.div
+          key={leave.id}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: index * 0.1 }}
+          className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all overflow-hidden"
+        >
+          <div className="p-6">
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="text-3xl">{getStatusIcon(leave.leave_status)}</div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-800">{leave.leave_type} Leave</h3>
+                  <p className="text-sm text-gray-500">
+                    {formatDate(leave.start_date)} - {formatDate(leave.end_date)} ({leave.total_days} days)
+                  </p>
+                </div>
+              </div>
+              <span className={`px-4 py-2 rounded-full text-sm font-semibold border-2 ${getStatusColor(leave.leave_status)}`}>
+                {leave.leave_status.toUpperCase()}
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <span className="text-sm font-medium text-gray-600">Reason:</span>
+                <p className="text-gray-800">{leave.reason}</p>
+              </div>
+
+              {leave.requires_dept_approval && (
+                <div className="p-3 bg-orange-50 rounded-lg border-l-4 border-orange-400">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <FaInfoCircle className="text-orange-500" />
+                      <span className="text-sm font-medium text-orange-800">
+                        Department Admin Approval:
+                      </span>
+                    </div>
+                    {leave.dept_admin_approval_status ? (
+                      <span className="px-3 py-1 bg-green-200 text-green-800 rounded-full text-xs font-semibold">
+                        ✓ Approved
+                      </span>
+                    ) : (
+                      <span className="px-3 py-1 bg-orange-200 text-orange-800 rounded-full text-xs font-semibold">
+                        Pending
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {leave.document && (
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm font-medium text-gray-600">Document:</span>
+                  <a
+                    href={`${backendUrl}/uploads/leaves/${leave.document}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center space-x-1 text-blue-600 hover:text-blue-800 transition-colors"
+                  >
+                    <FaEye />
+                    <span className="text-sm underline">View Document</span>
+                  </a>
+                </div>
+              )}
+
+              {leave.messages && leave.messages.length > 0 && (
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <span className="text-sm font-medium text-gray-600">Admin Message:</span>
+                  <p className="text-sm text-gray-700 mt-1">
+                    {leave.messages[leave.messages.length - 1].message}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {leave.leave_status === "pending" && (
+              <div className="flex space-x-3 mt-4 pt-4 border-t border-gray-200">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => onEdit(leave)}
+                  className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all"
+                >
+                  <FaEdit />
+                  <span>Edit</span>
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => onDelete(leave.id)}
+                  className="flex items-center space-x-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all"
+                >
+                  <FaTrash />
+                  <span>Delete</span>
+                </motion.button>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      ))}
+    </div>
   );
 };
 

@@ -3,7 +3,6 @@ import { sequelize } from '../config/mysql.js';
 import Country from './Country.js';
 import State from './State.js';
 import District from './District.js';
-import City from './City.js';
 import Extracurricular from './Extracurricular.js';
 import User from './User.js';
 
@@ -16,7 +15,7 @@ const StudentDetails = sequelize.define('StudentDetails', {
   Semester: { type: DataTypes.STRING(255) },
   staffId: {
     type: DataTypes.INTEGER,
-    allowNull: true,  // ✅ Change this to true
+    allowNull: true,
     references: {
       model: User,
       key: "Userid",
@@ -46,7 +45,7 @@ const StudentDetails = sequelize.define('StudentDetails', {
   identification_mark: { type: DataTypes.STRING },
   extracurricularID: { 
     type: DataTypes.INTEGER, 
-    references: { model: Extracurricular, key: 'id' } // ✅ Foreign Key Reference
+    references: { model: Extracurricular, key: 'id' }
   },
   religion: { type: DataTypes.ENUM('Hindu', 'Muslim', 'Christian', 'Others') },
   caste: { type: DataTypes.STRING },
@@ -56,7 +55,7 @@ const StudentDetails = sequelize.define('StudentDetails', {
   section: { type: DataTypes.STRING },
   door_no: { type: DataTypes.STRING(255) },
   street: { type: DataTypes.STRING(255) },
-  cityID: { type: DataTypes.INTEGER, references: { model: City, key: 'id' } },
+  city: { type: DataTypes.STRING(255) }, // Changed to text field
   districtID: { type: DataTypes.INTEGER, references: { model: District, key: 'id' } },
   stateID: { type: DataTypes.INTEGER, references: { model: State, key: 'id' } },
   countryID: { type: DataTypes.INTEGER, references: { model: Country, key: 'id' } },
@@ -77,7 +76,7 @@ const StudentDetails = sequelize.define('StudentDetails', {
   },
   approved_at: { type: DataTypes.DATE },
   messages: { type: DataTypes.JSON }, 
-  skillrackProfile: {  // Add this line
+  skillrackProfile: {
     type: DataTypes.STRING(255),
     allowNull: true,
   },

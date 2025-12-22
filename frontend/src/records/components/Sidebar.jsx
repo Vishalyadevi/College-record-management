@@ -147,7 +147,7 @@ const Sidebar = () => {
             <SidebarLink to="/records/student-activities" icon={<FaUserTie />} label="Student Activities" />
             <SidebarLink to="/records/noncgpa-category" icon={<FaUserTie />} label="Add Non CGPA" />
                         <SidebarLink to="/records/nptel-course" icon={<FaFileUpload />} label="NPTEL Course" />
-
+ <SidebarLink to="/records/student-leave-approval" icon={<FaFileUpload />} label="Student Leave Approval" />
             <SidebarLink to="/records/bulk" icon={<FaFileUpload />} label="Bulk Import" />
           </>
         );
@@ -171,7 +171,7 @@ const Sidebar = () => {
             <SidebarLink to="/records/events-organized" icon={<FaAward />} label="Events Organized" />
             <SidebarLink to="/records/h-index" icon={<FaFileUpload />} label="H-Index" />
             <SidebarLink to="/records/resource-person" icon={<FaUserGraduate />} label="Resource Person" />
-            <SidebarLink to="/records/recognition" icon={<FaAward />} label="Recognition" />
+            {/* <SidebarLink to="/records/recognition" icon={<FaAward />} label="Recognition" /> */}
             <SidebarLink to="/records/patent-product" icon={<FaFileUpload />} label="Patent/Product Development" />
             <SidebarLink to="/records/project-mentors" icon={<FaUsers />} label="Project Mentors" />
             <SidebarLink to="/records/staff-mou" icon={<FaUsers />} label="MOU" />

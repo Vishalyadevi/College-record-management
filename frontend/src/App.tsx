@@ -136,7 +136,7 @@ import Publication from './records/pages/Student/Publication.jsx';
 import StudentEducation from './records/pages/Student/Education.jsx';
 import NonCGPACourses from './records/pages/Student/NonCGPACourses.jsx';
 import NonCGPACategoryManagement from './records/pages/admin/NonCGPACategoryManagement.jsx';
-// import ResumeGenerator from './records/pages/Student/ResumeGenerator.jsx';
+import StudentLeaveApproval from './records/pages/admin/StudentLeaveApproval.jsx'
 
 
 
@@ -604,13 +604,29 @@ const AppRoutes: React.FC = () => {
           <RecordsLayoutWithLocation><StudentActivitiesPage /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
+ <Route path="/records/student-leave-approval" element={
+        <ProtectedRoute allowedRoles={['Deptadmin']}>
+          <RecordsLayoutWithLocation><StudentLeaveApproval /></RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
 
       {/* Staff Routes */}
-      <Route path="/records/staff" element={
+      {/* <Route path="/records/staff" element={
         <ProtectedRoute allowedRoles={['Staff']}>
           <RecordsLayoutWithLocation><DashboardPage /></RecordsLayoutWithLocation>
         </ProtectedRoute>
-      } />
+      } /> */}
+
+      <Route path="/records/staff" element={
+  <ProtectedRoute allowedRoles={['Staff']}>
+    <div className="flex">
+      <Sidebar />
+      <div className="ml-64 flex-1 min-h-screen">
+        <DashboardPage />
+      </div>
+    </div>
+  </ProtectedRoute>
+} />
       <Route path="/records/staff-dashboard" element={
         <ProtectedRoute allowedRoles={['Staff']}>
           <RecordsLayoutWithLocation>
@@ -722,6 +738,7 @@ const AppRoutes: React.FC = () => {
           <RecordsLayoutWithLocation><StaffMou /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
+     
       
 
       {/* Student Routes - WITH StudentProvider */}

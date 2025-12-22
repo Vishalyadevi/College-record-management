@@ -1,22 +1,6 @@
 import express from 'express';
-import multer from 'multer';
 import { pool } from '../db/db.js';
 import { authenticate as authenticateToken } from '../middlewares/auth.js';
-
-// Configure multer for memory storage (for BLOB storage)
-const memoryUpload = multer({
-  storage: multer.memoryStorage(),
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'application/pdf') {
-      cb(null, true);
-    } else {
-      cb(new Error('Only PDF files are allowed'), false);
-    }
-  },
-  limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
-  }
-});
 
 const router = express.Router();
 
@@ -42,94 +26,70 @@ const validatePatentData = (data) => {
     errors.push('Month year must be less than 50 characters');
   }
   
+  // Validate URLs if provided
+  const urlFields = ['patent_proof_link', 'working_model_proof_link', 'prototype_proof_link'];
+  urlFields.forEach(field => {
+    if (data[field] && data[field].trim()) {
+      try {
+        new URL(data[field]);
+      } catch {
+        errors.push(`${field} must be a valid URL`);
+      }
+    }
+  });
+  
   return errors;
 };
 
-// Get all patent/product entries
+// Get all patent/product entries with pagination and filtering
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = Math.min(parseInt(req.query.limit) || 100, 100);
+    const limit = Math.min(parseInt(req.query.limit) || 10, 100); // Max 100 items per page
     const offset = (page - 1) * limit;
+    const search = req.query.search || '';
+    const status = req.query.status || '';
     
-    // Select only non-BLOB fields for list view, but include flags for PDF availability
-    const [rows] = await pool.query(`
-      SELECT
-        id,
-        Userid,
-        project_title,
-        patent_status,
-        month_year,
-        CASE WHEN patent_proof_link IS NOT NULL THEN true ELSE false END as patent_proof_link,
-        working_model,
-        CASE WHEN working_model_proof_link IS NOT NULL THEN true ELSE false END as working_model_proof_link,
-        prototype_developed,
-        CASE WHEN prototype_proof_link IS NOT NULL THEN true ELSE false END as prototype_proof_link,
-        created_at,
-        updated_at
-      FROM patent_product
-      WHERE Userid = ?
-      ORDER BY created_at DESC
-      LIMIT ? OFFSET ?
-    `, [req.user.Userid, limit, offset]);
-
-    // Modify rows to show 'available' for proof links
-    const modifiedRows = rows.map(row => ({
-      ...row,
-      patent_proof_link: row.patent_proof_link ? 'available' : null,
-      working_model_proof_link: row.working_model_proof_link ? 'available' : null,
-      prototype_proof_link: row.prototype_proof_link ? 'available' : null
-    }));
+    let query = 'SELECT * FROM patent_product WHERE Userid = ?';
+    let countQuery = 'SELECT COUNT(*) as total FROM patent_product WHERE Userid = ?';
+    const params = [req.user.Userid];
+    const countParams = [req.user.Userid];
     
-    res.status(200).json(modifiedRows);
+    // Add search filter
+    if (search) {
+      query += ' AND project_title LIKE ?';
+      countQuery += ' AND project_title LIKE ?';
+      params.push(`%${search}%`);
+      countParams.push(`%${search}%`);
+    }
+    
+    // Add status filter
+    if (status) {
+      query += ' AND patent_status = ?';
+      countQuery += ' AND patent_status = ?';
+      params.push(status);
+      countParams.push(status);
+    }
+    
+    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+    
+    const [rows] = await pool.query(query, params);
+    const [countResult] = await pool.query(countQuery, countParams);
+    const total = countResult[0].total;
+    
+    res.status(200).json({
+      data: rows,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
   } catch (error) {
     console.error('Error fetching patent/product data:', error);
     res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Serve PDF proof by project ID and type
-router.get('/proof/:id/:type', authenticateToken, async (req, res) => {
-  try {
-    const { id, type } = req.params;
-    
-    let columnName;
-    if (type === 'patent') {
-      columnName = 'patent_proof_link';
-    } else if (type === 'working_model') {
-      columnName = 'working_model_proof_link';
-    } else if (type === 'prototype') {
-      columnName = 'prototype_proof_link';
-    } else {
-      return res.status(400).json({ message: 'Invalid proof type' });
-    }
-
-    const [rows] = await pool.query(
-      `SELECT ${columnName} FROM patent_product WHERE id = ? AND Userid = ?`,
-      [id, req.user.Userid]
-    );
-
-    if (rows.length === 0) {
-      return res.status(404).json({ message: 'Patent entry not found' });
-    }
-
-    const proofBuffer = rows[0][columnName];
-
-    if (!proofBuffer) {
-      return res.status(404).json({ message: 'PDF file not available' });
-    }
-
-    // Set appropriate headers for PDF viewing
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'inline');
-    res.setHeader('Content-Length', proofBuffer.length);
-    res.setHeader('Cache-Control', 'no-cache');
-    
-    res.send(proofBuffer);
-
-  } catch (error) {
-    console.error('Error fetching proof file:', error);
-    res.status(500).json({ message: 'Server error while retrieving PDF' });
   }
 });
 
@@ -142,21 +102,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
     }
     
     const [rows] = await pool.query(
-      `SELECT
-        id,
-        Userid,
-        project_title,
-        patent_status,
-        month_year,
-        CASE WHEN patent_proof_link IS NOT NULL THEN true ELSE false END as patent_proof_link,
-        working_model,
-        CASE WHEN working_model_proof_link IS NOT NULL THEN true ELSE false END as working_model_proof_link,
-        prototype_developed,
-        CASE WHEN prototype_proof_link IS NOT NULL THEN true ELSE false END as prototype_proof_link,
-        created_at,
-        updated_at
-      FROM patent_product 
-      WHERE id = ? AND Userid = ?`,
+      'SELECT * FROM patent_product WHERE id = ? AND Userid = ?', 
       [id, req.user.Userid]
     );
     
@@ -172,21 +118,17 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // Create new patent/product entry
-router.post('/', authenticateToken, memoryUpload.fields([
-  { name: 'patent_proof_link', maxCount: 1 },
-  { name: 'working_model_proof_link', maxCount: 1 },
-  { name: 'prototype_proof_link', maxCount: 1 }
-]), async (req, res) => {
+router.post('/', authenticateToken, async (req, res) => {
   const { 
     project_title,
     patent_status,
     month_year,
+    patent_proof_link,
     working_model,
-    prototype_developed
+    working_model_proof_link,
+    prototype_developed,
+    prototype_proof_link
   } = req.body;
-  
-  console.log('Creating new patent entry:', { project_title, patent_status, month_year, working_model, prototype_developed });
-  console.log('Files received:', req.files);
   
   // Validate input data
   const validationErrors = validatePatentData(req.body);
@@ -197,20 +139,10 @@ router.post('/', authenticateToken, memoryUpload.fields([
     });
   }
   
-  // Validate required file upload for patent proof
-  if (!req.files || !req.files['patent_proof_link']) {
-    return res.status(400).json({ message: 'Patent proof document is required' });
-  }
-  
   const connection = await pool.getConnection();
   
   try {
     await connection.beginTransaction();
-    
-    // Get file buffers
-    const patentProofBuffer = req.files['patent_proof_link'] ? req.files['patent_proof_link'][0].buffer : null;
-    const workingModelProofBuffer = req.files['working_model_proof_link'] ? req.files['working_model_proof_link'][0].buffer : null;
-    const prototypeProofBuffer = req.files['prototype_proof_link'] ? req.files['prototype_proof_link'][0].buffer : null;
     
     // Insert new patent/product entry
     const [result] = await connection.query(
@@ -224,26 +156,31 @@ router.post('/', authenticateToken, memoryUpload.fields([
         project_title.trim(), 
         patent_status.trim(), 
         month_year.trim(),
-        patentProofBuffer,
-        working_model === 'true' || working_model === true,
-        workingModelProofBuffer,
-        prototype_developed === 'true' || prototype_developed === true,
-        prototypeProofBuffer
+        patent_proof_link ? patent_proof_link.trim() : null, 
+        Boolean(working_model), 
+        working_model_proof_link ? working_model_proof_link.trim() : null,
+        Boolean(prototype_developed), 
+        prototype_proof_link ? prototype_proof_link.trim() : null
       ]
+    );
+    
+    // Fetch the created entry to return complete data
+    const [newEntry] = await connection.query(
+      'SELECT * FROM patent_product WHERE id = ?',
+      [result.insertId]
     );
     
     await connection.commit();
     
-    console.log('Successfully created patent entry with ID:', result.insertId);
-    
     res.status(201).json({ 
       message: 'Patent/product entry created successfully', 
-      id: result.insertId
+      data: newEntry[0]
     });
   } catch (error) {
     await connection.rollback();
     console.error('Error creating patent/product entry:', error);
     
+    // Handle specific database errors
     if (error.code === 'ER_DATA_TOO_LONG') {
       return res.status(400).json({ message: 'Data too long for one or more fields' });
     }
@@ -259,11 +196,7 @@ router.post('/', authenticateToken, memoryUpload.fields([
 });
 
 // Update patent/product entry
-router.put('/:id', authenticateToken, memoryUpload.fields([
-  { name: 'patent_proof_link', maxCount: 1 },
-  { name: 'working_model_proof_link', maxCount: 1 },
-  { name: 'prototype_proof_link', maxCount: 1 }
-]), async (req, res) => {
+router.put('/:id', authenticateToken, async (req, res) => {
   const id = parseInt(req.params.id);
   if (!id || id <= 0) {
     return res.status(400).json({ message: 'Invalid ID provided' });
@@ -273,13 +206,12 @@ router.put('/:id', authenticateToken, memoryUpload.fields([
     project_title,
     patent_status,
     month_year,
+    patent_proof_link,
     working_model,
-    prototype_developed
+    working_model_proof_link,
+    prototype_developed,
+    prototype_proof_link
   } = req.body;
-  
-  console.log('Updating patent entry ID:', id);
-  console.log('Update data:', { project_title, patent_status, month_year, working_model, prototype_developed });
-  console.log('New files received:', req.files);
   
   // Validate input data
   const validationErrors = validatePatentData(req.body);
@@ -297,7 +229,7 @@ router.put('/:id', authenticateToken, memoryUpload.fields([
     
     // Check if patent/product entry exists and belongs to user
     const [rows] = await connection.query(
-      'SELECT patent_proof_link, working_model_proof_link, prototype_proof_link FROM patent_product WHERE id = ? AND Userid = ?', 
+      'SELECT * FROM patent_product WHERE id = ? AND Userid = ?', 
       [id, req.user.Userid]
     );
     
@@ -306,21 +238,6 @@ router.put('/:id', authenticateToken, memoryUpload.fields([
         message: 'Patent/product entry not found or access denied' 
       });
     }
-    
-    const existingEntry = rows[0];
-    
-    // Get new file buffers or keep existing ones
-    const patentProofBuffer = req.files && req.files['patent_proof_link'] 
-      ? req.files['patent_proof_link'][0].buffer 
-      : existingEntry.patent_proof_link;
-      
-    const workingModelProofBuffer = req.files && req.files['working_model_proof_link']
-      ? req.files['working_model_proof_link'][0].buffer
-      : existingEntry.working_model_proof_link;
-      
-    const prototypeProofBuffer = req.files && req.files['prototype_proof_link']
-      ? req.files['prototype_proof_link'][0].buffer
-      : existingEntry.prototype_proof_link;
     
     // Update patent/product entry
     await connection.query(
@@ -339,27 +256,33 @@ router.put('/:id', authenticateToken, memoryUpload.fields([
         project_title.trim(), 
         patent_status.trim(), 
         month_year.trim(),
-        patentProofBuffer,
-        working_model === 'true' || working_model === true,
-        workingModelProofBuffer,
-        prototype_developed === 'true' || prototype_developed === true,
-        prototypeProofBuffer,
+        patent_proof_link ? patent_proof_link.trim() : null, 
+        Boolean(working_model), 
+        working_model_proof_link ? working_model_proof_link.trim() : null,
+        Boolean(prototype_developed), 
+        prototype_proof_link ? prototype_proof_link.trim() : null, 
         id,
         req.user.Userid
       ]
     );
     
+    // Fetch updated entry to return complete data
+    const [updatedEntry] = await connection.query(
+      'SELECT * FROM patent_product WHERE id = ?',
+      [id]
+    );
+    
     await connection.commit();
     
-    console.log('Successfully updated patent entry');
-    
     res.status(200).json({ 
-      message: 'Patent/product entry updated successfully'
+      message: 'Patent/product entry updated successfully',
+      data: updatedEntry[0]
     });
   } catch (error) {
     await connection.rollback();
     console.error('Error updating patent/product entry:', error);
     
+    // Handle specific database errors
     if (error.code === 'ER_DATA_TOO_LONG') {
       return res.status(400).json({ message: 'Data too long for one or more fields' });
     }
@@ -378,11 +301,9 @@ router.delete('/:id', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'Invalid ID provided' });
     }
     
-    console.log('Deleting patent entry ID:', id);
-    
     // Check if patent/product entry exists and belongs to user
     const [rows] = await pool.query(
-      'SELECT id, project_title FROM patent_product WHERE id = ? AND Userid = ?', 
+      'SELECT * FROM patent_product WHERE id = ? AND Userid = ?', 
       [id, req.user.Userid]
     );
     
@@ -392,9 +313,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
       });
     }
     
-    console.log('Found entry to delete:', rows[0].project_title);
-    
-    // Delete patent/product entry (BLOB data will be automatically deleted)
+    // Delete patent/product entry
     const [result] = await pool.query(
       'DELETE FROM patent_product WHERE id = ? AND Userid = ?', 
       [id, req.user.Userid]
@@ -403,8 +322,6 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Entry not found or already deleted' });
     }
-    
-    console.log('Successfully deleted patent entry');
     
     res.status(200).json({ 
       message: 'Patent/product entry deleted successfully',
@@ -429,6 +346,7 @@ router.get('/stats/summary', authenticateToken, async (req, res) => {
       WHERE Userid = ?
     `, [req.user.Userid]);
     
+    // Get status breakdown
     const [statusBreakdown] = await pool.query(`
       SELECT 
         patent_status,
@@ -449,17 +367,57 @@ router.get('/stats/summary', authenticateToken, async (req, res) => {
   }
 });
 
-// Error handling middleware for multer
-router.use((error, req, res, next) => {
-  if (error instanceof multer.MulterError) {
-    if (error.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ message: 'File size too large. Maximum size is 10MB.' });
+// Bulk operations endpoint
+router.post('/bulk/delete', authenticateToken, async (req, res) => {
+  const { ids } = req.body;
+  
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ message: 'Invalid or empty IDs array' });
+  }
+  
+  if (ids.length > 100) {
+    return res.status(400).json({ message: 'Cannot delete more than 100 entries at once' });
+  }
+  
+  const connection = await pool.getConnection();
+  
+  try {
+    await connection.beginTransaction();
+    
+    // Validate all IDs belong to the user
+    const placeholders = ids.map(() => '?').join(',');
+    const [rows] = await connection.query(
+      `SELECT id FROM patent_product WHERE id IN (${placeholders}) AND Userid = ?`,
+      [...ids, req.user.Userid]
+    );
+    
+    const validIds = rows.map(row => row.id);
+    
+    if (validIds.length === 0) {
+      return res.status(404).json({ message: 'No valid entries found to delete' });
     }
+    
+    // Delete entries
+    const deletePlaceholders = validIds.map(() => '?').join(',');
+    const [result] = await connection.query(
+      `DELETE FROM patent_product WHERE id IN (${deletePlaceholders}) AND Userid = ?`,
+      [...validIds, req.user.Userid]
+    );
+    
+    await connection.commit();
+    
+    res.status(200).json({
+      message: `${result.affectedRows} entries deleted successfully`,
+      deletedIds: validIds,
+      skippedIds: ids.filter(id => !validIds.includes(id))
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error in bulk delete:', error);
+    res.status(500).json({ message: 'Server error' });
+  } finally {
+    connection.release();
   }
-  if (error.message === 'Only PDF files are allowed') {
-    return res.status(400).json({ message: 'Only PDF files are allowed' });
-  }
-  next(error);
 });
 
 export default router;

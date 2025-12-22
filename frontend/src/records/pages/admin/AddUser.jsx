@@ -173,6 +173,14 @@ const AddUser = () => {
       }
     }
 
+    // Department admins need department
+    if (["DeptAdmin", "AcademicAdmin"].includes(formData.role)) {
+      if (!formData.Deptid) {
+        toast.error("Department is required for this role!");
+        return false;
+      }
+    }
+
     return true;
   };
 
@@ -209,16 +217,16 @@ const AddUser = () => {
         payload.Deptid = parseInt(formData.Deptid);
         payload.batch = formData.batch.trim();
         payload.TutorId = parseInt(formData.TutorId);
-        
-        console.log("Student payload - TutorId:", formData.TutorId);
       } 
       else if (formData.role === "Staff") {
         payload.staffId = formData.staffId.trim();
         payload.Deptid = parseInt(formData.Deptid);
       } 
-      else if (["DeptAdmin", "IrAdmin", "PgAdmin", "AcademicAdmin", "NewgenAdmin", "PlacementAdmin"].includes(formData.role)) {
+      else if (["DeptAdmin", "AcademicAdmin"].includes(formData.role)) {
+        // These roles REQUIRE department
         payload.Deptid = parseInt(formData.Deptid);
       }
+      // IrAdmin, PgAdmin, NewgenAdmin, PlacementAdmin don't need Deptid (it will be null)
 
       console.log("Payload being sent:", payload);
 
@@ -242,6 +250,11 @@ const AddUser = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Check if role needs department
+  const roleNeedsDepartment = (role) => {
+    return ["Student", "Staff", "DeptAdmin", "AcademicAdmin"].includes(role);
   };
 
   const fields = useMemo(() => {
@@ -307,12 +320,7 @@ const AddUser = () => {
               disabled: user?.role === "DeptAdmin"
             },
           ]
-        : formData.role === "DeptAdmin" ||
-          formData.role === "IrAdmin" ||
-          formData.role === "PgAdmin" ||
-          formData.role === "AcademicAdmin" ||
-          formData.role === "NewgenAdmin" ||
-          formData.role === "PlacementAdmin"
+        : roleNeedsDepartment(formData.role)
         ? [
             {
               label: "Department",
@@ -398,6 +406,11 @@ const AddUser = () => {
                 required
                 placeholder="Select User Role"
               />
+              {formData.role && !roleNeedsDepartment(formData.role) && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+                  ℹ️ This role does not require a department
+                </div>
+              )}
               {leftFields.map((field) => (
                 <FormField
                   key={field.name}

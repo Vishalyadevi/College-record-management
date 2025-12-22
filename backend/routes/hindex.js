@@ -4,24 +4,14 @@ import { authenticate as authenticateToken } from '../middlewares/auth.js';
 
 const router = express.Router();
 
-// Helper function to extract user ID (handles Sequelize models)
-const getUserId = (req) => {
-  return req.user?.Userid || req.user?.dataValues?.Userid || req.user?.id;
-};
-
-// Get all h-index entries
+// Get all h-index entries with optional filtering by user
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const userId = getUserId(req);
-    
-    if (!userId) {
-      return res.status(401).json({ message: 'Authentication error: User ID not found' });
-    }
-
-    const [rows] = await pool.query(`
+    let query = `
       SELECT 
         h.id,
         h.Userid,
+        h.faculty_name,
         h.citations,
         h.h_index,
         h.i_index,
@@ -32,14 +22,27 @@ router.get('/', authenticateToken, async (req, res) => {
         u.username
       FROM h_index h 
       LEFT JOIN users u ON h.Userid = u.Userid
-      WHERE h.Userid = ?
-      ORDER BY h.created_at DESC
-    `, [userId]);
+    `;
     
-    res.status(200).json(rows);
+    // If user wants only their entries, add WHERE clause
+    const params = [];
+    if (req.query.my_entries === 'true') {
+      query += ' WHERE h.Userid = ?';
+      params.push(req.user.Userid); // ✅ Changed from req.user.id to req.user.Userid
+    }
+    
+    query += ' ORDER BY h.created_at DESC';
+    
+    const [rows] = await pool.query(query, params);
+    res.status(200).json({
+      success: true,
+      count: rows.length,
+      data: rows
+    });
   } catch (error) {
     console.error('Error fetching h-index data:', error);
     res.status(500).json({ 
+      success: false,
       message: 'Server error while fetching h-index data',
       error: error.message
     });
@@ -49,16 +52,11 @@ router.get('/', authenticateToken, async (req, res) => {
 // Get h-index entry by ID
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
-    const userId = getUserId(req);
-    
-    if (!userId) {
-      return res.status(401).json({ message: 'Authentication error: User ID not found' });
-    }
-
     const [rows] = await pool.query(`
       SELECT 
         h.id,
         h.Userid,
+        h.faculty_name,
         h.citations,
         h.h_index,
         h.i_index,
@@ -69,17 +67,24 @@ router.get('/:id', authenticateToken, async (req, res) => {
         u.username
       FROM h_index h 
       LEFT JOIN users u ON h.Userid = u.Userid
-      WHERE h.id = ? AND h.Userid = ?
-    `, [req.params.id, userId]);
+      WHERE h.id = ?
+    `, [req.params.id]);
     
     if (rows.length === 0) {
-      return res.status(404).json({ message: 'H-index entry not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'H-index entry not found' 
+      });
     }
     
-    res.status(200).json(rows[0]);
+    res.status(200).json({
+      success: true,
+      data: rows[0]
+    });
   } catch (error) {
     console.error('Error fetching h-index entry:', error);
     res.status(500).json({ 
+      success: false,
       message: 'Server error while fetching h-index entry',
       error: error.message
     });
@@ -88,46 +93,63 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
 // Create new h-index entry
 router.post('/', authenticateToken, async (req, res) => {
+  const { 
+    faculty_name, 
+    citations, 
+    h_index,
+    i_index,
+    google_citations,
+    scopus_citations
+  } = req.body;
+  
   try {
-    const userId = getUserId(req);
-    
-    if (!userId) {
-      console.error('CRITICAL: No user ID found in request');
-      console.error('req.user:', req.user);
-      return res.status(401).json({ message: 'Authentication error: User ID not found' });
-    }
-
-    const { 
-      citations, 
-      h_index,
-      i_index,
-      google_citations,
-      scopus_citations
-    } = req.body;
-
-    console.log('=== H-INDEX DEBUG INFO ===');
-    console.log('Using Userid:', userId);
-    console.log('Request body:', req.body);
+    // Debug logging - remove after testing
+    // console.log('=== H-INDEX DEBUG INFO ===');
+    // console.log('req.user:', req.user);
+    // console.log('req.user.Userid:', req.user.Userid);
+    // console.log('Request body:', req.body);
     
     // Comprehensive validation
-    if (citations === undefined || citations === null || citations === '') {
-      return res.status(400).json({ message: 'Citations field is required' });
+    if (!faculty_name || !faculty_name.trim()) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Faculty name is required and cannot be empty' 
+      });
     }
     
-    if (h_index === undefined || h_index === null || h_index === '') {
-      return res.status(400).json({ message: 'H-index field is required' });
+    if (citations === undefined || citations === null) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Citations field is required' 
+      });
     }
     
-    if (i_index === undefined || i_index === null || i_index === '') {
-      return res.status(400).json({ message: 'I-index field is required' });
+    if (h_index === undefined || h_index === null) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'H-index field is required' 
+      });
     }
     
-    if (google_citations === undefined || google_citations === null || google_citations === '') {
-      return res.status(400).json({ message: 'Google citations field is required' });
+    if (i_index === undefined || i_index === null) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'I-index field is required' 
+      });
     }
     
-    if (scopus_citations === undefined || scopus_citations === null || scopus_citations === '') {
-      return res.status(400).json({ message: 'Scopus citations field is required' });
+    if (google_citations === undefined || google_citations === null) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Google citations field is required' 
+      });
+    }
+    
+    if (scopus_citations === undefined || scopus_citations === null) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Scopus citations field is required' 
+      });
     }
     
     // Convert to numbers and validate
@@ -138,56 +160,116 @@ router.post('/', authenticateToken, async (req, res) => {
     const scopusCitationsNum = parseInt(scopus_citations);
     
     if (isNaN(citationsNum) || citationsNum < 0) {
-      return res.status(400).json({ message: 'Citations must be a non-negative integer' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Citations must be a non-negative integer' 
+      });
     }
     
     if (isNaN(hIndexNum) || hIndexNum < 0) {
-      return res.status(400).json({ message: 'H-index must be a non-negative integer' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'H-index must be a non-negative integer' 
+      });
     }
     
     if (isNaN(iIndexNum) || iIndexNum < 0) {
-      return res.status(400).json({ message: 'I-index must be a non-negative number' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'I-index must be a non-negative number' 
+      });
     }
     
     if (isNaN(googleCitationsNum) || googleCitationsNum < 0) {
-      return res.status(400).json({ message: 'Google citations must be a non-negative integer' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Google citations must be a non-negative integer' 
+      });
     }
     
     if (isNaN(scopusCitationsNum) || scopusCitationsNum < 0) {
-      return res.status(400).json({ message: 'Scopus citations must be a non-negative integer' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Scopus citations must be a non-negative integer' 
+      });
+    }
+    
+    // Validate faculty name length
+    if (faculty_name.trim().length > 100) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Faculty name cannot exceed 100 characters' 
+      });
     }
     
     // Logical validation: h-index cannot be greater than citations
     if (hIndexNum > citationsNum) {
-      return res.status(400).json({ message: 'H-index cannot be greater than total citations' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'H-index cannot be greater than total citations' 
+      });
+    }
+    
+    // Check if user exists
+    const [userCheck] = await pool.query('SELECT Userid FROM users WHERE Userid = ?', [req.user.Userid]); // ✅ Changed
+    if (userCheck.length === 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid user' 
+      });
     }
     
     // Insert new h-index entry
     const [result] = await pool.query(
-      `INSERT INTO h_index (Userid, citations, h_index, i_index, google_citations, scopus_citations) 
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [userId, citationsNum, hIndexNum, iIndexNum, googleCitationsNum, scopusCitationsNum]
+      `INSERT INTO h_index (Userid, faculty_name, citations, h_index, i_index, google_citations, scopus_citations) 
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [req.user.Userid, faculty_name.trim(), citationsNum, hIndexNum, iIndexNum, googleCitationsNum, scopusCitationsNum] // ✅ Changed from req.user.id
     );
     
-    console.log('=== Insert Result ===');
-    console.log('Insert ID:', result.insertId);
+    // Fetch the created entry with user details
+    const [newEntry] = await pool.query(`
+      SELECT 
+        h.id,
+        h.Userid,
+        h.faculty_name,
+        h.citations,
+        h.h_index,
+        h.i_index,
+        h.google_citations,
+        h.scopus_citations,
+        h.created_at,
+        h.updated_at,
+        u.username
+      FROM h_index h 
+      LEFT JOIN users u ON h.Userid = u.Userid
+      WHERE h.id = ?
+    `, [result.insertId]);
     
     res.status(201).json({ 
+      success: true,
       message: 'H-index entry created successfully', 
-      id: result.insertId
+      data: newEntry[0]
     });
   } catch (error) {
     console.error('Error creating h-index entry:', error);
     
+    // Handle specific database errors
     if (error.code === 'ER_NO_REFERENCED_ROW_2') {
-      return res.status(400).json({ message: 'Invalid user reference' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid user reference' 
+      });
     }
     
     if (error.code === 'ER_DUP_ENTRY') {
-      return res.status(400).json({ message: 'Duplicate entry error' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Duplicate entry error' 
+      });
     }
     
     res.status(500).json({ 
+      success: false,
       message: 'Server error while creating h-index entry',
       error: error.message
     });
@@ -196,40 +278,57 @@ router.post('/', authenticateToken, async (req, res) => {
 
 // Update h-index entry
 router.put('/:id', authenticateToken, async (req, res) => {
+  const { 
+    faculty_name, 
+    citations, 
+    h_index,
+    i_index,
+    google_citations,
+    scopus_citations
+  } = req.body;
+  
   try {
-    const userId = getUserId(req);
-    
-    if (!userId) {
-      return res.status(401).json({ message: 'Authentication error: User ID not found' });
-    }
-
-    const { 
-      citations, 
-      h_index,
-      i_index,
-      google_citations,
-      scopus_citations
-    } = req.body;
-    
     // Comprehensive validation
-    if (citations === undefined || citations === null || citations === '') {
-      return res.status(400).json({ message: 'Citations field is required' });
+    if (!faculty_name || !faculty_name.trim()) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Faculty name is required and cannot be empty' 
+      });
     }
     
-    if (h_index === undefined || h_index === null || h_index === '') {
-      return res.status(400).json({ message: 'H-index field is required' });
+    if (citations === undefined || citations === null) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Citations field is required' 
+      });
     }
     
-    if (i_index === undefined || i_index === null || i_index === '') {
-      return res.status(400).json({ message: 'I-index field is required' });
+    if (h_index === undefined || h_index === null) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'H-index field is required' 
+      });
     }
     
-    if (google_citations === undefined || google_citations === null || google_citations === '') {
-      return res.status(400).json({ message: 'Google citations field is required' });
+    if (i_index === undefined || i_index === null) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'I-index field is required' 
+      });
     }
     
-    if (scopus_citations === undefined || scopus_citations === null || scopus_citations === '') {
-      return res.status(400).json({ message: 'Scopus citations field is required' });
+    if (google_citations === undefined || google_citations === null) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Google citations field is required' 
+      });
+    }
+    
+    if (scopus_citations === undefined || scopus_citations === null) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Scopus citations field is required' 
+      });
     }
     
     // Convert to numbers and validate
@@ -240,61 +339,123 @@ router.put('/:id', authenticateToken, async (req, res) => {
     const scopusCitationsNum = parseInt(scopus_citations);
     
     if (isNaN(citationsNum) || citationsNum < 0) {
-      return res.status(400).json({ message: 'Citations must be a non-negative integer' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Citations must be a non-negative integer' 
+      });
     }
     
     if (isNaN(hIndexNum) || hIndexNum < 0) {
-      return res.status(400).json({ message: 'H-index must be a non-negative integer' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'H-index must be a non-negative integer' 
+      });
     }
     
     if (isNaN(iIndexNum) || iIndexNum < 0) {
-      return res.status(400).json({ message: 'I-index must be a non-negative number' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'I-index must be a non-negative number' 
+      });
     }
     
     if (isNaN(googleCitationsNum) || googleCitationsNum < 0) {
-      return res.status(400).json({ message: 'Google citations must be a non-negative integer' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Google citations must be a non-negative integer' 
+      });
     }
     
     if (isNaN(scopusCitationsNum) || scopusCitationsNum < 0) {
-      return res.status(400).json({ message: 'Scopus citations must be a non-negative integer' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Scopus citations must be a non-negative integer' 
+      });
+    }
+    
+    // Validate faculty name length
+    if (faculty_name.trim().length > 100) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Faculty name cannot exceed 100 characters' 
+      });
     }
     
     // Logical validation: h-index cannot be greater than citations
     if (hIndexNum > citationsNum) {
-      return res.status(400).json({ message: 'H-index cannot be greater than total citations' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'H-index cannot be greater than total citations' 
+      });
     }
     
-    // Check if h-index entry exists and belongs to user
-    const [rows] = await pool.query(
-      'SELECT * FROM h_index WHERE id = ? AND Userid = ?',
-      [req.params.id, userId]
-    );
+    // Check if h-index entry exists
+    const [rows] = await pool.query('SELECT * FROM h_index WHERE id = ?', [req.params.id]);
     
     if (rows.length === 0) {
-      return res.status(404).json({ message: 'H-index entry not found or access denied' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'H-index entry not found' 
+      });
     }
+    
+    // Optional: Check if user owns this entry (uncomment if needed)
+    // if (rows[0].Userid !== req.user.Userid) {
+    //   return res.status(403).json({ 
+    //     success: false,
+    //     message: 'Unauthorized to update this entry' 
+    //   });
+    // }
     
     // Update h-index entry
     const [updateResult] = await pool.query(
       `UPDATE h_index SET 
+        faculty_name = ?, 
         citations = ?, 
         h_index = ?,
         i_index = ?,
         google_citations = ?,
         scopus_citations = ?,
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = ? AND Userid = ?`,
-      [citationsNum, hIndexNum, iIndexNum, googleCitationsNum, scopusCitationsNum, req.params.id, userId]
+      WHERE id = ?`,
+      [faculty_name.trim(), citationsNum, hIndexNum, iIndexNum, googleCitationsNum, scopusCitationsNum, req.params.id]
     );
     
     if (updateResult.affectedRows === 0) {
-      return res.status(404).json({ message: 'H-index entry not found or no changes made' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'H-index entry not found or no changes made' 
+      });
     }
     
-    res.status(200).json({ message: 'H-index entry updated successfully' });
+    // Fetch updated entry
+    const [updatedEntry] = await pool.query(`
+      SELECT 
+        h.id,
+        h.Userid,
+        h.faculty_name,
+        h.citations,
+        h.h_index,
+        h.i_index,
+        h.google_citations,
+        h.scopus_citations,
+        h.created_at,
+        h.updated_at,
+        u.username
+      FROM h_index h 
+      LEFT JOIN users u ON h.Userid = u.Userid
+      WHERE h.id = ?
+    `, [req.params.id]);
+    
+    res.status(200).json({ 
+      success: true,
+      message: 'H-index entry updated successfully',
+      data: updatedEntry[0]
+    });
   } catch (error) {
     console.error('Error updating h-index entry:', error);
     res.status(500).json({ 
+      success: false,
       message: 'Server error while updating h-index entry',
       error: error.message
     });
@@ -304,51 +465,51 @@ router.put('/:id', authenticateToken, async (req, res) => {
 // Delete h-index entry
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
-    const userId = getUserId(req);
-    
-    if (!userId) {
-      return res.status(401).json({ message: 'Authentication error: User ID not found' });
-    }
-
-    // Check if h-index entry exists and belongs to user
-    const [rows] = await pool.query(
-      'SELECT * FROM h_index WHERE id = ? AND Userid = ?',
-      [req.params.id, userId]
-    );
+    // Check if h-index entry exists
+    const [rows] = await pool.query('SELECT * FROM h_index WHERE id = ?', [req.params.id]);
     
     if (rows.length === 0) {
-      return res.status(404).json({ message: 'H-index entry not found or access denied' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'H-index entry not found' 
+      });
     }
+    
+    // Optional: Check if user owns this entry (uncomment if needed)
+    // if (rows[0].Userid !== req.user.Userid) { // ✅ Changed from req.user.id
+    //   return res.status(403).json({ 
+    //     success: false,
+    //     message: 'Unauthorized to delete this entry' 
+    //   });
+    // }
     
     // Delete h-index entry
-    const [deleteResult] = await pool.query(
-      'DELETE FROM h_index WHERE id = ? AND Userid = ?',
-      [req.params.id, userId]
-    );
+    const [deleteResult] = await pool.query('DELETE FROM h_index WHERE id = ?', [req.params.id]);
     
     if (deleteResult.affectedRows === 0) {
-      return res.status(404).json({ message: 'H-index entry not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'H-index entry not found' 
+      });
     }
     
-    res.status(200).json({ message: 'H-index entry deleted successfully' });
+    res.status(200).json({ 
+      success: true,
+      message: 'H-index entry deleted successfully' 
+    });
   } catch (error) {
     console.error('Error deleting h-index entry:', error);
     res.status(500).json({ 
+      success: false,
       message: 'Server error while deleting h-index entry',
       error: error.message
     });
   }
 });
 
-// Get h-index statistics
+// Get h-index statistics (bonus endpoint)
 router.get('/stats/overview', authenticateToken, async (req, res) => {
   try {
-    const userId = getUserId(req);
-    
-    if (!userId) {
-      return res.status(401).json({ message: 'Authentication error: User ID not found' });
-    }
-
     const [stats] = await pool.query(`
       SELECT 
         COUNT(*) as total_entries,
@@ -368,51 +529,58 @@ router.get('/stats/overview', authenticateToken, async (req, res) => {
         MIN(google_citations) as min_google_citations,
         MIN(scopus_citations) as min_scopus_citations
       FROM h_index
-      WHERE Userid = ?
-    `, [userId]);
+    `);
     
+    // Handle case when there are no entries
     if (stats[0].total_entries === 0) {
       return res.status(200).json({
-        total_entries: 0,
-        avg_citations: 0,
-        avg_h_index: 0,
-        avg_i_index: 0,
-        avg_google_citations: 0,
-        avg_scopus_citations: 0,
-        max_citations: 0,
-        max_h_index: 0,
-        max_i_index: 0,
-        max_google_citations: 0,
-        max_scopus_citations: 0,
-        min_citations: 0,
-        min_h_index: 0,
-        min_i_index: 0,
-        min_google_citations: 0,
-        min_scopus_citations: 0
+        success: true,
+        data: {
+          total_entries: 0,
+          avg_citations: 0,
+          avg_h_index: 0,
+          avg_i_index: 0,
+          avg_google_citations: 0,
+          avg_scopus_citations: 0,
+          max_citations: 0,
+          max_h_index: 0,
+          max_i_index: 0,
+          max_google_citations: 0,
+          max_scopus_citations: 0,
+          min_citations: 0,
+          min_h_index: 0,
+          min_i_index: 0,
+          min_google_citations: 0,
+          min_scopus_citations: 0
+        }
       });
     }
     
     res.status(200).json({
-      total_entries: stats[0].total_entries,
-      avg_citations: Math.round(stats[0].avg_citations * 100) / 100,
-      avg_h_index: Math.round(stats[0].avg_h_index * 100) / 100,
-      avg_i_index: Math.round(stats[0].avg_i_index * 100) / 100,
-      avg_google_citations: Math.round(stats[0].avg_google_citations * 100) / 100,
-      avg_scopus_citations: Math.round(stats[0].avg_scopus_citations * 100) / 100,
-      max_citations: stats[0].max_citations,
-      max_h_index: stats[0].max_h_index,
-      max_i_index: Math.round(stats[0].max_i_index * 100) / 100,
-      max_google_citations: stats[0].max_google_citations,
-      max_scopus_citations: stats[0].max_scopus_citations,
-      min_citations: stats[0].min_citations,
-      min_h_index: stats[0].min_h_index,
-      min_i_index: Math.round(stats[0].min_i_index * 100) / 100,
-      min_google_citations: stats[0].min_google_citations,
-      min_scopus_citations: stats[0].min_scopus_citations
+      success: true,
+      data: {
+        total_entries: stats[0].total_entries,
+        avg_citations: Math.round(stats[0].avg_citations * 100) / 100,
+        avg_h_index: Math.round(stats[0].avg_h_index * 100) / 100,
+        avg_i_index: Math.round(stats[0].avg_i_index * 100) / 100,
+        avg_google_citations: Math.round(stats[0].avg_google_citations * 100) / 100,
+        avg_scopus_citations: Math.round(stats[0].avg_scopus_citations * 100) / 100,
+        max_citations: stats[0].max_citations,
+        max_h_index: stats[0].max_h_index,
+        max_i_index: Math.round(stats[0].max_i_index * 100) / 100,
+        max_google_citations: stats[0].max_google_citations,
+        max_scopus_citations: stats[0].max_scopus_citations,
+        min_citations: stats[0].min_citations,
+        min_h_index: stats[0].min_h_index,
+        min_i_index: Math.round(stats[0].min_i_index * 100) / 100,
+        min_google_citations: stats[0].min_google_citations,
+        min_scopus_citations: stats[0].min_scopus_citations
+      }
     });
   } catch (error) {
     console.error('Error fetching h-index statistics:', error);
     res.status(500).json({ 
+      success: false,
       message: 'Server error while fetching statistics',
       error: error.message
     });

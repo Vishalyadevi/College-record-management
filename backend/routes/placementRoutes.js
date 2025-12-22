@@ -5,7 +5,7 @@ import nodemailer from 'nodemailer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken'; // Fixed: Changed from require to import
+import jwt from 'jsonwebtoken';
 
 const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
@@ -47,20 +47,54 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({ storage, fileFilter });
 
+// Middleware to verify JWT token
+const verifyToken = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ message: 'No token provided' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    req.user = decoded;
+    next();
+  } catch (error) {
+    return res.status(401).json({ message: 'Invalid or expired token' });
+  }
+};
+
+// Middleware to check if user is admin (SuperAdmin or PlacementAdmin)
+const isPlacementAdmin = (req, res, next) => {
+  if (req.user.role !== 'SuperAdmin' && req.user.role !== 'PlacementAdmin') {
+    return res.status(403).json({ 
+      message: 'Access denied. Only SuperAdmin and PlacementAdmin can access this resource.' 
+    });
+  }
+  next();
+};
+
+// Token verification endpoint
+router.get('/verify-token', verifyToken, (req, res) => {
+  res.json({ 
+    valid: true, 
+    userId: req.user.userId,
+    role: req.user.role 
+  });
+});
+
 // Placement Login Route
-// POST /login
 router.post("/login", async (req, res) => {
   const { identifier, password } = req.body;
 
   if (!identifier || !password) {
-    return res
-      .status(400)
-      .json({ message: "Identifier and password are required" });
+    return res.status(400).json({ message: "Identifier and password are required" });
   }
 
   try {
     let query;
     let params;
+    let isStudent = false;
 
     // If identifier is digits only → student regno
     if (/^\d+$/.test(identifier)) {
@@ -71,12 +105,13 @@ router.post("/login", async (req, res) => {
         WHERE sd.regno = ? AND u.status = 'active' AND u.role = 'Student'
       `;
       params = [identifier];
+      isStudent = true;
     } else {
-      // Admin/Staff login with username
+      // Admin/Staff login with username - ONLY SuperAdmin and PlacementAdmin for placement
       query = `
         SELECT * FROM users 
         WHERE username = ? AND status = "active" 
-        AND (role = "Admin" OR role = "Staff")
+        AND (role = "SuperAdmin" OR role = "PlacementAdmin" OR role = "Staff")
       `;
       params = [identifier];
     }
@@ -84,9 +119,11 @@ router.post("/login", async (req, res) => {
     const [results] = await db.query(query, params);
 
     if (results.length === 0) {
-      return res
-        .status(401)
-        .json({ message: "Invalid identifier or account not authorized" });
+      return res.status(401).json({ 
+        message: isStudent 
+          ? "Invalid registration number or account not authorized" 
+          : "Invalid username or you don't have access to placement portal" 
+      });
     }
 
     const user = results[0];
@@ -105,7 +142,7 @@ router.post("/login", async (req, res) => {
         username: user.username,
       },
       process.env.JWT_SECRET || "your-secret-key",
-      { expiresIn: "1h" }
+      { expiresIn: "24h" }
     );
 
     return res.json({
@@ -123,6 +160,9 @@ router.post("/login", async (req, res) => {
   }
 });
 
+// Protected routes - Apply verifyToken middleware to all routes below
+router.use(verifyToken);
+
 // Get Notifications
 router.get('/notifications', async (req, res) => {
   try {
@@ -136,8 +176,9 @@ router.get('/notifications', async (req, res) => {
   }
 });
 
-// Add Upcoming Drive
-router.post('/upcoming-drives', upload.single('post'), async (req, res) => {
+// Admin-only routes
+// Add Upcoming Drive - Admin only
+router.post('/upcoming-drives', isPlacementAdmin, upload.single('post'), async (req, res) => {
   const { company_name, eligibility, date, time, venue, roles, salary, created_by } = req.body;
 
   if (!company_name || !eligibility || !date || !time || !venue || !created_by) {
@@ -159,7 +200,7 @@ router.post('/upcoming-drives', upload.single('post'), async (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    const [result] = await db.query(query, [postFilePath, company_name, eligibility, date, time, venue, rolesValue, salaryValue, created_by, created_by]);
+    await db.query(query, [postFilePath, company_name, eligibility, date, time, venue, rolesValue, salaryValue, created_by, created_by]);
 
     const notificationMsg = `📢 New Drive Alert! ${company_name} is hiring for ${rolesValue} on ${date} at ${time} in ${venue}. Package: ${salaryValue}`;
     const notifQuery = `INSERT INTO notifications (message, Created_by, Updated_by) VALUES (?, ?, ?)`;
@@ -172,7 +213,7 @@ router.post('/upcoming-drives', upload.single('post'), async (req, res) => {
   }
 });
 
-// Get Upcoming Drives
+// Get Upcoming Drives - All authenticated users
 router.get('/upcoming-drives', async (req, res) => {
   const query = 'SELECT * FROM upcomingdrives_placement ORDER BY date ASC, time ASC';
   try {
@@ -184,8 +225,8 @@ router.get('/upcoming-drives', async (req, res) => {
   }
 });
 
-// Delete Upcoming Drive
-router.delete('/upcoming-drives/:id', async (req, res) => {
+// Delete Upcoming Drive - Admin only
+router.delete('/upcoming-drives/:id', isPlacementAdmin, async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -202,7 +243,7 @@ router.delete('/upcoming-drives/:id', async (req, res) => {
   }
 });
 
-// Get Companies
+// Get Companies - All authenticated users
 router.get('/companies', async (req, res) => {
   try {
     const [results] = await db.query('SELECT * FROM companies ORDER BY companyName');
@@ -213,8 +254,9 @@ router.get('/companies', async (req, res) => {
   }
 });
 
-// Add Company
-router.post('/add-company', upload.single('logo'), async (req, res) => {
+// Add Company - Admin only
+router.post('/add-company', isPlacementAdmin, upload.single('logo'), async (req, res) => {
+  // ... existing add-company logic ...
   try {
     const { companyName, description, ceo, location, objective, package: salaryPackage, created_by } = req.body;
     let { skillSets, localBranches, roles } = req.body;
@@ -223,52 +265,32 @@ router.post('/add-company', upload.single('logo'), async (req, res) => {
       return res.status(400).json({ message: 'All required fields must be provided.' });
     }
 
-    try {
-      const [userRows] = await db.query('SELECT Userid FROM users WHERE Userid = ? AND status = "active"', [created_by]);
-      if (userRows.length === 0) {
-        return res.status(400).json({ message: 'Invalid or inactive Created_by user' });
-      }
-
-      skillSets = skillSets ? JSON.parse(skillSets) : [];
-      localBranches = localBranches ? JSON.parse(localBranches) : [];
-      roles = roles ? JSON.parse(roles) : [];
-
-      if (skillSets.length === 0 || localBranches.length === 0 || roles.length === 0) {
-        return res.status(400).json({ message: 'SkillSets, localBranches, and roles cannot be empty.' });
-      }
-
-      const logo = req.file ? req.file.filename : null;
-
-      const sql = `INSERT INTO companies
-                   (companyName, description, ceo, location, package, objective, skillSets, localBranches, roles, logo, Created_by, Updated_by)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-
-      await db.query(sql, [
-        companyName,
-        description,
-        ceo,
-        location,
-        salaryPackage,
-        objective,
-        JSON.stringify(skillSets),
-        JSON.stringify(localBranches),
-        JSON.stringify(roles),
-        logo,
-        created_by,
-        created_by,
-      ]);
-
-      res.status(201).json({ message: 'Company added successfully', company: { companyName, logo } });
-    } catch (error) {
-      console.error('JSON Parsing or DB Error:', error);
-      if (error instanceof SyntaxError) {
-        return res.status(400).json({ message: 'Invalid JSON format in skillSets, localBranches, or roles.' });
-      }
-      if (error.code === 'ER_DUP_ENTRY') {
-        return res.status(409).json({ message: 'Company already exists.' });
-      }
-      throw error;
+    const [userRows] = await db.query('SELECT Userid FROM users WHERE Userid = ? AND status = "active"', [created_by]);
+    if (userRows.length === 0) {
+      return res.status(400).json({ message: 'Invalid or inactive Created_by user' });
     }
+
+    skillSets = skillSets ? JSON.parse(skillSets) : [];
+    localBranches = localBranches ? JSON.parse(localBranches) : [];
+    roles = roles ? JSON.parse(roles) : [];
+
+    if (skillSets.length === 0 || localBranches.length === 0 || roles.length === 0) {
+      return res.status(400).json({ message: 'SkillSets, localBranches, and roles cannot be empty.' });
+    }
+
+    const logo = req.file ? req.file.filename : null;
+
+    const sql = `INSERT INTO companies
+                 (companyName, description, ceo, location, package, objective, skillSets, localBranches, roles, logo, Created_by, Updated_by)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+    await db.query(sql, [
+      companyName, description, ceo, location, salaryPackage, objective,
+      JSON.stringify(skillSets), JSON.stringify(localBranches), JSON.stringify(roles),
+      logo, created_by, created_by,
+    ]);
+
+    res.status(201).json({ message: 'Company added successfully', company: { companyName, logo } });
   } catch (error) {
     console.error('Server Error:', error);
     res.status(500).json({ message: 'Internal Server Error.', error: error.message });

@@ -19,18 +19,23 @@ const Login = () => {
     const role = localStorage.getItem("role");
 
     if (token && role) {
-      // verify token with backend
+      // Verify token with backend
       axios
-        .get("http://localhost:4000/api/placement/admin-data", {
+        .get("http://localhost:4000/api/placement/verify-token", {
           headers: { Authorization: `Bearer ${token}` },
         })
-        .then(() => {
-          if (role === "admin") navigate("/placement/admin-recruiters");
-          else if (role === "student") navigate("/placement/home");
-          else if (role === "staff") navigate("/placement/staff-home");
+        .then((response) => {
+          // Token is valid, redirect based on role
+          if (role === "placementadmin" || role === "superadmin") {
+            navigate("/placement/admin-recruiters");
+          } else if (role === "student") {
+            navigate("/placement/home");
+          } else if (role === "staff") {
+            navigate("/placement/staff-home");
+          }
         })
         .catch(() => {
-          // token invalid → clear storage
+          // Token invalid → clear storage
           localStorage.clear();
         });
     }
@@ -62,12 +67,16 @@ const Login = () => {
         setProgress(100);
 
         setTimeout(() => {
-          if (role === "admin") {
-            navigate("/placement/admin-recruiters ");
+          if (role === "placementadmin" || role === "superadmin") {
+            navigate("/placement/admin-recruiters");
           } else if (role === "student") {
             navigate("/placement/home");
           } else if (role === "staff") {
             navigate("/placement/staff-home");
+          } else {
+            // Unauthorized role
+            setError("You don't have access to the placement portal");
+            localStorage.clear();
           }
         }, 1500);
       }
@@ -94,9 +103,15 @@ const Login = () => {
 
       <div className="center">
         <div className="container">
-          <h2>Login</h2>
+          <h2>Placement Portal Login</h2>
 
           {error && <div className="error-message">{error}</div>}
+          
+          {showSuccess && (
+            <div className="success-message">
+              Login successful! Redirecting...
+            </div>
+          )}
 
           <form onSubmit={handleSubmit}>
             <input
@@ -133,6 +148,11 @@ const Login = () => {
               {isLoading ? "Logging in..." : "Login"}
             </button>
           </form>
+
+          <div className="info-text" style={{ marginTop: "20px", fontSize: "0.9em", color: "#666" }}>
+            <p>For Admins: Use your username</p>
+            <p>For Students: Use your registration number</p>
+          </div>
         </div>
       </div>
     </div>

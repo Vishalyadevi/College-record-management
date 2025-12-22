@@ -429,6 +429,7 @@ const Dashboard = () => {
 
   return (
     <div className="flex flex-col h-screen p-6 space-y-6 bg-gradient-to-br from-gray-50 to-gray-100">
+      
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-800">Approval Dashboard</h1>
         <div className="flex space-x-4">

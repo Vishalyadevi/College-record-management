@@ -3,20 +3,29 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import {
+  // Student endpoints
   addLeave,
+  updateLeave,
+  deleteLeave,
+  getStudentLeaves,
+  
+  // Dept Admin endpoints
+  getPendingLeavesForDeptAdmin,
+  getAllLeavesForDeptAdmin,
+  updateLeaveByDeptAdmin,
+  
+  // General endpoints
   getPendingLeaves,
   getApprovedLeaves,
-  deleteLeave,
-  updateLeave,
 } from "../../controllers/student/LeaveController.js";
 import { authenticate } from "../../middlewares/auth.js";
 
-// Multer configuration
+// Multer configuration for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = "uploads/leaves/";
     if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true }); // Ensure directory exists
+      fs.mkdirSync(uploadPath, { recursive: true });
     }
     cb(null, uploadPath);
   },
@@ -29,17 +38,20 @@ const storage = multer.diskStorage({
 
 const fileFilter = (req, file, cb) => {
   const allowedTypes = [
-    "application/pdf", // PDF files
-    "application/msword", // DOC files
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // DOCX files
-    "image/jpeg", // JPEG files
-    "image/png", // PNG files
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "image/jpeg",
+    "image/png",
   ];
 
   if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true); // Accept the file
+    cb(null, true);
   } else {
-    cb(new Error("❌ Invalid file type! Allowed formats: PNG, JPG, PDF, DOC, DOCX"), false);
+    cb(
+      new Error("❌ Invalid file type! Allowed formats: PNG, JPG, PDF, DOC, DOCX"),
+      false
+    );
   }
 };
 
@@ -51,19 +63,26 @@ const upload = multer({
 
 const router = express.Router();
 
-// Add Leave
-router.post("/add-leave", upload.single("document"), authenticate, addLeave);
+// ==================== STUDENT ROUTES ====================
+router.post("/student/add-leave", authenticate, upload.single("document"), addLeave);
+router.patch("/student/update-leave/:leaveId", authenticate, upload.single("document"), updateLeave);
+router.delete("/student/delete-leave/:leaveId", authenticate, deleteLeave);
+router.get("/student/my-leaves", authenticate, getStudentLeaves);
 
-// Delete Leave
+// ==================== DEPARTMENT ADMIN ROUTES ====================
+router.get("/dept-admin/pending-leaves", authenticate, getPendingLeavesForDeptAdmin);
+router.get("/dept-admin/all-leaves", authenticate, getAllLeavesForDeptAdmin);
+router.patch("/dept-admin/update-leave/:leaveId", authenticate, updateLeaveByDeptAdmin);
+
+// ==================== GENERAL ROUTES (Admin/All) ====================
+router.get("/all/pending-leaves", authenticate, getPendingLeaves);
+router.get("/all/approved-leaves", authenticate, getApprovedLeaves);
+
+// Backward compatibility routes (map to student routes)
+router.post("/add-leave", authenticate, upload.single("document"), addLeave);
+router.patch("/update-leave/:leaveId", authenticate, upload.single("document"), updateLeave);
 router.delete("/delete-leave/:leaveId", authenticate, deleteLeave);
-
-// Get Pending Leaves
 router.get("/pending-leaves", authenticate, getPendingLeaves);
-
-// Get Approved Leaves
 router.get("/fetch-leaves", authenticate, getApprovedLeaves);
-
-// Update Leave
-router.patch("/update-leave/:leaveId", upload.single("document"), authenticate, updateLeave);
 
 export default router;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, DollarSign, Edit, Trash2, Eye, X, FileText, Upload } from 'lucide-react';
+import { Plus, DollarSign, Edit, Trash2, Eye, ExternalLink } from 'lucide-react';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FormField from '../../components/FormField';
@@ -28,20 +28,15 @@ const ProposalsPage = () => {
   
   const [formData, setFormData] = useState({
     pi_name: '',
-    co_pi_names: [],
+    co_pi_names: '',
     project_title: '',
     industry: '',
     from_date: '',
     to_date: '',
     amount: '',
-    proof: null,
-    yearly_report: null,
-    order_copy: null,
-    final_report: null,
+    proof: '',
     organization_name: ''
   });
-
-  const [coPiInput, setCoPiInput] = useState('');
 
   const [paymentFormData, setPaymentFormData] = useState({
     date: '',
@@ -87,45 +82,6 @@ const ProposalsPage = () => {
     });
   };
 
-  const handleFileChange = (e) => {
-    const { name, files } = e.target;
-    if (files && files[0]) {
-      // Validate PDF
-      if (files[0].type !== 'application/pdf') {
-        toast.error('Only PDF files are allowed');
-        e.target.value = '';
-        return;
-      }
-      // Validate size (10MB)
-      if (files[0].size > 10 * 1024 * 1024) {
-        toast.error('File size must be less than 10MB');
-        e.target.value = '';
-        return;
-      }
-      setFormData({
-        ...formData,
-        [name]: files[0]
-      });
-    }
-  };
-
-  const handleAddCoPi = () => {
-    if (coPiInput.trim()) {
-      setFormData({
-        ...formData,
-        co_pi_names: [...formData.co_pi_names, coPiInput.trim()]
-      });
-      setCoPiInput('');
-    }
-  };
-
-  const handleRemoveCoPi = (index) => {
-    setFormData({
-      ...formData,
-      co_pi_names: formData.co_pi_names.filter((_, i) => i !== index)
-    });
-  };
-
   const handlePaymentInputChange = (e) => {
     const { name, value } = e.target;
     setPaymentFormData({
@@ -137,19 +93,15 @@ const ProposalsPage = () => {
   const resetForm = () => {
     setFormData({
       pi_name: '',
-      co_pi_names: [],
+      co_pi_names: '',
       project_title: '',
       industry: '',
       from_date: '',
       to_date: '',
       amount: '',
-      proof: null,
-      yearly_report: null,
-      order_copy: null,
-      final_report: null,
+      proof: '',
       organization_name: ''
     });
-    setCoPiInput('');
     setCurrentProposal(null);
     setIsViewMode(false);
   };
@@ -163,81 +115,7 @@ const ProposalsPage = () => {
     setIsPaymentViewMode(false);
   };
 
-  const renderFileLink = (proposal, label) => {
-    if (!proposal) {
-      return <span className="text-gray-400">No {label}</span>;
-    }
-
-    const handleViewFile = async () => {
-      try {
-        let endpoint = '';
-        if (label === 'Proof') {
-          endpoint = `/proposals/proof/${proposal.id}`;
-        } else if (label === 'Yearly Report') {
-          endpoint = `/proposals/yearly-report/${proposal.id}`;
-        } else if (label === 'Order Copy') {
-          endpoint = `/proposals/order-copy/${proposal.id}`;
-        } else if (label === 'Final Report') {
-          endpoint = `/proposals/final-report/${proposal.id}`;
-        }
-
-        const response = await fetch(`http://localhost:4000/api${endpoint}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          },
-        });
-
-        if (response.ok) {
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          window.open(url, '_blank');
-        } else {
-          toast.error(`${label} not available`);
-        }
-      } catch (error) {
-        console.error(`Error fetching ${label}:`, error);
-        toast.error(`Error loading ${label}`);
-      }
-    };
-
-    return (
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          handleViewFile();
-        }}
-        className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 rounded-full transition-colors duration-200 border border-blue-200"
-        title={`View ${label}`}
-      >
-        <FileText size={14} />
-        View {label}
-      </button>
-    );
-  };
-
-  const renderCoPiNames = (coPiNames) => {
-    if (!coPiNames) {
-      return <span className="text-gray-400">None</span>;
-    }
-    
-    const names = coPiNames.split(',').map(name => name.trim()).filter(name => name);
-    
-    if (names.length === 0) {
-      return <span className="text-gray-400">None</span>;
-    }
-    
-    return (
-      <div className="space-y-1">
-        {names.map((name, index) => (
-          <div key={index} className="text-sm">
-            • {name}
-          </div>
-        ))}
-      </div>
-    );
-  };
-
+  // Proposal handlers
   const handleAddNew = () => {
     resetForm();
     setIsModalOpen(true);
@@ -245,22 +123,15 @@ const ProposalsPage = () => {
 
   const handleEdit = (proposal) => {
     setCurrentProposal(proposal);
-    const coPiArray = proposal.co_pi_names
-      ? proposal.co_pi_names.split(',').map(name => name.trim()).filter(name => name)
-      : [];
-
     setFormData({
       pi_name: proposal.pi_name || '',
-      co_pi_names: coPiArray,
+      co_pi_names: proposal.co_pi_names || '',
       project_title: proposal.project_title || '',
       industry: proposal.industry || '',
       from_date: proposal.from_date ? proposal.from_date.split('T')[0] : '',
       to_date: proposal.to_date ? proposal.to_date.split('T')[0] : '',
       amount: proposal.amount?.toString() || '',
-      proof: null,
-      yearly_report: null,
-      order_copy: null,
-      final_report: null,
+      proof: proposal.proof || '',
       organization_name: proposal.organization_name || ''
     });
     setIsViewMode(false);
@@ -269,22 +140,15 @@ const ProposalsPage = () => {
 
   const handleView = (proposal) => {
     setCurrentProposal(proposal);
-    const coPiArray = proposal.co_pi_names
-      ? proposal.co_pi_names.split(',').map(name => name.trim()).filter(name => name)
-      : [];
-
     setFormData({
       pi_name: proposal.pi_name || '',
-      co_pi_names: coPiArray,
+      co_pi_names: proposal.co_pi_names || '',
       project_title: proposal.project_title || '',
       industry: proposal.industry || '',
       from_date: proposal.from_date ? proposal.from_date.split('T')[0] : '',
       to_date: proposal.to_date ? proposal.to_date.split('T')[0] : '',
       amount: proposal.amount?.toString() || '',
-      proof: null,
-      yearly_report: null,
-      order_copy: null,
-      final_report: null,
+      proof: proposal.proof || '',
       organization_name: proposal.organization_name || ''
     });
     setIsViewMode(true);
@@ -311,47 +175,14 @@ const ProposalsPage = () => {
       if (!formData.pi_name || !formData.project_title || !formData.industry || 
           !formData.from_date || !formData.to_date || !formData.amount || !formData.organization_name) {
         toast.error('Please fill in all required fields');
-        setIsSubmitting(false);
         return;
-      }
-
-      // Date validation
-      if (new Date(formData.to_date) <= new Date(formData.from_date)) {
-        toast.error('To date must be greater than from date');
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Create FormData object for file uploads
-      const submitData = new FormData();
-      submitData.append('pi_name', formData.pi_name);
-      submitData.append('co_pi_names', formData.co_pi_names.join(', '));
-      submitData.append('project_title', formData.project_title);
-      submitData.append('industry', formData.industry);
-      submitData.append('from_date', formData.from_date);
-      submitData.append('to_date', formData.to_date);
-      submitData.append('amount', formData.amount.toString());
-      submitData.append('organization_name', formData.organization_name);
-
-      // Append files if they exist
-      if (formData.proof) {
-        submitData.append('proof', formData.proof);
-      }
-      if (formData.yearly_report) {
-        submitData.append('yearly_report', formData.yearly_report);
-      }
-      if (formData.order_copy) {
-        submitData.append('order_copy', formData.order_copy);
-      }
-      if (formData.final_report) {
-        submitData.append('final_report', formData.final_report);
       }
       
       if (currentProposal) {
-        await updateProposal(currentProposal.id, submitData);
+        await updateProposal(currentProposal.id, formData);
         toast.success('Proposal updated successfully');
       } else {
-        await createProposal(submitData);
+        await createProposal(formData);
         toast.success('Proposal created successfully');
       }
       
@@ -360,13 +191,13 @@ const ProposalsPage = () => {
       fetchProposals();
     } catch (error) {
       console.error('Error saving proposal:', error);
-      const errorMsg = error.response?.data?.message || 'Failed to save proposal';
-      toast.error(errorMsg);
+      toast.error('Failed to save proposal');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Payment details handlers
   const handleViewAmountDetails = (projectId) => {
     setSelectedProjectId(projectId);
     fetchAmountDetails(projectId);
@@ -453,6 +284,53 @@ const ProposalsPage = () => {
     return `${from.toLocaleDateString()} - ${to.toLocaleDateString()}`;
   };
 
+  const renderProofLink = (proofUrl) => {
+    if (!proofUrl) return <span className="text-gray-400">No proof</span>;
+    
+    const isValidUrl = proofUrl.startsWith('http://') || proofUrl.startsWith('https://');
+    
+    if (isValidUrl) {
+      return (
+        <a
+          href={proofUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
+          title="View proof document"
+        >
+          View
+        </a>
+      );
+    } else {
+      return (
+        <span className="text-gray-600 text-sm" title={proofUrl}>
+          {proofUrl.length > 20 ? `${proofUrl.substring(0, 20)}...` : proofUrl}
+        </span>
+      );
+    }
+  };
+
+  const renderCoPiNames = (coPiNames) => {
+    if (!coPiNames) return <span className="text-gray-400">None</span>;
+    
+    const names = coPiNames.split(',').map(name => name.trim()).filter(name => name);
+    
+    if (names.length === 0) return <span className="text-gray-400">None</span>;
+    
+    if (names.length === 1) return <span>{names[0]}</span>;
+    
+    return (
+      <div className="text-sm">
+        <span>{names[0]}</span>
+        {names.length > 1 && (
+          <span className="text-gray-500 ml-1" title={names.slice(1).join(', ')}>
+            +{names.length - 1} more
+          </span>
+        )}
+      </div>
+    );
+  };
+
   const columns = [
     { field: 'pi_name', header: 'PI Name' },
     { 
@@ -487,25 +365,10 @@ const ProposalsPage = () => {
       )
     },
     { field: 'organization_name', header: 'Organization' },
-    {
-      field: 'proof',
-      header: 'Proof',
-      render: (row) => renderFileLink(row, 'Proof')
-    },
-    {
-      field: 'yearly_report',
-      header: 'Yearly Report',
-      render: (row) => renderFileLink(row, 'Yearly Report')
-    },
-    {
-      field: 'order_copy',
-      header: 'Order Copy',
-      render: (row) => renderFileLink(row, 'Order Copy')
-    },
-    {
-      field: 'final_report',
-      header: 'Final Report',
-      render: (row) => renderFileLink(row, 'Final Report')
+    { 
+      field: 'proof', 
+      header: 'Proof Link',
+      render: (row) => renderProofLink(row.proof)
     },
   ];
 
@@ -661,54 +524,14 @@ const ProposalsPage = () => {
             required
             disabled={isViewMode}
           />
-          
-          {/* Co-PI Names with dynamic add/remove */}
-          <div className="md:col-span-1">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Co-PI Names
-            </label>
-            {!isViewMode && (
-              <div className="flex gap-2 mb-2">
-                <input
-                  type="text"
-                  value={coPiInput}
-                  onChange={(e) => setCoPiInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCoPi())}
-                  placeholder="Enter Co-PI name"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddCoPi}
-                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md flex items-center gap-1"
-                >
-                  <Plus size={16} />
-                  Add
-                </button>
-              </div>
-            )}
-            <div className="space-y-2">
-              {formData.co_pi_names.length === 0 ? (
-                <p className="text-sm text-gray-500 italic">No Co-PIs added</p>
-              ) : (
-                formData.co_pi_names.map((name, index) => (
-                  <div key={index} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-md">
-                    <span className="text-sm">{name}</span>
-                    {!isViewMode && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveCoPi(index)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <X size={16} />
-                      </button>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
+          <FormField
+            label="Co-PI Names"
+            name="co_pi_names"
+            value={formData.co_pi_names}
+            onChange={handleInputChange}
+            disabled={isViewMode}
+            placeholder="Separate with commas"
+          />
           <FormField
             label="Project Title"
             name="project_title"
@@ -716,9 +539,7 @@ const ProposalsPage = () => {
             onChange={handleInputChange}
             required
             disabled={isViewMode}
-            className="md:col-span-2"
           />
-          
           <FormField
             label="Industry"
             name="industry"
@@ -727,16 +548,6 @@ const ProposalsPage = () => {
             required
             disabled={isViewMode}
           />
-          
-          <FormField
-            label="Organization Name"
-            name="organization_name"
-            value={formData.organization_name}
-            onChange={handleInputChange}
-            required
-            disabled={isViewMode}
-          />
-          
           <FormField
             label="From Date"
             name="from_date"
@@ -746,7 +557,6 @@ const ProposalsPage = () => {
             required
             disabled={isViewMode}
           />
-          
           <FormField
             label="To Date"
             name="to_date"
@@ -755,9 +565,7 @@ const ProposalsPage = () => {
             onChange={handleInputChange}
             required
             disabled={isViewMode}
-            min={formData.from_date}
           />
-          
           <FormField
             label="Amount (₹)"
             name="amount"
@@ -766,128 +574,24 @@ const ProposalsPage = () => {
             onChange={handleInputChange}
             required
             disabled={isViewMode}
-            min="0"
-            step="0.01"
           />
-          
-          {/* File Upload Fields */}
-          <div className="md:col-span-2 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Proof Document (PDF only, max 10MB)
-              </label>
-              {isViewMode ? (
-                currentProposal?.proof ? (
-                  renderFileLink(currentProposal, 'Proof')
-                ) : (
-                  <span className="text-gray-400">No proof uploaded</span>
-                )
-              ) : (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="file"
-                    name="proof"
-                    accept=".pdf"
-                    onChange={handleFileChange}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  {formData.proof && (
-                    <span className="text-sm text-green-600 flex items-center gap-1">
-                      <Upload size={14} />
-                      {formData.proof.name}
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Yearly Report (PDF only, max 10MB)
-              </label>
-              {isViewMode ? (
-                currentProposal?.yearly_report ? (
-                  renderFileLink(currentProposal, 'Yearly Report')
-                ) : (
-                  <span className="text-gray-400">No yearly report uploaded</span>
-                )
-              ) : (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="file"
-                    name="yearly_report"
-                    accept=".pdf"
-                    onChange={handleFileChange}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  {formData.yearly_report && (
-                    <span className="text-sm text-green-600 flex items-center gap-1">
-                      <Upload size={14} />
-                      {formData.yearly_report.name}
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Order Copy (PDF only, max 10MB)
-              </label>
-              {isViewMode ? (
-                currentProposal?.order_copy ? (
-                  renderFileLink(currentProposal, 'Order Copy')
-                ) : (
-                  <span className="text-gray-400">No order copy uploaded</span>
-                )
-              ) : (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="file"
-                    name="order_copy"
-                    accept=".pdf"
-                    onChange={handleFileChange}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  {formData.order_copy && (
-                    <span className="text-sm text-green-600 flex items-center gap-1">
-                      <Upload size={14} />
-                      {formData.order_copy.name}
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Final Report (PDF only, max 10MB)
-              </label>
-              {isViewMode ? (
-                currentProposal?.final_report ? (
-                  renderFileLink(currentProposal, 'Final Report')
-                ) : (
-                  <span className="text-gray-400">No final report uploaded</span>
-                )
-              ) : (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="file"
-                    name="final_report"
-                    accept=".pdf"
-                    onChange={handleFileChange}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  {formData.final_report && (
-                    <span className="text-sm text-green-600 flex items-center gap-1">
-                      <Upload size={14} />
-                      {formData.final_report.name}
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
+          <FormField
+            label="Organization Name"
+            name="organization_name"
+            value={formData.organization_name}
+            onChange={handleInputChange}
+            required
+            disabled={isViewMode}
+          />
+          <FormField
+            label="Proof Link"
+            name="proof"
+            value={formData.proof}
+            onChange={handleInputChange}
+            disabled={isViewMode}
+            placeholder="URL to document or proof"
+            className="md:col-span-2"
+          />
         </div>
       </Modal>
 
@@ -895,13 +599,14 @@ const ProposalsPage = () => {
       <Modal
         isOpen={isPaymentModalOpen}
         onClose={() => setIsPaymentModalOpen(false)}
-        title={isPaymentViewMode ? 'View Payment Detail' : currentPaymentDetail ? 'Edit Payment Detail' : 'Add Payment Detail'}
+        title={isPaymentViewMode ? 'View Payment Detail' : currentPaymentDetail ? 'Edit Payment Detail' : 'Add New Payment Detail'}
         onSubmit={!isPaymentViewMode ? handlePaymentSubmit : null}
         isSubmitting={isSubmitting}
+        size="md"
       >
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-4">
           <FormField
-            label="Payment Date"
+            label="Date"
             name="date"
             type="date"
             value={paymentFormData.date}
@@ -909,7 +614,6 @@ const ProposalsPage = () => {
             required
             disabled={isPaymentViewMode}
           />
-
           <FormField
             label="Amount (₹)"
             name="amount"

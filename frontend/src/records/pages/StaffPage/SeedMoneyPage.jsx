@@ -311,7 +311,7 @@ const SeedMoneyPage = () => {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        
           <div className="flex justify-between items-center">
            
             <button
@@ -327,7 +327,7 @@ const SeedMoneyPage = () => {
               Add Seed Money 
             </button>
           </div>
-        </div>
+       <br />
 
         {/* Data Table Section */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">

@@ -187,7 +187,7 @@ export const addUser = async (req, res) => {
     password,
     role,
     staffId, // Staff's own ID (for Staff role)
-    TutorId, // Tutor's ID (for Student role)
+    TutorId, // Tutor's staffId (for Student role)
     Deptid,
     regno, // Student-specific
     year, // Student-specific
@@ -195,108 +195,235 @@ export const addUser = async (req, res) => {
     batch, // Student-specific
   } = req.body;
 
-  // Validate required fields
-  if (!username || !email || !password || !role || !Deptid) {
-    return res.status(400).json({ message: "Missing required fields" });
+  // Check if the user is authenticated
+  if (!req.user || !req.user.Userid) {
+    return res.status(401).json({ 
+      success: false,
+      message: "Unauthorized: User not authenticated" 
+    });
+  }
+
+  const createdBy = req.user.Userid;
+  const userRole = req.user.role;
+
+  // Validate basic required fields
+  if (!username || !email || !password || !role) {
+    return res.status(400).json({ 
+      success: false,
+      message: "Username, email, password, and role are required" 
+    });
+  }
+
+  // Check if user has permission to create this role
+  const rolePermissions = {
+    SuperAdmin: ["Student", "Staff", "DeptAdmin", "IrAdmin", "PgAdmin", "AcademicAdmin", "NewgenAdmin", "PlacementAdmin"],
+    DeptAdmin: ["Student", "Staff"],
+    AcademicAdmin: ["Student", "Staff"],
+    IrAdmin: ["Student"],
+    PgAdmin: ["Student"],
+    NewgenAdmin: ["Student"],
+    PlacementAdmin: ["Student"],
+  };
+
+  const allowedRoles = rolePermissions[userRole] || [];
+  
+  if (!allowedRoles.includes(role)) {
+    return res.status(403).json({ 
+      success: false,
+      message: `You do not have permission to create ${role} role` 
+    });
+  }
+
+  // Define which roles require department
+  const rolesRequiringDept = ["Student", "Staff", "DeptAdmin", "AcademicAdmin"];
+  const rolesWithoutDept = ["IrAdmin", "PgAdmin", "NewgenAdmin", "PlacementAdmin"];
+
+  // Validate department requirement
+  if (rolesRequiringDept.includes(role) && !Deptid) {
+    return res.status(400).json({ 
+      success: false,
+      message: `Department is required for ${role} role` 
+    });
+  }
+
+  // For DeptAdmin, verify they can only add to their own department
+  if (userRole === "DeptAdmin" && req.user.Deptid) {
+    if (Deptid && parseInt(Deptid) !== req.user.Deptid) {
+      return res.status(403).json({ 
+        success: false,
+        message: "You can only add users to your own department" 
+      });
+    }
   }
 
   // Role-specific validations
   if (role === "Staff" && !staffId) {
-    return res.status(400).json({ message: "Missing required fields for Staff" });
+    return res.status(400).json({ 
+      success: false,
+      message: "Staff ID is required for Staff role" 
+    });
   }
 
-  if (role === "Student" && (!regno || !year || !course || !batch || !TutorId)) {
-    return res.status(400).json({ message: "Missing required fields for Student" });
+  if (role === "Student") {
+    if (!regno || !year || !course || !batch || !TutorId) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Regno, year, course, batch, and tutor are required for Student role" 
+      });
+    }
   }
-
-  // Check if the user is authenticated
-  if (!req.user || !req.user.Userid) {
-    return res.status(401).json({ message: "Unauthorized: User not authenticated" });
-  }
-
-  const createdBy = req.user.Userid;
 
   try {
-    // Check if the email already exists in the database
+    // Check if the email already exists
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
-      return res.status(400).json({ message: "Email already exists" });
+      return res.status(409).json({ 
+        success: false,
+        message: "Email already exists" 
+      });
     }
 
     // For Staff role, check if the staffId already exists
     if (role === "Staff") {
       const existingStaff = await User.findOne({ where: { staffId } });
       if (existingStaff) {
-        return res.status(400).json({ message: "Staff ID already exists" });
+        return res.status(409).json({ 
+          success: false,
+          message: "Staff ID already exists" 
+        });
       }
     }
 
-    // For Student role, validate that the TutorId corresponds to an existing staff member
+    // For Student role, check if regno already exists
     if (role === "Student") {
-      const tutor = await User.findOne({ where: { staffId: TutorId, role: "Staff" } });
-  
+      const existingStudent = await StudentDetails.findOne({ where: { regno } });
+      if (existingStudent) {
+        return res.status(409).json({ 
+          success: false,
+          message: "Registration number already exists" 
+        });
+      }
+
+      // Validate that the TutorId corresponds to an existing staff member
+      const tutor = await User.findOne({ 
+        where: { staffId: TutorId, role: "Staff", status: "active" },
+        attributes: ['Userid', 'email', 'username']
+      });
+
       if (!tutor) {
-        return res.status(404).json({ message: "Tutor (staff) not found" });
+        return res.status(404).json({ 
+          success: false,
+          message: "Tutor not found or inactive. Please select a valid staff member." 
+        });
       }
     }
 
-    // Hash the password before saving to the database
+    // Hash the password before saving
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create a new User record
-    const newUser = await User.create({
+    // Prepare user data
+    const userData = {
       username,
       email,
       password: hashedPassword,
       role,
-      Deptid,
-      staffId: role === "Staff" ? staffId : null, // Only set staffId for Staff role
+      status: 'active',
       Created_by: createdBy,
       Updated_by: createdBy,
-    });
+    };
 
+    // Add department for roles that require it
+    if (rolesRequiringDept.includes(role)) {
+      userData.Deptid = Deptid;
+    }
 
+    // Add staffId for Staff role
+    if (role === "Staff") {
+      userData.staffId = staffId;
+    }
+
+    // Create the new User record
+    const newUser = await User.create(userData);
+
+    // If Student role, create StudentDetails record
     if (role === "Student") {
-    
+      // Get tutor details again (we already validated above)
       const tutor = await User.findOne({ 
         where: { staffId: TutorId, role: "Staff" }, 
-        attributes: ['Userid','email'] 
+        attributes: ['Userid', 'email', 'username']
       });
-           
-      
-if (!tutor) {
-  return res.status(404).json({ message: "Tutor (staff) not found" });
-}
-      // Create a new StudentDetails record
+
+      // Determine semester based on year
+      const semesterMap = {
+        "1st YEAR": "1",
+        "2nd YEAR": "3",
+        "3rd YEAR": "5",
+        "4th YEAR": "7"
+      };
+
       await StudentDetails.create({
         Userid: newUser.Userid,
         regno,
+        name: username, // Add student name
         year,
         course,
         Deptid,
         batch,
-        staffId: tutor.Userid, // Store the tutor's staffId
+        Semester: semesterMap[year] || "1",
+        staffId: tutor.Userid, // Store the tutor's Userid
         tutorEmail: tutor.email, // Store the tutor's email
         Created_by: createdBy,
         Updated_by: createdBy,
       });
     }
 
-    // Send a success response
-    res.status(201).json({
-      message: "User added successfully",
-      Userid: newUser.Userid,
-      username: newUser.username,
-      email: newUser.email,
-      role: newUser.role,
+    // Send success response
+    return res.status(201).json({
+      success: true,
+      message: `${role} added successfully`,
+      user: {
+        Userid: newUser.Userid,
+        username: newUser.username,
+        email: newUser.email,
+        role: newUser.role,
+        Deptid: newUser.Deptid || null,
+        staffId: newUser.staffId || null,
+      }
     });
+
   } catch (error) {
     console.error("❌ Error adding user:", error);
 
-    // Send an error response
-    res.status(500).json({
+    // Handle specific database errors
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(409).json({
+        success: false,
+        message: "User with this email or ID already exists",
+        error: error.message
+      });
+    }
+
+    if (error.name === 'SequelizeForeignKeyConstraintError') {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid department or tutor ID reference",
+        error: error.message
+      });
+    }
+
+    if (error.name === 'SequelizeValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: "Validation error",
+        errors: error.errors.map(e => e.message)
+      });
+    }
+
+    // Generic error response
+    return res.status(500).json({
+      success: false,
       message: "Error adding user",
-      error: error.message || "Something went wrong",
+      error: process.env.NODE_ENV === 'development' ? error.message : "Internal server error"
     });
   }
 };

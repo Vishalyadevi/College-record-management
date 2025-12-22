@@ -31,6 +31,7 @@ import NonCGPACategory from "./NonCGPACategory.js";
 import StudentNonCGPA from "./StudentNonCGPA.js";
 import NPTELCourse from "./NPTELCourse.js";
 import StudentNPTEL from "./StudentNPTEL.js";
+//import StudentLeave from "./StudentLeave.js";
 
 const applyAssociations = () => {
   console.log("Applying model associations...");
@@ -81,7 +82,7 @@ const applyAssociations = () => {
   StudentDetails.belongsTo(Country, { foreignKey: "countryID", as: "country" });
   StudentDetails.belongsTo(State, { foreignKey: "stateID", as: "state" });
   StudentDetails.belongsTo(District, { foreignKey: "districtID", as: "district" });
-  StudentDetails.belongsTo(City, { foreignKey: "cityID", as: "city" });
+  //StudentDetails.belongsTo(City, { foreignKey: "cityID", as: "city" });
 
   /** =====================
    *  🟢 LOCATION ASSOCIATIONS
