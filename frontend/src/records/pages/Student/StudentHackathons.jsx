@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { FaEdit, FaTrash, FaUpload, FaEye, FaDownload } from "react-icons/fa";
+import { FaEdit, FaTrash, FaUpload } from "react-icons/fa";
+import { FileText } from "lucide-react";
 import { motion } from "framer-motion";
 import { useHackathon } from "../../contexts/HackathonContext";
 
@@ -30,7 +31,6 @@ const HackathonEvents = () => {
   const [editingId, setEditingId] = useState(null);
   const [localLoading, setLocalLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [viewingCertificate, setViewingCertificate] = useState(null);
   //const userId = localStorage.getItem("userId");
 const user = JSON.parse(localStorage.getItem("user") || "{}");
 const userId = user?.Userid;
@@ -213,20 +213,35 @@ console.log("Sending Userid:", parseInt(userId));
     clearError();
   };
 
+  // Handle certificate viewing (opens in new tab like ProjectProposal page)
   const handleViewCertificate = async (eventId) => {
     try {
-      const token = localStorage.getItem('token');
-const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const response = await fetch(`http://localhost:4000/api/student/hackathons/certificate/${eventId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
       });
 
       if (response.ok) {
         const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        setViewingCertificate(url);
+        const url = window.URL.createObjectURL(blob);
+
+        // Create a temporary link element and click it to open in new tab
+        const link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Clean up the blob URL after a delay
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url);
+        }, 1000);
       } else {
-        alert('Failed to load certificate');
+        alert('Certificate not available');
       }
     } catch (err) {
       console.error('Error viewing certificate:', err);
@@ -234,33 +249,7 @@ const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        h
     }
   };
 
-  const handleDownloadCertificate = async (eventId, eventName) => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/student/hackathon/certificate/${eventId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
 
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${eventName}_certificate.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      } else {
-        alert('Failed to download certificate');
-      }
-    } catch (err) {
-      console.error('Error downloading certificate:', err);
-      alert('Failed to download certificate');
-    }
-  };
 
   const getStatusColor = (status) => {
     switch(status) {
@@ -516,22 +505,14 @@ const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        h
                     <td className="border border-gray-300 p-3 capitalize">{event.status}</td>
                     <td className="border border-gray-300 p-3">
                       {event.hasCertificate ? (
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleViewCertificate(event.id)}
-                            className="p-1 text-blue-600 hover:text-blue-800 transition"
-                            title="View Certificate"
-                          >
-                            <FaEye />
-                          </button>
-                          <button
-                            onClick={() => handleDownloadCertificate(event.id, event.event_name)}
-                            className="p-1 text-green-600 hover:text-green-800 transition"
-                            title="Download Certificate"
-                          >
-                            <FaDownload />
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => handleViewCertificate(event.id)}
+                          className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 rounded-full transition-colors duration-200 border border-blue-200"
+                          title="View Certificate"
+                        >
+                          <FileText size={14} />
+                          View Certificate
+                        </button>
                       ) : (
                         <span className="text-gray-400 text-sm">No Certificate</span>
                       )}
@@ -582,36 +563,7 @@ const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        h
         )}
       </motion.div>
 
-      {/* Certificate Viewer Modal */}
-      {viewingCertificate && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
-          onClick={() => {
-            URL.revokeObjectURL(viewingCertificate);
-            setViewingCertificate(null);
-          }}
-        >
-          <div className="bg-white rounded-lg max-w-4xl max-h-[90vh] overflow-auto p-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold">Certificate Preview</h3>
-              <button
-                onClick={() => {
-                  URL.revokeObjectURL(viewingCertificate);
-                  setViewingCertificate(null);
-                }}
-                className="text-gray-600 hover:text-gray-800 text-2xl"
-              >
-                &times;
-              </button>
-            </div>
-            <iframe
-              src={viewingCertificate}
-              className="w-full h-[70vh] border"
-              title="Certificate"
-            />
-          </div>
-        </div>
-      )}
+
     </div>
   );
 };

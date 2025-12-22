@@ -1,40 +1,39 @@
-# Online Courses Fix - TODO
+# TODO: Event Organized API Issue - RESOLVED
 
-## Issue
+## Problem
 
-- Student online courses page showed "failed to fetch pending online course" error
+- Frontend StudentEventOrganized page failing to submit events
+- POST /api/add-event returning 500 error
 
 ## Root Cause
 
-- Frontend API endpoints in OnlineCoursesContext.jsx did not match backend routes
-- Frontend was calling:
-  - `/api/approved-courses` (non-existent)
-  - `/api/pending-online-courses` (non-existent)
-  - `/api/add-course` (non-existent)
-  - `/api/update-course/{id}` (non-existent)
-  - `/api/delete-course/{id}` (non-existent)
+- Userid sent as string from frontend, but EventOrganized model expects INTEGER
+- Foreign key constraint failure during EventOrganized.create()
 
-## Backend Routes (from server.js)
+## Investigation Done
 
-- Online courses routes mounted at `/api/online-courses`
-- Routes defined in `onlinecourseRoute.js`:
-  - GET `/` - getApprovedCourses
-  - GET `/pending` - getPendingOnlineCourses
-  - POST `/` - addOnlineCourse
-  - PATCH `/:courseId` - updateOnlineCourse
-  - DELETE `/:courseId` - deleteOnlineCourse
+- ✅ Identified Userid type mismatch (string vs INTEGER)
+- ✅ Verified EventOrganized model uses 'events_organized_student' table
+- ✅ Confirmed route registration and controller mapping
 
-## Fix Applied
+## Solution Applied
 
-- [x] Updated fetchOnlineCourses to call `/api/online-courses`
-- [x] Updated fetchPendingCourses to call `/api/online-courses/pending`
-- [x] Updated addOnlineCourse to call `/api/online-courses`
-- [x] Updated updateOnlineCourse to call `/api/online-courses/${courseId}`
-- [x] Updated deleteOnlineCourse to call `/api/online-courses/${courseId}`
+- [x] Fixed Userid parsing in addEvent and updateEvent controllers
+- [x] Fixed deleteEvent to use correct destroy method
+- [x] Ensured consistent integer handling for Userid
 
-## Testing
+## Next Steps
 
-- [ ] Test the online courses page to ensure it loads without errors
-- [ ] Verify pending courses are displayed correctly
-- [ ] Verify approved courses are displayed correctly
-- [ ] Test adding, updating, and deleting courses
+- [ ] Test the /api/add-event endpoint functionality
+- [ ] Verify frontend can submit events organized successfully
+- [ ] Check tutor email notifications work
+
+## Files Modified
+
+- `backend/controllers/student/eventController.js`: Fixed Userid parsing and delete method
+
+## Files to Check
+
+- Frontend console for successful API calls to /api/add-event
+- Backend logs for EventOrganized.create() success
+- Tutor email notifications

@@ -621,8 +621,8 @@ async function initializeDatabase() {
         sponsored_by VARCHAR(100),
         amount_sanctioned DECIMAL(10,2),
         participants INT NOT NULL,
-        proof_link TEXT,
-        documentation_link TEXT,
+        proof_link longblob,
+        documentation_link longblob,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE
@@ -1005,6 +1005,7 @@ CREATE TABLE IF NOT EXISTS registrations (
   FOREIGN KEY (drive_id) REFERENCES placement_drives(id)
 );
 `)
+
 await connection.execute(`
 
 -- Create certificates table

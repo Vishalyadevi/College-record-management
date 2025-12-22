@@ -1,13 +1,13 @@
-import express from "express";
-import { getStudentDetails, updateStudentDetails} from "../../controllers/student/studentController.js";
-import { authenticate } from "../../middlewares/auth.js"; // Middleware for authentication
+import express from 'express';
+import { authenticate as authenticateToken } from '../../middlewares/auth.js';
+import { getStudentDetails, updateStudentDetails } from '../../controllers/student/studentController.js';
 
 const router = express.Router();
 
-// ✅ Route to fetch student details (Requires authentication)
-router.get("/student", authenticate, getStudentDetails);
+// Get student details
+router.get('/student', authenticateToken, getStudentDetails);
 
-// ✅ Route to update student details (Requires authentication)
-router.put("/student/update", authenticate, updateStudentDetails);
+// Update student details
+router.put('/student/update', authenticateToken, updateStudentDetails);
 
-export default router; // ✅ Use ES module export
+export default router;

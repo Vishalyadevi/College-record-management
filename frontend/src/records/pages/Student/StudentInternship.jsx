@@ -97,40 +97,24 @@ const StudentInternship = () => {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterApproval, setFilterApproval] = useState("all");
 
-  const token = localStorage.getItem("token");
+  // Combine approved and pending internships
+  const allInternships = [...internships, ...pendingInternships];
 
-  // Debug: Log internships data
-  useEffect(() => {
-    console.log("Internships data:", internships);
-    console.log("Is array:", Array.isArray(internships));
-    console.log("Length:", internships?.length);
-  }, [internships]);
-
-  // Filtered Internships - with proper null checks
-  const filteredInternships = React.useMemo(() => {
-    if (!Array.isArray(internships)) {
-      console.log("Internships is not an array:", internships);
-      return [];
-    }
-    
-    return internships.filter((internship) => {
-      if (!internship) return false;
-      
-      const statusMatch = filterStatus === "all" || 
-        (internship.status && internship.status.toLowerCase() === filterStatus);
-      
-      const approvalMatch = filterApproval === "all" || 
-        internship.approval_status === filterApproval;
-      
-      return statusMatch && approvalMatch;
-    });
-  }, [internships, filterStatus, filterApproval]);
+  // Filtered Internships
+  const filteredInternships = allInternships.filter((internship) => {
+    const statusMatch = filterStatus === "all" || internship.status.toLowerCase() === filterStatus;
+    return statusMatch;
+  });
 
   // Calculate Paginated Data
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentInternships = filteredInternships.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredInternships.length / itemsPerPage);
+
+  const token = localStorage.getItem("token");
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const userId = user?.Userid;
 
   const handleInputChange = (e) => {
     const { name, value, type, checked, files } = e.target;
@@ -220,17 +204,7 @@ const StudentInternship = () => {
 
     if (!window.confirm("Are you sure you want to proceed?")) return;
 
-    let decodedData;
-    try {
-      const base64Url = token.split(".")[1];
-      decodedData = JSON.parse(atob(base64Url.replace(/-/g, "+").replace(/_/g, "/")));
-    } catch (error) {
-      return toast.error("Error fetching user details");
-    }
-
-    if (formData.status === "completed" && !formData.cer_file && !formData.certificate) {
-      return toast.error("Please upload a certificate before marking as 'Completed'.");
-    }
+    if (formData.status === "completed" && !formData.cer_file) return toast.error("Please upload a certificate before marking as 'Completed'.");
 
     const stipendAmount = formData.stipend_amount ? parseFloat(formData.stipend_amount) : null;
     if (formData.stipend_amount && isNaN(stipendAmount)) {
@@ -246,14 +220,10 @@ const StudentInternship = () => {
     formToSubmit.append("stipend_amount", stipendAmount || "");
     formToSubmit.append("status", formData.status);
     formToSubmit.append("certificate", formData.certificate ? "true" : "false");
-    formToSubmit.append("Userid", String(decodedData.Userid));
     formToSubmit.append("description", isEditMode ? "Updated Internship" : "New Internship");
 
-    if (formData.cer_file) {
-      formToSubmit.append("cer_file", formData.cer_file);
-    }
-
-    console.log("Submitting internship:", Object.fromEntries(formToSubmit));
+    // Append certificate file if it exists
+    if (formData.cer_file) formToSubmit.append("cer_file", formData.cer_file);
 
     try {
       if (isEditMode) {
@@ -267,6 +237,99 @@ const StudentInternship = () => {
     }
   };
 
+  const renderTable = (data, showActions = true) => (
+    <div className="overflow-x-auto">
+      <div className="max-h-[400px] overflow-y-auto">
+        <table className="min-w-full bg-white border border-gray-200 rounded-lg shadow-sm"style={{ minWidth: '2200px', width: '100%' }}>
+          <thead>
+            <tr className="bg-[#4f46e5] text-white">
+              <th className="py-3 px-4 text-left font-medium">Provider</th>
+              <th className="py-3 px-4 text-left font-medium">Domain</th>
+              <th className="py-3 px-4 text-left font-medium">Mode</th>
+              <th className="py-3 px-4 text-left font-medium"style={{ minWidth: '800px'}}>Duration</th>
+              <th className="py-3 px-4 text-left font-medium">Stipend</th>
+              <th className="py-3 px-4 text-left font-medium">Certificate</th>
+              <th className="py-3 px-4 text-left font-medium">Status</th>
+              <th className="py-3 px-4 text-left font-medium">Approval Status</th>
+              {showActions && <th className="py-3 px-4 text-left font-medium">Actions</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((internship, index) => (
+              <tr
+                key={internship.id}
+                className={`${index % 2 === 0 ? "bg-gray-50" : "bg-white"} hover:bg-gray-100 transition-colors`}
+              >
+                <td className="py-3 px-4 text-gray-700">{internship.provider_name}</td>
+                <td className="py-3 px-4 text-gray-700">{internship.domain || "N/A"}</td>
+                <td className="py-3 px-4 text-gray-700">{internship.mode || "N/A"}</td>
+                <td className="py-3 px-4 text-gray-700">
+                  {internship.start_date && internship.end_date
+                    ? `${new Date(internship.start_date).toDateString()} - ${new Date(internship.end_date).toDateString()}`
+                    : "N/A"}
+                </td>
+                <td className="py-3 px-4 text-gray-700">{internship.stipend_amount ? `₹${internship.stipend_amount}` : "Unpaid"}</td>
+                <td className="py-3 px-4 text-gray-700">
+                  {internship.certificate && (
+                    <a
+                      href={`${backendUrl}/${encodeURI(internship.certificate.replace(/\\/g, "/"))}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500 hover:text-blue-700 transition"
+                    >
+                      <FaEye className="inline-block text-xl" />
+                    </a>
+                  )}
+                </td>
+                <td className="py-3 px-4">
+                  <span
+                    className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      internship.status.toLowerCase() === "completed"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-yellow-100 text-yellow-700"
+                    }`}
+                  >
+                    {internship.status}
+                  </span>
+                </td>
+                <td className="py-3 px-4">
+                  <span
+                    className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      internship.tutor_approval_status === true
+                        ? "bg-green-100 text-green-700"
+                        : "bg-orange-100 text-orange-700"
+                    }`}
+                  >
+                    {internship.tutor_approval_status === true ? "Approved" : "Pending"}
+                  </span>
+                </td>
+                {showActions && internship.tutor_approval_status === false && (
+                  <td className="py-3 px-4 space-x-2">
+                    <button
+                      onClick={() => handleEdit(internship)}
+                      className="text-blue-500 hover:text-blue-700 transition"
+                      aria-label="Edit"
+                    >
+                      <FaEdit className="inline-block text-xl" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(internship.id)}
+                      className="text-red-500 hover:text-red-700 transition"
+                      aria-label="Delete"
+                    >
+                      <FaTrash className="inline-block text-xl" />
+                    </button>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  // Handle Next Page
   const handleNextPage = useCallback(() => {
     if (currentPage < totalPages) {
       setCurrentPage(currentPage + 1);
@@ -426,35 +489,19 @@ const StudentInternship = () => {
       </motion.div>
 
       {/* Filter Controls */}
-      <div className="flex justify-end gap-4 mb-6">
-        <div className="w-48">
-          <Field
-            label="Internship Status"
-            name="filterStatus"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            type="select"
-            options={[
-              { value: "all", label: "All Status" },
-              { value: "ongoing", label: "Ongoing" },
-              { value: "completed", label: "Completed" },
-            ]}
-          />
-        </div>
-        <div className="w-48">
-          <Field
-            label="Approval Status"
-            name="filterApproval"
-            value={filterApproval}
-            onChange={(e) => setFilterApproval(e.target.value)}
-            type="select"
-            options={[
-              { value: "all", label: "All Approvals" },
-              { value: "Approved", label: "Approved" },
-              { value: "Pending", label: "Pending" },
-            ]}
-          />
-        </div>
+      <div className="flex justify-end space-x-4 mb-6">
+        <Field
+          label="Filter by Status"
+          name="filterStatus"
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          type="select"
+          options={[
+            { value: "all", label: "All" },
+            { value: "ongoing", label: "Ongoing" },
+            { value: "completed", label: "Completed" },
+          ]}
+        />
       </div>
 
       {/* Table Section */}

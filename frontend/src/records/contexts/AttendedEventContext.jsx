@@ -1,171 +1,141 @@
+// OrganizedEventContext.js
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 
-const AttendedEventContext = createContext();
+const OrganizedEventContext = createContext();
 
-export const AttendedEventProvider = ({ children }) => {
-  const [eventsAttended, setEventsAttended] = useState([]);
+export const OrganizedEventProvider = ({ children }) => {
+  const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const backendUrl = "http://localhost:4000";
   const token = localStorage.getItem("token");
   const UserId = localStorage.getItem("userId");
 
-  const fetchEventsAttended = useCallback(async () => {
-    if (!token || !UserId) {
-      console.warn("No token or user ID found");
-      return;
-    }
+  const fetchEvents = useCallback(async () => {
+    if (!token || !UserId) return toast.error("Unauthorized: No token or user ID found");
 
     setLoading(true);
     setError(null);
 
     try {
-      const response = await axios.get(`${backendUrl}/api/events-attended?UserId=${UserId}`, {
+      const response = await axios.get(`${backendUrl}/api/approved-events?UserId=${UserId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-
+      
       if (Array.isArray(response.data)) {
-        setEventsAttended(response.data);
+        setEvents(response.data);
       } else {
         console.error("Expected an array but got:", response.data);
-        setEventsAttended([]);
+        setEvents([]);
       }
     } catch (err) {
-      console.error("Error fetching attended events:", err);
+      console.error("Error fetching organized events:", err);
       setError(err.message);
-      if (err.response?.status !== 401) {
-        toast.error("Failed to fetch attended events.");
-      }
+      toast.error("Failed to fetch organized events.");
     } finally {
       setLoading(false);
     }
-  }, [token, UserId, backendUrl]);
+  }, [token, UserId]);
 
-  const addEventAttended = useCallback(async (eventData) => {
-    if (!token) {
-      toast.error("Unauthorized: No token found");
-      return;
-    }
+  const addEvent = useCallback(async (eventData) => {
+    if (!token) return toast.error("Unauthorized: No token found");
 
     setLoading(true);
 
     try {
-      const response = await axios.post(`${backendUrl}/api/add-event-attended`, eventData, {
+      const response = await axios.post(`${backendUrl}/api/add-event`, eventData, {
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
+          "Content-Type": "application/json",
         },
       });
 
-      // Refresh the events list after adding
-      await fetchEventsAttended();
-      toast.success("Event attended added successfully!");
-      return response.data;
+      setEvents((prevEvents) => [...prevEvents, response.data]);
+      toast.success("Event added successfully!");
     } catch (err) {
-      console.error("Error adding attended event:", err);
+      console.error("Error adding organized event:", err);
       setError(err.message);
-      toast.error(err.response?.data?.message || "Failed to add attended event.");
-      throw err;
+      toast.error("Failed to add organized event.");
     } finally {
       setLoading(false);
     }
-  }, [token, backendUrl, fetchEventsAttended]);
+  }, [token]);
 
-  const updateEventAttended = useCallback(async (id, eventData) => {
-    if (!token) {
-      toast.error("Unauthorized: No token found");
-      return;
-    }
+  const updateEvent = useCallback(async (id, eventData) => {
+    if (!token) return toast.error("Unauthorized: No token found");
 
     setLoading(true);
 
     try {
       const response = await axios.put(
-        `${backendUrl}/api/update-event-attended/${id}`,
+        `${backendUrl}/api/update-event/${id}`,
         eventData,
         {
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
+            "Content-Type": "application/json",
           },
         }
       );
-      
-      // Refresh the events list after updating
-      await fetchEventsAttended();
-      toast.success("Event attended updated successfully!");
-      return response.data;
+      setEvents((prevEvents) =>
+        prevEvents.map((event) => (event.id === id ? response.data : event))
+      );
+      toast.success("Event updated successfully!");
     } catch (err) {
-      console.error("Error updating attended event:", err);
+      console.error("Error updating organized event:", err);
       setError(err.message);
-      toast.error(err.response?.data?.message || "Failed to update attended event.");
-      throw err;
+      toast.error("Failed to update organized event.");
     } finally {
       setLoading(false);
     }
-  }, [token, backendUrl, fetchEventsAttended]);
+  }, [token]);
 
-  const deleteEventAttended = useCallback(async (id) => {
-    if (!token) {
-      toast.error("Unauthorized: No token found");
-      return;
-    }
-
-    if (!window.confirm("Are you sure you want to delete this event?")) {
-      return;
-    }
+  const deleteEvent = useCallback(async (id) => {
+    if (!token) return toast.error("Unauthorized: No token found");
 
     setLoading(true);
 
     try {
-      await axios.delete(`${backendUrl}/api/delete-event-attended/${id}`, {
+      await axios.delete(`${backendUrl}/api/delete-event/${id}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      setEventsAttended((prevEvents) => prevEvents.filter((event) => event.id !== id));
-      toast.success("Event attended deleted successfully!");
+      setEvents((prevEvents) => prevEvents.filter((event) => event.id !== id));
+      toast.success("Event deleted successfully!");
     } catch (err) {
-      console.error("Error deleting attended event:", err);
+      console.error("Error deleting organized event:", err);
       setError(err.message);
-      toast.error(err.response?.data?.message || "Failed to delete attended event.");
+      toast.error("Failed to delete organized event.");
     } finally {
       setLoading(false);
     }
-  }, [token, backendUrl]);
+  }, [token]);
 
   useEffect(() => {
-    if (token && UserId) {
-      fetchEventsAttended();
-    }
-  }, [fetchEventsAttended, token, UserId]);
+    fetchEvents();
+  }, [fetchEvents]);
 
   return (
-    <AttendedEventContext.Provider
+    <OrganizedEventContext.Provider
       value={{
-        eventsAttended,
+        events,
         loading,
         error,
-        fetchEventsAttended,
-        addEventAttended,
-        updateEventAttended,
-        deleteEventAttended,
+        fetchEvents,
+        addEvent,
+        updateEvent,
+        deleteEvent,
       }}
     >
       {children}
-    </AttendedEventContext.Provider>
+    </OrganizedEventContext.Provider>
   );
 };
 
-export const useAttendedEventContext = () => {
-  const context = useContext(AttendedEventContext);
-  if (!context) {
-    throw new Error("useAttendedEventContext must be used within an AttendedEventProvider");
-  }
-  return context;
-};
+export const useOrganizedEventContext = () => useContext(OrganizedEventContext);
