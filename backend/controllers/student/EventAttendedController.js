@@ -299,24 +299,24 @@ export const getPendingEventsAttended = async (req, res) => {
         },
         {
           model: City,
-          as: "city",
+          as: "eventCity",
           attributes: ["name"],
         },
         {
           model: District,
-          as: "district",
+          as: "eventDistrict",
           attributes: ["name"],
         },
         {
           model: State,
-          as: "state",
+          as: "eventState",
           attributes: ["name"],
         },
       ],
     });
 
     const formattedEvents = pendingEvents.map((event) => {
-      const { eventUser, city, district, state, ...rest } = event.get({ plain: true });
+      const { eventUser, eventCity, eventDistrict, eventState, ...rest } = event.get({ plain: true });
 
       const fromDate = new Date(rest.from_date).toISOString().split("T")[0];
       const toDate = new Date(rest.to_date).toISOString().split("T")[0];
@@ -341,9 +341,9 @@ export const getPendingEventsAttended = async (req, res) => {
         username: eventUser?.username || "N/A",
         regno: eventUser?.studentDetails?.regno || "N/A",
         staffId: eventUser?.studentDetails?.staffId || "N/A",
-        city: city?.name || "N/A",
-        district: district?.name || "N/A",
-        state: state?.name || "N/A",
+        city: eventCity?.name || "N/A",
+        district: eventDistrict?.name || "N/A",
+        state: eventState?.name || "N/A",
         from_date: fromDate,
         to_date: toDate,
         team_size: rest.team_size,
@@ -378,17 +378,17 @@ export const getApprovedEventsAttended = async (req, res) => {
       include: [
         {
           model: City,
-          as: "city",
+          as: "eventCity",
           attributes: ["id", "name"],
         },
         {
           model: District,
-          as: "district",
+          as: "eventDistrict",
           attributes: ["id", "name"],
         },
         {
           model: State,
-          as: "state",
+          as: "eventState",
           attributes: ["id", "name"],
         },
       ],

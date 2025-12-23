@@ -8,35 +8,70 @@ export const addInternship = [
   upload,
   async (req, res) => {
     try {
+      console.log("📥 Received request body:", req.body);
+      console.log("📎 Received file:", req.file);
+
       const { provider_name, domain, mode, start_date, end_date, stipend_amount, Userid, status, description } = req.body;
 
-      if (!Userid) {
-        return res.status(400).json({ message: "User ID is required" });
+      const parsedUserId = parseInt(Userid);
+      console.log("👤 Parsed User ID:", parsedUserId);
+
+      if (!parsedUserId || isNaN(parsedUserId)) {
+        return res.status(400).json({ message: "Valid User ID is required" });
       }
 
-      const user = await User.findByPk(Userid);
+      // Validate required fields
+      if (!provider_name || !domain || !mode || !start_date || !end_date) {
+        return res.status(400).json({ 
+          message: "Missing required fields: provider_name, domain, mode, start_date, end_date are required" 
+        });
+      }
+
+      const user = await User.findByPk(parsedUserId);
       if (!user || !user.email) {
         return res.status(404).json({ message: "Student email not found" });
       }
 
-      const student = await StudentDetails.findOne({ where: { Userid } });
+      const student = await StudentDetails.findOne({ where: { Userid: parsedUserId } });
       if (!student || !student.tutorEmail) {
         return res.status(404).json({ message: "Tutor email not found" });
       }
 
+      // Handle stipend amount
       const stipendAmount = stipend_amount && stipend_amount.trim() !== "" ? parseFloat(stipend_amount) : null;
 
-      const internship = await Internship.create({
-        Userid,
+      // Handle certificate file path
+      let certificatePath = null;
+      if (req.file) {
+        // Store the relative path that can be accessed via the server
+        certificatePath = req.file.path.replace(/\\/g, "/");
+        console.log("📄 Certificate saved at:", certificatePath);
+      }
+
+      console.log("💾 Creating internship with data:", {
+        Userid: parsedUserId,
         provider_name,
         domain,
         mode,
         start_date,
         end_date,
         stipend_amount: stipendAmount,
-        certificate: req.file ? req.file.path.replace(/\\/g, "/") : "",
+        certificate: certificatePath,
+        status: status || "ongoing",
         description: description || "",
-        status: status || "Ongoing",
+      });
+
+      const internship = await Internship.create({
+        Userid: parsedUserId,
+        provider_name,
+        domain,
+        mode,
+        start_date,
+        end_date,
+        stipend_amount: stipendAmount,
+        certificate: certificatePath,
+        description: description || "",
+        status: status || "ongoing",
         pending: true,
         tutor_approval_status: false,
         Approved_by: null,
@@ -45,6 +80,9 @@ export const addInternship = [
         Updated_by: user.Userid,
       });
 
+      console.log("✅ Internship created successfully:", internship.id);
+
+      // Send email notification
       const emailResponse = await sendEmail({
         from: user.email,
         to: student.tutorEmail,
@@ -58,11 +96,11 @@ Student Name: ${user.username || "N/A"}
 Provider: ${provider_name}
 Domain: ${domain}
 Mode: ${mode}
-Status: ${status || "Ongoing"}
+Status: ${status || "ongoing"}
 Duration: From ${start_date} to ${end_date}
 Stipend: ₹${stipendAmount !== null ? stipendAmount : "Not Provided"}
 Description: ${description || "No description provided."}
-Certificate: ${req.file ? "Yes" : "No"}
+Certificate: ${certificatePath ? "Yes" : "No"}
 
 The internship is currently pending your approval. Please review the details and either approve or reject the internship.
 
@@ -77,22 +115,30 @@ Note: If you have any issues, feel free to contact the system administrator at t
       }
 
       res.status(201).json({
+        success: true,
         message: "Internship submitted for approval. Tutor notified.",
         internship,
       });
     } catch (error) {
       console.error("❌ Error adding internship:", error);
-      res.status(500).json({ message: "Error adding internship", error });
+      res.status(500).json({ 
+        success: false,
+        message: "Error adding internship", 
+        error: error.message 
+      });
     }
   },
 ];
+
 export const updateInternship = [
   upload,
   async (req, res) => {
     const { internshipId } = req.params;
   
     const { status, provider_name, domain, mode, start_date, end_date, stipend_amount, description } = req.body;
-    console.log(req.body)
+    console.log("📥 Update request body:", req.body);
+    console.log("📎 Update file:", req.file);
+    
     const Userid = req.user.Userid;
     const certFile = req.file ? req.file.path.replace(/\\/g, "/") : null;
 
@@ -101,9 +147,11 @@ export const updateInternship = [
       if (!internship) {
         return res.status(404).json({ message: "Internship not found" });
       }
+      
       if (internship.Userid !== Userid && req.user.role !== "tutor") {
         return res.status(403).json({ message: "Unauthorized to update this internship" });
       }
+      
       if (status === "completed" && !certFile && !internship.certificate) {
         return res.status(400).json({ message: "Certificate is required for completed internships" });
       }
@@ -116,8 +164,10 @@ export const updateInternship = [
       }
 
       if (certFile) {
+        // Delete old certificate if exists
         if (internship.certificate) {
-          fs.unlink(path.join(process.cwd(), internship.certificate), (err) => {
+          const oldPath = path.join(process.cwd(), internship.certificate);
+          fs.unlink(oldPath, (err) => {
             if (err) console.error("Error deleting old certificate:", err);
           });
         }
@@ -172,12 +222,17 @@ Note: If you have any issues, feel free to contact the system administrator at t
       }
 
       res.status(200).json({
+        success: true,
         message: "Internship updated successfully, tutor notified.",
         internship,
       });
     } catch (error) {
       console.error("❌ Error updating internship:", error);
-      res.status(500).json({ message: "Error updating internship", error });
+      res.status(500).json({ 
+        success: false,
+        message: "Error updating internship", 
+        error: error.message 
+      });
     }
   },
 ];
@@ -185,35 +240,33 @@ Note: If you have any issues, feel free to contact the system administrator at t
 export const getPendingInternships = async (req, res) => {
   try {
     const pendingInternships = await Internship.findAll({
-      where: { pending: true },
+      where: { pending: true, Userid: req.user.Userid },
       include: [
         {
           model: User,
-          as: "internUser", // Alias for the student user
-          attributes: ["Userid", "username", "email"], // Include username and email
+          as: "internUser",
+          attributes: ["Userid", "username", "email"],
           include: [
             {
               model: StudentDetails,
-              as: "studentDetails", // Alias for the student details
-              attributes: ["regno", "staffId"], // Include regno and staffId
+              as: "studentDetails",
+              attributes: ["regno", "staffId"],
             },
           ],
         },
       ],
     });
 
-    // Format the response to include all internship details, username, regno, and staffId
     const formattedInternships = pendingInternships.map((internship) => {
-      const { internUser, ...rest } = internship.get({ plain: true }); // Destructure internUser
+      const { internUser, ...rest } = internship.get({ plain: true });
       return {
-        ...rest, // Include all fields from the Internship model
-        username: internUser?.username || "N/A", // Include username
-        regno: internUser?.studentDetails?.regno || "N/A", // Include regno
-        staffId: internUser?.studentDetails?.staffId || "N/A", // Include staffId
+        ...rest,
+        username: internUser?.username || "N/A",
+        regno: internUser?.studentDetails?.regno || "N/A",
+        staffId: internUser?.studentDetails?.staffId || "N/A",
       };
     });
 
-   // console.log(formattedInternships); // Debugging: Log the formatted data
     res.status(200).json({ success: true, internships: formattedInternships });
   } catch (error) {
     console.error("Error fetching pending internships:", error.message);
@@ -223,19 +276,16 @@ export const getPendingInternships = async (req, res) => {
 
 export const getApprovedInternships = async (req, res) => {
   try {
-    
-    const userId = req.user?.Userid || req.query.UserId; // Match casing exactly
-  
+    const userId = req.user?.Userid || req.query.UserId;
 
     if (!userId) {
       return res.status(400).json({ message: "User ID is required" });
     }
 
     const approvedInternships = await Internship.findAll({
-      where: { tutor_approval_status: true, Userid: userId }, // Filter by userId
+      where: { tutor_approval_status: true, Userid: userId },
       order: [["approved_at", "DESC"]],
     });
-    
 
     return res.status(200).json(approvedInternships);
   } catch (error) {
@@ -244,24 +294,31 @@ export const getApprovedInternships = async (req, res) => {
   }
 };
 
-
-
-
 export const deleteInternship = async (req, res) => {
   try {
     const { id } = req.params;
 
     const internship = await Internship.findByPk(id);
-    if (!internship) return;
+    if (!internship) {
+      return res.status(404).json({ message: "Internship not found" });
+    }
+
+    // Delete certificate file if exists
+    if (internship.certificate) {
+      const certPath = path.join(process.cwd(), internship.certificate);
+      fs.unlink(certPath, (err) => {
+        if (err) console.error("Error deleting certificate:", err);
+      });
+    }
 
     const student = await StudentDetails.findOne({ where: { Userid: internship.Userid } });
     const user = await User.findByPk(internship.Userid);
 
-    if (!user || !student) return;
+    if (!user || !student) {
+      return res.status(404).json({ message: "User or Student details not found" });
+    }
 
-   
     await Internship.destroy({ where: { id } });
-
 
     sendEmail({
       to: user.email,
@@ -273,7 +330,7 @@ Your internship has been removed.
 - **Provider**: ${internship.provider_name}  
 - **Domain**: ${internship.domain}  
 - **Mode**: ${internship.mode}  
-- **Duration**: From ${internship.duration_from} to ${internship.duration_to}  
+- **Duration**: From ${internship.start_date} to ${internship.end_date}  
 
 If this was an error, contact **tutorsjf@gmail.com**.
 
@@ -293,14 +350,24 @@ The following internship submitted by your student has been deleted:
 - **Provider**: ${internship.provider_name}  
 - **Domain**: ${internship.domain}  
 - **Mode**: ${internship.mode}  
-- **Duration**: From ${internship.duration_from} to ${internship.duration_to}  
+- **Duration**: From ${internship.start_date} to ${internship.end_date}  
 
 If you need further details, contact **tutorsjf@gmail.com**.
 
 Best,  
 Internship Management System`,
     });
+
+    res.status(200).json({ 
+      success: true, 
+      message: "Internship deleted successfully" 
+    });
   } catch (error) {
     console.error("❌ Error deleting internship:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Error deleting internship",
+      error: error.message 
+    });
   }
 };

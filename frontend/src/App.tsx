@@ -304,10 +304,10 @@ interface PlacementLayoutProps {
 
 const PlacementLayout: React.FC<PlacementLayoutProps> = ({ children }) => {
   const role = getUserRole();
-  
+
   return (
     <>
-      {role === "Admin" && <AdminNavbar />}
+      {role === "Placementadmin" && <AdminNavbar />}
       {role === "Student" && <StudentNavbar />}
       {role === "Staff" && <StaffNavbar />}
       {children}
@@ -425,57 +425,57 @@ const AppRoutes: React.FC = () => {
       {/* Placement Protected Routes */}
       {/* Admin Routes */}
       <Route path="/placement/admin-home" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
+        <ProtectedRoute allowedRoles={['Placementadmin']}>
           <PlacementLayout><HomePage /></PlacementLayout>
         </ProtectedRoute>
       } />
       <Route path="/placement/admin-recruiters" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
+        <ProtectedRoute allowedRoles={['Placementadmin']}>
           <PlacementLayout><AdminRecruiters /></PlacementLayout>
         </ProtectedRoute>
       } />
       <Route path="/placement/admin-drive" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
+        <ProtectedRoute allowedRoles={['Placementadmin']}>
           <PlacementLayout><Drive /></PlacementLayout>
         </ProtectedRoute>
       } />
       <Route path="/placement/admin-upcoming-drive" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
+        <ProtectedRoute allowedRoles={['Placementadmin']}>
           <PlacementLayout><AdminUpcomingDrives /></PlacementLayout>
         </ProtectedRoute>
       } />
       <Route path="/placement/eligible-students" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
+        <ProtectedRoute allowedRoles={['Placementadmin']}>
           <PlacementLayout><EligibleStudents /></PlacementLayout>
         </ProtectedRoute>
       } />
       <Route path="/placement/admin-feedback" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
+        <ProtectedRoute allowedRoles={['Placementadmin']}>
           <PlacementLayout><AdminFeedback /></PlacementLayout>
         </ProtectedRoute>
       } />
       <Route path="/placement/company/:companyName" element={
-        <ProtectedRoute allowedRoles={['Admin', 'Staff']}>
+        <ProtectedRoute allowedRoles={['Placementadmin', 'Staff']}>
           <PlacementLayout><CompanyDetails /></PlacementLayout>
         </ProtectedRoute>
       } />
       <Route path="/placement/admin-registered-students" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
+        <ProtectedRoute allowedRoles={['Placementadmin']}>
           <PlacementLayout><RegisteredStudents /></PlacementLayout>
         </ProtectedRoute>
       } />
       <Route path="/placement/admin-hackathon" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
+        <ProtectedRoute allowedRoles={['Placementadmin']}>
           <AdminNavbar /><AdminHackathon />
         </ProtectedRoute>
       } />
       <Route path="/placement/admin-hackathon-report" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
+        <ProtectedRoute allowedRoles={['Placementadmin']}>
           <AdminNavbar /><HackathonReport />
         </ProtectedRoute>
       } />
       <Route path="/placement/admin/edit-company/:companyName" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
+        <ProtectedRoute allowedRoles={['Placementadmin']}>
           <AdminNavbar /><EditCompany />
         </ProtectedRoute>
       } />
@@ -483,49 +483,49 @@ const AppRoutes: React.FC = () => {
       {/* Student Routes */}
       <Route path="/placement/home" element={
         <ProtectedRoute allowedRoles={['Student']}>
-           <Sidebar /><div className="ml-64"><StudentHome /></div>
+           <Sidebar /><StudentHome />
         </ProtectedRoute>
       } />
       <Route path="/placement/recruiters" element={
         <ProtectedRoute allowedRoles={['Student']}>
-           <Sidebar /><div className="ml-64"><StudentRecruiter /></div>
+           <Sidebar /><StudentRecruiter />
         </ProtectedRoute>
       } />
       <Route path="/placement/feedback" element={
         <ProtectedRoute allowedRoles={['Student']}>
-           <Sidebar /><div className="ml-64"><PlacementFeedback /></div>
+           <Sidebar /><div ><PlacementFeedback /></div>
         </ProtectedRoute>
       } />
       <Route path="/placement/upcoming-drive" element={
         <ProtectedRoute allowedRoles={['Student']}>
-           <Sidebar /><div className="ml-64"><UpcomingDrives /></div>
+           <Sidebar /><div ><UpcomingDrives /></div>
         </ProtectedRoute>
       } />
       <Route path="/placement/status" element={
         <ProtectedRoute allowedRoles={['Student']}>
-           <Sidebar /><div className="ml-64"><Status /></div>
+           <Sidebar /><div ><Status /></div>
         </ProtectedRoute>
       } />
       <Route path="/placement/studentprofile" element={
         <ProtectedRoute allowedRoles={['Student']}>
-          <Sidebar /><div className="ml-64"><StudentProfile /></div>
+          <Sidebar /><div ><StudentProfile /></div>
         </ProtectedRoute>
       } />
       <Route path="/placement/hackathon" element={
         <ProtectedRoute allowedRoles={['Student']}>
-           <Sidebar /><div className="ml-64"><StudentHackathon /></div>
+           <Sidebar /><div ><StudentHackathon /></div>
         </ProtectedRoute>
       } />
 
       {/* Staff Routes */}
       <Route path="/placement/staff-home" element={
         <ProtectedRoute allowedRoles={['Staff']}>
-          <Sidebar /><div className="ml-64"><StaffHome /></div>
+          <Sidebar /><div ><StaffHome /></div>
         </ProtectedRoute>
       } />
       <Route path="/records/staff-recruiters" element={
         <ProtectedRoute allowedRoles={['Staff']}>
-          <Sidebar /><div className="ml-64"><StaffRecruiter /></div>
+          <Sidebar /><div ><StaffRecruiter /></div>
         </ProtectedRoute>
       } />
       <Route path="/records/staff-upcomingdrive" element={
