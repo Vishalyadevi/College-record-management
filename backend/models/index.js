@@ -82,7 +82,7 @@ const applyAssociations = () => {
   StudentDetails.belongsTo(Country, { foreignKey: "countryID", as: "country" });
   StudentDetails.belongsTo(State, { foreignKey: "stateID", as: "state" });
   StudentDetails.belongsTo(District, { foreignKey: "districtID", as: "district" });
-  //StudentDetails.belongsTo(City, { foreignKey: "cityID", as: "city" });
+  StudentDetails.belongsTo(City, { foreignKey: "cityID", as: "cityDetail" });
 
   /** =====================
    *  🟢 LOCATION ASSOCIATIONS

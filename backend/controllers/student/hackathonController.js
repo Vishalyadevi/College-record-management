@@ -17,9 +17,19 @@ export const getStudentEvents = async (req, res) => {
       order: [['createdAt', 'DESC']]
     });
 
+    // Add hasCertificate field to each event
+    const eventsWithCertificateFlag = userEvents.map(event => {
+      const eventData = event.toJSON();
+      return {
+        ...eventData,
+        hasCertificate: eventData.certificate !== null && eventData.certificate !== undefined,
+        certificate: undefined // Remove the actual certificate data from the response
+      };
+    });
+
     res.status(200).json({
       success: true,
-      events: userEvents,
+      events: eventsWithCertificateFlag,
     });
   } catch (error) {
     console.error('Error fetching student hackathon events:', error);
@@ -56,10 +66,16 @@ export const addHackathonEvent = async (req, res) => {
       certificate: req.file ? req.file.buffer : null
     });
 
+    const eventData = newEvent.toJSON();
+    
     res.status(201).json({
       success: true,
       message: "Hackathon event added successfully",
-      data: newEvent,
+      data: {
+        ...eventData,
+        hasCertificate: eventData.certificate !== null,
+        certificate: undefined
+      },
     });
   } catch (error) {
     console.error('Error adding hackathon event:', error);
@@ -105,10 +121,16 @@ export const updateHackathonEvent = async (req, res) => {
       certificate: req.file ? req.file.buffer : event.certificate
     });
 
+    const eventData = event.toJSON();
+
     res.status(200).json({
       success: true,
       message: "Hackathon event updated successfully",
-      data: event,
+      data: {
+        ...eventData,
+        hasCertificate: eventData.certificate !== null,
+        certificate: undefined
+      },
     });
   } catch (error) {
     console.error('Error updating hackathon event:', error);
@@ -178,10 +200,16 @@ export const approveHackathonEvent = async (req, res) => {
       pending: false
     });
 
+    const eventData = event.toJSON();
+
     res.status(200).json({
       success: true,
       message: "Hackathon event approved",
-      data: event,
+      data: {
+        ...eventData,
+        hasCertificate: eventData.certificate !== null,
+        certificate: undefined
+      },
     });
   } catch (error) {
     console.error('Error approving hackathon event:', error);
@@ -191,6 +219,7 @@ export const approveHackathonEvent = async (req, res) => {
     });
   }
 };
+
 export const getApprovedHackathonEvents = async (req, res) => {
   try {
     const approvedEvents = await HackathonEvent.findAll({
@@ -198,9 +227,18 @@ export const getApprovedHackathonEvents = async (req, res) => {
       order: [['approved_at', 'DESC']]
     });
 
+    const eventsWithCertificateFlag = approvedEvents.map(event => {
+      const eventData = event.toJSON();
+      return {
+        ...eventData,
+        hasCertificate: eventData.certificate !== null,
+        certificate: undefined
+      };
+    });
+
     res.status(200).json({
       success: true,
-      data: approvedEvents,
+      data: eventsWithCertificateFlag,
     });
   } catch (error) {
     console.error('Error fetching approved hackathon events:', error);
@@ -210,6 +248,7 @@ export const getApprovedHackathonEvents = async (req, res) => {
     });
   }
 };
+
 export const getCertificate = async (req, res) => {
   try {
     const { id } = req.params;
@@ -223,27 +262,29 @@ export const getCertificate = async (req, res) => {
       });
     }
 
-    if (!event.tutor_approval_status) {
-      return res.status(403).json({
+    if (!event.certificate) {
+      return res.status(404).json({
         success: false,
-        message: "Certificate not available until approval",
+        message: "No certificate available for this event",
       });
     }
 
-    if (event.certificate) {
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${event.event_name}_certificate.pdf"`);
-      res.send(event.certificate);
-    } else {
-      res.status(200).json({
-        success: true,
-        data: {
-          studentName: "Student", // You might want to join with User table for actual name
-          eventName: event.event_name,
-          certificateId: `CERT-${event.id}`,
-        },
-      });
+    // Determine content type based on the first few bytes
+    const buffer = event.certificate;
+    let contentType = 'application/pdf';
+    
+    // Check if it's a JPEG
+    if (buffer[0] === 0xFF && buffer[1] === 0xD8) {
+      contentType = 'image/jpeg';
     }
+    // Check if it's a PNG
+    else if (buffer[0] === 0x89 && buffer[1] === 0x50) {
+      contentType = 'image/png';
+    }
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${event.event_name}_certificate"`);
+    res.send(buffer);
   } catch (error) {
     console.error('Error fetching certificate:', error);
     res.status(500).json({
@@ -252,6 +293,7 @@ export const getCertificate = async (req, res) => {
     });
   }
 };
+
 export const getPendingHackathonEvents = async (req, res) => {
   try {
     const pendingHackathons = await HackathonEvent.findAll({
@@ -259,9 +301,18 @@ export const getPendingHackathonEvents = async (req, res) => {
       order: [['createdAt', 'DESC']]
     });
 
+    const eventsWithCertificateFlag = pendingHackathons.map(event => {
+      const eventData = event.toJSON();
+      return {
+        ...eventData,
+        hasCertificate: eventData.certificate !== null,
+        certificate: undefined
+      };
+    });
+
     res.status(200).json({
       success: true,
-      data: pendingHackathons,
+      data: eventsWithCertificateFlag,
     });
   } catch (error) {
     console.error('Error fetching pending hackathon events:', error);
@@ -271,6 +322,7 @@ export const getPendingHackathonEvents = async (req, res) => {
     });
   }
 };
+
 export const getStudentHackathonEvents = async (req, res) => {
   try {
     const userId = req.user.Userid;
@@ -280,9 +332,18 @@ export const getStudentHackathonEvents = async (req, res) => {
       order: [['createdAt', 'DESC']]
     });
 
+    const eventsWithCertificateFlag = studentHackathons.map(event => {
+      const eventData = event.toJSON();
+      return {
+        ...eventData,
+        hasCertificate: eventData.certificate !== null,
+        certificate: undefined
+      };
+    });
+
     res.status(200).json({
       success: true,
-      events: studentHackathons,
+      events: eventsWithCertificateFlag,
     });
   } catch (error) {
     console.error('Error fetching student hackathon events:', error);
@@ -292,6 +353,7 @@ export const getStudentHackathonEvents = async (req, res) => {
     });
   }
 };
+
 export const rejectHackathonEvent = async (req, res) => {
   try {
     const { id } = req.params;
@@ -314,10 +376,16 @@ export const rejectHackathonEvent = async (req, res) => {
       pending: false
     });
 
+    const eventData = event.toJSON();
+
     res.status(200).json({
       success: true,
       message: "Hackathon event rejected successfully",
-      data: event,
+      data: {
+        ...eventData,
+        hasCertificate: eventData.certificate !== null,
+        certificate: undefined
+      },
     });
   } catch (error) {
     console.error('Error rejecting hackathon event:', error);

@@ -44,6 +44,7 @@ router.get("/my-events", authenticate, getStudentHackathonEvents);
 router.delete("/delete/:id", authenticate, deleteHackathonEvent);
 router.get("/certificate/:id", authenticate, getCertificate);
 
+
 // Tutor/Admin routes
 router.get("/pending", authenticate, getPendingHackathonEvents);
 router.get("/approved", authenticate, getApprovedHackathonEvents);

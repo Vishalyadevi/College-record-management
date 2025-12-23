@@ -272,7 +272,7 @@ export const createBookChapter = (data) => api.post('/book-chapters', data);
 export const updateBookChapter = (id, data) => api.put(`/book-chapters/${id}`, data);
 export const deleteBookChapter = (id) => api.delete(`/book-chapters/${id}`);
 
-// Events Organized services
+// Events Organized services - Updated to handle file uploads
 export const getEventsOrganized = () => api.get('/events-organized');
 export const getEventOrganized = (id) => api.get(`/events-organized/${id}`);
 export const createEventOrganized = (data) => {

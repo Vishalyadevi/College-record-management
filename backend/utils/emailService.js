@@ -30,6 +30,12 @@ const transporter = nodemailer.createTransport({
  */
 export const sendEmail = async ({ from, to, subject, text, html, attachments }) => {
   try {
+    // Check if email service is configured
+    if (!transporter) {
+      console.warn("⚠️ Email service not configured, skipping email send");
+      return { success: false, error: "Email service not configured" };
+    }
+
     const mailOptions = {
       from: from || process.env.EMAIL_USER, // Use default sender if not provided
       to,
@@ -50,7 +56,5 @@ export const sendEmail = async ({ from, to, subject, text, html, attachments }) 
     return { success: true, response: info.response };
   } catch (error) {
     console.error("❌ Failed to send email:", error.message);
-
-    return { success: false, error: error.message };
   }
-};
+  };
