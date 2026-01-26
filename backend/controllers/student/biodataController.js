@@ -19,33 +19,34 @@ export const getStudentBiodata = async (req, res) => {
     const student = await StudentDetails.findOne({
       where: { Userid: userId },
       include: [
-        { 
-          model: User, 
-          as: "studentUser", 
-          attributes: ["Userid", "username", "email", "role", "status"], 
+        {
+          model: Department,
+          as: "Department",
+          attributes: ["Deptid", "Deptname"]
+        },
+        {
+          model: User,
+          as: "studentUser",
+          attributes: ["Userid", "username", "email", "role", "status"],
           include: [
-            { 
-              model: BankDetails, 
-              as: "bankDetails", 
-              attributes: ["bank_name", "branch_name", "address", "account_type", "account_no", "ifsc_code", "micr_code"] 
+            {
+              model: BankDetails,
+              as: "bankDetails",
+              attributes: ["bank_name", "branch_name", "address", "account_type", "account_no", "ifsc_code", "micr_code"]
             },
-            { 
-              model: RelationDetails, 
-              as: "relationDetails", 
+            {
+              model: RelationDetails,
+              as: "relationDetails",
               attributes: ["relationship", "relation_name", "relation_age", "relation_qualification", "relation_occupation", "relation_phone", "relation_email", "relation_photo", "relation_income"],
-              order: [['id', 'ASC']], 
+              order: [['id', 'ASC']],
               separate: true
-            },
-            { 
-              model: Department,  
-              attributes: ["Deptid", "Deptname"] 
             }
           ]
         },
-        { 
-          model: User,  
-          as: "staffAdvisor", 
-          attributes: ["username"] 
+        {
+          model: User,
+          as: "staffAdvisor",
+          attributes: ["username"]
         }
       ]
     });

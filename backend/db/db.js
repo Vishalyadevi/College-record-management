@@ -7,8 +7,8 @@ dotenv.config();
 const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || 'Vishal2005#',
-  database: process.env.DB_NAME || 'record'
+  password: process.env.DB_PASSWORD || 'root',
+  database: process.env.DB_NAME || 'schema1'
 };
 
 // Create connection pool
@@ -621,8 +621,8 @@ async function initializeDatabase() {
         sponsored_by VARCHAR(100),
         amount_sanctioned DECIMAL(10,2),
         participants INT NOT NULL,
-        proof_link TEXT,
-        documentation_link TEXT,
+        proof_link longblob,
+        documentation_link longblob,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (Userid) REFERENCES users(Userid) ON DELETE CASCADE
@@ -959,6 +959,7 @@ CREATE TABLE IF NOT EXISTS hackathons (
   contest_link VARCHAR(500) NOT NULL,
   date DATE NOT NULL,
   host_by VARCHAR(255) NOT NULL,
+  certificate longblob,
   eligibility_year ENUM('1st Year', '2nd Year', '3rd Year', '4th Year', 'All Years') NOT NULL,
   department ENUM('CSE', 'ECE', 'EEE', 'MECH', 'CIVIL', 'IT', 'All Departments') NOT NULL,
   attempt_date DATE NOT NULL,
@@ -1005,6 +1006,7 @@ CREATE TABLE IF NOT EXISTS registrations (
   FOREIGN KEY (drive_id) REFERENCES placement_drives(id)
 );
 `)
+
 await connection.execute(`
 
 -- Create certificates table

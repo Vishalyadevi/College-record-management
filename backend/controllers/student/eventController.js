@@ -12,37 +12,39 @@ export const addEvent = async (req, res) => {
       return res.status(400).json({ message: "User ID is required" });
     }
 
+    const userId = parseInt(Userid);
+
     // Fetch user details
-    const user = await User.findByPk(Userid);
+    const user = await User.findByPk(userId);
     if (!user || !user.email) {
       return res.status(404).json({ message: "Student email not found" });
     }
 
     // Fetch student details
-    const student = await StudentDetails.findOne({ where: { Userid } });
+    const student = await StudentDetails.findOne({ where: { Userid: userId } });
     if (!student || !student.tutorEmail) {
       return res.status(404).json({ message: "Tutor email not found" });
     }
 
     // Create event
     const event = await EventOrganized.create({
-      Userid,
+      Userid: parseInt(userId),
       event_name,
       club_name,
       role,
       staff_incharge,
       start_date, // Updated field name
       end_date, // Updated field name
-      number_of_participants,
+      number_of_participants: parseInt(number_of_participants),
       mode,
       funding_agency,
-      funding_amount,
+      funding_amount: funding_amount ? parseFloat(funding_amount) : null,
       pending: true,
       tutor_approval_status: false,
       Approved_by: null,
       approved_at: null,
-      Created_by: user.Userid,
-      Updated_by: user.Userid,
+      Created_by: parseInt(user.Userid),
+      Updated_by: parseInt(user.Userid),
     });
 
     // Send email to tutor
@@ -75,6 +77,8 @@ export const updateEvent = async (req, res) => {
   const { event_name, club_name, role, staff_incharge, start_date, end_date, number_of_participants, mode, funding_agency, funding_amount, Userid } = req.body;
 
   try {
+    const userId = parseInt(Userid);
+
     // Find the event by ID
     const event = await EventOrganized.findByPk(id);
     if (!event) {
@@ -82,13 +86,13 @@ export const updateEvent = async (req, res) => {
     }
 
     // Check if the user is authorized to update the event
-    if (event.Userid !== parseInt(Userid)) {
+    if (event.Userid !== userId) {
       return res.status(403).json({ message: "Unauthorized to update this event" });
     }
 
     // Find the user and student details
-    const user = await User.findByPk(Userid);
-    const student = await StudentDetails.findOne({ where: { Userid } });
+    const user = await User.findByPk(userId);
+    const student = await StudentDetails.findOne({ where: { Userid: userId } });
     if (!user || !student) {
       return res.status(404).json({ message: "User or Student details not found" });
     }
@@ -104,7 +108,7 @@ export const updateEvent = async (req, res) => {
     event.mode = mode ?? event.mode;
     event.funding_agency = funding_agency ?? event.funding_agency;
     event.funding_amount = funding_amount ?? event.funding_amount;
-    event.Updated_by = Userid;
+    event.Updated_by = userId;
     event.pending = true;
     event.tutor_approval_status = false;
     event.Approved_by = null;
@@ -215,7 +219,7 @@ export const deleteEvent = async (req, res) => {
 
     if (!user || !student) return;
 
-    await Event.destroy({ where: { id } });
+    await event.destroy();
 
     sendEmail({
       to: user.email,

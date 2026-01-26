@@ -1,4 +1,4 @@
-import React, { useState, useCallback, memo } from "react";
+import React, { useState, useCallback, memo, useEffect } from "react";
 import { FaEdit, FaTrash, FaChevronLeft, FaChevronRight, FaPlus } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { toast } from "react-toastify";
@@ -51,6 +51,24 @@ const StudentScholarship = () => {
     receivedAmount: "",
     receivedDate: "",
   });
+
+  // Default types
+  const defaultTypes = ["Merit-Based", "Need-Based", "Athletic", "Other"];
+
+  // State to hold dynamic types (starts with defaults, grows with custom ones)
+  const [availableTypes, setAvailableTypes] = useState(defaultTypes);
+
+  // Load custom types from already added scholarships (so they appear on page load)
+  useEffect(() => {
+    const customTypes = scholarships
+      .filter((scholarship) => scholarship.type === "Other" && scholarship.customType?.trim())
+      .map((scholarship) => scholarship.customType.trim())
+      .filter((value, index, self) => self.indexOf(value) === index); // unique only
+
+    if (customTypes.length > 0) {
+      setAvailableTypes([...defaultTypes, ...customTypes]);
+    }
+  }, [scholarships]);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);

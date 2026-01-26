@@ -4,9 +4,9 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const sequelize = new Sequelize(
-    process.env.DB_NAME || 'record',
+    process.env.DB_NAME || 'schema1',
     process.env.DB_USER || 'root',
-    process.env.DB_PASSWORD || 'Vishal2005#',
+    process.env.DB_PASSWORD || 'root',
     {
         host: process.env.DB_HOST || 'localhost',
         dialect: 'mysql',
@@ -23,5 +23,4 @@ const connectDB = async () => {
         process.exit(1);
     }
 };
-
 export { sequelize, connectDB };

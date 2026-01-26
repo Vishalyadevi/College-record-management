@@ -27,11 +27,12 @@ import activityRoutes from "./routes/admin/activityRoutes.js";
 import ScholarshipRoutes from './routes/student/ScholarshipRoutes.js';
 import eventRoutes from './routes/student/eventRoutes.js'
 import eventAttendedRoutes from './routes/student/eventAttendedRoutes.js';
-import OnlineCoursesRoutes from './routes/student/onlinecourseRoute.js'
+import OnlineCoursesRoutes from './routes/student/onlinecourseRoute.js';
 import achievementRoutes from './routes/student/achievementRoutes.js'
 import courseRoutes from './routes/student/CourseRoutes.js';
 import biodataRoutes from './routes/student/bioDataRoutes.js';
-import hackathonRoutes from "./routes/student/hackathonRouts.js";
+//import hackathonRoutes from "./routes/student/hackathonRouts.js";
+import hackathonRoutes from './routes/student/hackathonRouts.js';
 import extracurricularRoutes from "./routes/student/extracurricularRoutes.js";
 import projectRoutes from "./routes/student/projectRoutes.js";
 // import StudentEducationRoutes from "./routes/student/educationRoutes.js";
@@ -75,7 +76,7 @@ import profileRoutes from './routes/placement/profile.js';
 import adminPanelRoutes from './routes/adminPanelRoutes.js';
 import studentPanelRoutes from './routes/studentPanelRoutes.js';
 import certificateRoutes from "./routes/student/certificateRoutes.js";
-
+import fs from 'fs';
 // Fixed import path
 import PersonalInfo from './routes/staff/personalRoutes.js';
 import placementRoutes from './routes/placementRoutes.js';
@@ -93,8 +94,8 @@ const __dirname = path.dirname(__filename);
 const db = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || 'Vishal2005#',
-  database: process.env.DB_NAME || 'record',
+  password: process.env.DB_PASSWORD || 'root',
+  database: process.env.DB_NAME || 'schema1',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
@@ -115,6 +116,14 @@ const baseStorage = multer.diskStorage({
   filename: (req, file, cb) => cb(null, `${Date.now()}${path.extname(file.originalname)}`),
 });
 
+
+
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(process.cwd(), 'uploads', 'events');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log('✅ Created uploads/events directory');
+}
 const baseFileFilter = (req, file, cb) => {
   const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
   if (!allowedTypes.includes(file.mimetype)) {
@@ -143,6 +152,10 @@ const feedbackUpload = multer({ storage: feedbackStorage, fileFilter: feedbackFi
 
 // Middleware
 app.use(cors());
+
+// Register routes that need multipart/form-data before body parsers
+
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(bodyParser.json());
@@ -388,17 +401,18 @@ async function initializeDatabases() {
 }
 
 initializeDatabases();
-
+app.use('/api', studentRoutes);
 // Fixed: Use proper route registration order and placement login route
 app.use('/api/placement', placementRoutes);
 app.use('/api', authRoutes); 
 app.use('/api', adminRoutes);
+app.use('/api',eventAttendedRoutes);
 app.use('/api', tableRoutes);
 app.use('/api', internRoutes);
 app.use('/api', dashboardRoutes);
 app.use("/api/bulk", bulkRoutes);
 app.use('/api/student', studentPdfRoutes);
-
+app.use("/api/hackathon", hackathonRoutes);
 app.use("/api", studentRoutes);
 app.use("/api/staff", PersonalInfo);
 app.use('/api', staffRoutes);
@@ -425,7 +439,6 @@ app.use('/api/project-payment-details', projectPaymentDetailsRoutes);
 app.use('/api/personal', personalRoutes);
 app.use("/api/student-education", StudentEducationRoutes);
 app.use("/api/education", educationRoutes);
-app.use("/api/hackathon", hackathonRoutes);
 app.use("/api/extracurricular", extracurricularRoutes);
 app.use("/api/publications", publicationRoutes);
 app.use("/api/noncgpa-category", nonCGPACategoryRoutes);
@@ -439,30 +452,27 @@ app.use('/api', locationRoutes);
 app.use('/api', activityRoutes);
 app.use('/api', ScholarshipRoutes);
 app.use('/api', eventRoutes);
-app.use('/api', eventAttendedRoutes);
 app.use('/api', leaveRoutes);
-app.use('/api', OnlineCoursesRoutes);
+app.use('/api/online-courses', OnlineCoursesRoutes);
 app.use('/api', achievementRoutes);
 app.use('/api', courseRoutes);
 app.use("/api", biodataRoutes);
 app.use('/api/mou', mouRoutes);
 app.use('/api', facultyPDFRoutes);
+app.use('/Uploads', express.static(path.join(__dirname, 'Uploads')));
 app.use('/uploads', express.static(path.join(__dirname, 'Uploads')));
-
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use('/api/placement-drives', placementDrivesRoutes);
 app.use('/api/placement-hackathons', placementhackathonRoutes);
-app.use('/api/student-hackathons', studentHackathonRoutes);
+app.use('/api/student/hackathons',hackathonRoutes);
+//import hackathonRoutes from './routes/student/hackathonRoutes.js';
 app.use('/api/registration',registrationRoutes);
 app.use('/api/students', studentFilterRoutes);
 app.use('/api/profile', profileRoutes);
 
 app.use("/api", certificateRoutes);
 app.use("/api/nptel", nptelRoutes);
-
-
-
-
 
 // Hackathons routes
 app.post('/api/placement/hackathons', async (req, res) => {

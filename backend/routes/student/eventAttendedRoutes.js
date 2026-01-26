@@ -1,29 +1,56 @@
-import express from "express";
+import express from 'express';
+import { authenticate as authenticateToken } from '../../middlewares/auth.js';
 import {
   addEventAttended,
   updateEventAttended,
   deleteEventAttended,
   getPendingEventsAttended,
-  getApprovedEventsAttended,
-} from "../../controllers/student/EventAttendedController.js";
-import { authenticate } from "../../middlewares/auth.js";
-
+  getApprovedEventsAttended
+} from '../../controllers/student/EventAttendedController.js';
+import upload from '../../utils/uploadEvent.js';
 const router = express.Router();
 
-// Route to add a new event attended (requires authentication and file upload)
-router.post("/add-event-attended", authenticate, addEventAttended);
+// Get events attended by user
+router.get('/events-attended', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.Userid || req.query.UserId;
+    
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
 
-// Route to update an event attended (requires authentication and file upload)
-// FIXED: Added :eventId parameter
-router.put("/update-event-attended/:eventId", authenticate, updateEventAttended);
+    const { EventAttended } = await import('../../models/index.js');
+    
+    const events = await EventAttended.findAll({
+      where: { Userid: userId },
+      order: [['createdAt', 'DESC']]
+    });
 
-// Route to delete an event attended (requires authentication)
-router.delete("/delete-event-attended/:id", authenticate, deleteEventAttended);
+    res.status(200).json(events);
+  } catch (error) {
+    console.error("Error fetching events attended:", error);
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+});
 
-// Route to fetch pending events attended (requires authentication)
-router.get("/pending-events-attended", authenticate, getPendingEventsAttended);
+// Add new event attended
+router.post(
+  '/add-event-attended',
+  authenticateToken,
+  upload,
+  addEventAttended
+);
 
-// Route to fetch approved events attended for a specific user (requires authentication)
-router.get("/events-attended", authenticate, getApprovedEventsAttended);
+// Update event attended
+router.put('/update-event-attended/:eventId', authenticateToken, updateEventAttended);
+
+// Delete event attended
+router.delete('/delete-event-attended/:id', authenticateToken, deleteEventAttended);
+
+// Get pending events (for tutor/admin)
+router.get('/pending-events-attended', authenticateToken, getPendingEventsAttended);
+
+// Get approved events
+router.get('/approved-events-attended', authenticateToken, getApprovedEventsAttended);
 
 export default router;

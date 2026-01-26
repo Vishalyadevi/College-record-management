@@ -27,7 +27,9 @@ const EventsOrganizedPage = () => {
     amount_sanctioned: '',
     participants: '',
     proof_link: '',
-    documentation_link: ''
+    documentation_link: '',
+    proof_file: null,
+    documentation_file: null
   });
 
   const fetchEventsOrganized = async () => {
@@ -48,22 +50,27 @@ const EventsOrganizedPage = () => {
   }, []);
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    
-    // Auto-calculate days when dates change
-    if (name === 'from_date' || name === 'to_date') {
-      const fromDate = name === 'from_date' ? value : formData.from_date;
-      const toDate = name === 'to_date' ? value : formData.to_date;
-      
-      if (fromDate && toDate) {
-        const from = new Date(fromDate);
-        const to = new Date(toDate);
-        
-        if (from <= to) {
-          const timeDiff = to.getTime() - from.getTime();
-          const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1; // +1 to include both start and end dates
-          setFormData((prev) => ({ ...prev, days: daysDiff.toString() }));
+    const { name, value, type, files } = e.target;
+
+    if (type === 'file') {
+      setFormData((prev) => ({ ...prev, [name]: files[0] || null }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+
+      // Auto-calculate days when dates change
+      if (name === 'from_date' || name === 'to_date') {
+        const fromDate = name === 'from_date' ? value : formData.from_date;
+        const toDate = name === 'to_date' ? value : formData.to_date;
+
+        if (fromDate && toDate) {
+          const from = new Date(fromDate);
+          const to = new Date(toDate);
+
+          if (from <= to) {
+            const timeDiff = to.getTime() - from.getTime();
+            const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1; // +1 to include both start and end dates
+            setFormData((prev) => ({ ...prev, days: daysDiff.toString() }));
+          }
         }
       }
     }
@@ -131,8 +138,8 @@ const EventsOrganizedPage = () => {
       sponsored_by: record.sponsored_by || '',
       amount_sanctioned: record.amount_sanctioned?.toString() || '',
       participants: record.participants?.toString() || '',
-      proof_link: record.proof_link || '',
-      documentation_link: record.documentation_link || ''
+      proof_file: null,
+      documentation_file: null
     });
     setIsViewMode(false);
     setIsModalOpen(true);
@@ -175,7 +182,9 @@ const EventsOrganizedPage = () => {
   const handleSubmit = async () => {
     try {
       setIsSubmitting(true);
-      if (!formData.program_name || !formData.program_title || !formData.coordinator_name || 
+      console.log('Form data before validation:', formData);
+
+      if (!formData.program_name || !formData.program_title || !formData.coordinator_name ||
           !formData.speaker_details || !formData.from_date || !formData.to_date || !formData.participants) {
         toast.error('Please fill in all required fields');
         return;
@@ -184,17 +193,56 @@ const EventsOrganizedPage = () => {
       // Validate dates
       const fromDate = new Date(formData.from_date);
       const toDate = new Date(formData.to_date);
-      
+
       if (fromDate > toDate) {
         toast.error('From date cannot be after to date');
         return;
       }
 
+      // Ensure days is calculated and valid
+      let daysValue = parseInt(formData.days);
+      if (!daysValue || daysValue <= 0) {
+        // Auto-calculate days if not provided or invalid
+        const timeDiff = toDate.getTime() - fromDate.getTime();
+        daysValue = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
+      }
+
+      console.log('Calculated days value:', daysValue);
+
+      // Create FormData for file uploads
+      const submitData = new FormData();
+
+      // Append all form fields to FormData, excluding file-related URL fields
+      Object.keys(formData).forEach(key => {
+        if (formData[key] !== null && formData[key] !== undefined && formData[key] !== '') {
+          if (key === 'proof_file' || key === 'documentation_file') {
+            // Handle file fields
+            if (formData[key]) {
+              submitData.append(key, formData[key]);
+              console.log(`Appending file ${key}:`, formData[key].name);
+            }
+          } else if (key !== 'proof_link' && key !== 'documentation_link') {
+            // Exclude proof_link and documentation_link as they are handled by file uploads
+            submitData.append(key, formData[key]);
+            console.log(`Appending field ${key}:`, formData[key]);
+          }
+        }
+      });
+
+      // Ensure days is always included
+      submitData.append('days', daysValue.toString());
+      console.log('Final FormData contents:');
+      for (let [key, value] of submitData.entries()) {
+        console.log(key, value);
+      }
+
       if (currentRecord) {
-        await updateEventOrganized(currentRecord.id, formData);
+        console.log('Updating event with ID:', currentRecord.id);
+        await updateEventOrganized(currentRecord.id, submitData);
         toast.success('Event updated successfully');
       } else {
-        await createEventOrganized(formData);
+        console.log('Creating new event');
+        await createEventOrganized(submitData);
         toast.success('Event created successfully');
       }
 
@@ -203,7 +251,8 @@ const EventsOrganizedPage = () => {
       fetchEventsOrganized();
     } catch (error) {
       console.error('Error saving Event:', error);
-      toast.error('Failed to save Event');
+      console.error('Error details:', error.response?.data || error.message);
+      toast.error(error.response?.data?.message || 'Failed to save Event');
     } finally {
       setIsSubmitting(false);
     }
@@ -393,24 +442,28 @@ const EventsOrganizedPage = () => {
             placeholder="Optional"
             step="0.01"
           />
-          <FormField
-            label="Proof Link"
-            name="proof_link"
-            type="url"
-            value={formData.proof_link}
-            onChange={handleInputChange}
-            disabled={isViewMode}
-            placeholder="Optional - URL to proof documents"
-          />
-          <FormField
-            label="Documentation Link"
-            name="documentation_link"
-            type="url"
-            value={formData.documentation_link}
-            onChange={handleInputChange}
-            disabled={isViewMode}
-            placeholder="Optional - URL to event documentation"
-          />
+          <div className="flex flex-col mb-4">
+            <label className="font-medium text-gray-700 mb-1">Proof File</label>
+            <input
+              type="file"
+              name="proof_file"
+              onChange={handleInputChange}
+              disabled={isViewMode}
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              className="border border-gray-300 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div className="flex flex-col mb-4">
+            <label className="font-medium text-gray-700 mb-1">Documentation File</label>
+            <input
+              type="file"
+              name="documentation_file"
+              onChange={handleInputChange}
+              disabled={isViewMode}
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              className="border border-gray-300 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
         </div>
       </Modal>
     </div>

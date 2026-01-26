@@ -24,11 +24,11 @@ export const HackathonProvider = ({ children }) => {
   });
 
   // Fetch student's hackathon events
-  const fetchStudentEvents = useCallback(async (userId) => {
+  const fetchStudentEvents = useCallback(async () => {
     setLoading(true);
     try {
       const response = await axios.get(
-        `${apiBase}/my-events?UserId=${userId}`,
+        `${apiBase}/my-events`,
         getAuthHeader()
       );
       setHackathonEvents(response.data.events || []);

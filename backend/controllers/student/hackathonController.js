@@ -1,341 +1,397 @@
-// controllers/student/hackathonController.js
-import { User, StudentDetails, HackathonEvent } from "../../models/index.js";
-import { sendEmail } from "../../utils/emailService.js";
+import HackathonEvent from "../../models/HackathonEvent.js";
 
-// Add a new hackathon event
+// GET: fetch student hackathon events
+export const getStudentEvents = async (req, res) => {
+  try {
+    const { UserId } = req.query;
+
+    if (!UserId) {
+      return res.status(400).json({
+        success: false,
+        message: "User ID is required",
+      });
+    }
+
+    const userEvents = await HackathonEvent.findAll({
+      where: { Userid: UserId },
+      order: [['createdAt', 'DESC']]
+    });
+
+    // Add hasCertificate field to each event
+    const eventsWithCertificateFlag = userEvents.map(event => {
+      const eventData = event.toJSON();
+      return {
+        ...eventData,
+        hasCertificate: eventData.certificate !== null && eventData.certificate !== undefined,
+        certificate: undefined // Remove the actual certificate data from the response
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      events: eventsWithCertificateFlag,
+    });
+  } catch (error) {
+    console.error('Error fetching student hackathon events:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// POST: add hackathon event
 export const addHackathonEvent = async (req, res) => {
   try {
-    const { event_name, organized_by, from_date, to_date, level_cleared, rounds, status, Userid } = req.body;
+    const { Userid, event_name, organized_by, from_date, to_date, level_cleared, rounds, status } = req.body;
 
-    // Validate required fields
-    if (!Userid || !event_name || !organized_by || !from_date || !to_date || !level_cleared || !status) {
-      return res.status(400).json({ message: "All required fields must be provided" });
+    if (!Userid || !event_name || !organized_by || !from_date || !to_date || !level_cleared || !rounds || !status) {
+      return res.status(400).json({
+        success: false,
+        message: "All required fields must be provided",
+      });
     }
 
-    // Validate level_cleared (1-10)
-    if (level_cleared < 1 || level_cleared > 10) {
-      return res.status(400).json({ message: "Level cleared must be between 1 and 10" });
-    }
-
-    // Validate status enum
-    if (!['participate', 'achievement'].includes(status)) {
-      return res.status(400).json({ message: "Status must be either 'participate' or 'achievement'" });
-    }
-
-    // Fetch user details
-    const user = await User.findByPk(Userid);
-    if (!user || !user.email) {
-      return res.status(404).json({ message: "Student email not found" });
-    }
-
-    // Fetch student details
-    const student = await StudentDetails.findOne({ where: { Userid } });
-    if (!student || !student.tutorEmail) {
-      return res.status(404).json({ message: "Tutor email not found" });
-    }
-
-    // Create hackathon event
-    const event = await HackathonEvent.create({
+    const newEvent = await HackathonEvent.create({
       Userid,
       event_name,
       organized_by,
       from_date,
       to_date,
-      level_cleared,
-      rounds: rounds || 1,
+      level_cleared: parseInt(level_cleared),
+      rounds: parseInt(rounds),
       status,
-      pending: true,
-      tutor_approval_status: false,
-      Approved_by: null,
-      approved_at: null,
-      Created_by: user.Userid,
-      Updated_by: user.Userid,
+      Created_by: Userid,
+      Updated_by: Userid,
+      certificate: req.file ? req.file.buffer : null
     });
 
-    // Send email to tutor
-    const emailText = `Dear Tutor,\n\nA student has submitted a new hackathon event for your approval.\n\nStudent Details:\nRegno: ${student.regno}\nName: ${user.username || "N/A"}\n\nEvent Details:\nEvent Name: ${event_name}\nOrganized By: ${organized_by}\nFrom Date: ${from_date}\nTo Date: ${to_date}\nLevel Cleared: ${level_cleared}/10\nRounds: ${rounds || 1}\nStatus: ${status}\n\nThe event is currently pending your approval. Please review and approve or reject.\n\nBest Regards,\nHackathon Management System`;
-
-    await sendEmail({
-      from: user.email,
-      to: student.tutorEmail,
-      subject: "New Hackathon Event Pending Approval",
-      text: emailText,
-    });
-
+    const eventData = newEvent.toJSON();
+    
     res.status(201).json({
-      message: "Hackathon event submitted for approval. Tutor notified.",
-      event,
+      success: true,
+      message: "Hackathon event added successfully",
+      data: {
+        ...eventData,
+        hasCertificate: eventData.certificate !== null,
+        certificate: undefined
+      },
     });
   } catch (error) {
-    console.error("❌ Error adding hackathon event:", error);
-    res.status(500).json({ message: "Error adding hackathon event", error: error.message });
+    console.error('Error adding hackathon event:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
-// Update hackathon event
+// PUT: update hackathon event
 export const updateHackathonEvent = async (req, res) => {
-  const { id } = req.params;
-  const { event_name, organized_by, from_date, to_date, level_cleared, rounds, status, Userid } = req.body;
-
   try {
+    const { id } = req.params;
+    const { Userid, event_name, organized_by, from_date, to_date, level_cleared, rounds, status } = req.body;
+
     const event = await HackathonEvent.findByPk(id);
+
     if (!event) {
-      return res.status(404).json({ message: "Event not found" });
-    }
-
-    // Check authorization
-    if (event.Userid !== parseInt(Userid)) {
-      return res.status(403).json({ message: "Unauthorized to update this event" });
-    }
-
-    // Validate level_cleared if provided
-    if (level_cleared && (level_cleared < 1 || level_cleared > 10)) {
-      return res.status(400).json({ message: "Level cleared must be between 1 and 10" });
-    }
-
-    // Validate status if provided
-    if (status && !['participate', 'achievement'].includes(status)) {
-      return res.status(400).json({ message: "Status must be either 'participate' or 'achievement'" });
-    }
-
-    const user = await User.findByPk(Userid);
-    const student = await StudentDetails.findOne({ where: { Userid } });
-    if (!user || !student) {
-      return res.status(404).json({ message: "User or Student details not found" });
-    }
-
-    // Update fields
-    event.event_name = event_name ?? event.event_name;
-    event.organized_by = organized_by ?? event.organized_by;
-    event.from_date = from_date ?? event.from_date;
-    event.to_date = to_date ?? event.to_date;
-    event.level_cleared = level_cleared ?? event.level_cleared;
-    event.rounds = rounds ?? event.rounds;
-    event.status = status ?? event.status;
-    event.Updated_by = Userid;
-    event.pending = true;
-    event.tutor_approval_status = false;
-    event.Approved_by = null;
-    event.approved_at = null;
-
-    await event.save();
-
-    // Send update email to tutor
-    if (student.tutorEmail) {
-      const emailText = `Dear Tutor,\n\nA student has updated their hackathon event details.\n\nStudent Details:\nRegno: ${student.regno}\nName: ${user.username || "N/A"}\n\nUpdated Event Details:\nEvent Name: ${event.event_name}\nOrganized By: ${event.organized_by}\nFrom Date: ${event.from_date}\nTo Date: ${event.to_date}\nLevel Cleared: ${event.level_cleared}/10\nRounds: ${event.rounds}\nStatus: ${event.status}\n\nThis event is now pending approval. Please review the updated details.\n\nBest Regards,\nHackathon Management System`;
-
-      await sendEmail({
-        from: user.email,
-        to: student.tutorEmail,
-        subject: "Hackathon Event Updated - Requires Review",
-        text: emailText,
+      return res.status(404).json({
+        success: false,
+        message: "Hackathon event not found",
       });
     }
+
+    // Check if the event is still pending (not approved/rejected)
+    if (!event.pending) {
+      return res.status(403).json({
+        success: false,
+        message: "Cannot update approved or rejected events",
+      });
+    }
+
+    await event.update({
+      event_name: event_name || event.event_name,
+      organized_by: organized_by || event.organized_by,
+      from_date: from_date || event.from_date,
+      to_date: to_date || event.to_date,
+      level_cleared: level_cleared ? parseInt(level_cleared) : event.level_cleared,
+      rounds: rounds ? parseInt(rounds) : event.rounds,
+      status: status || event.status,
+      Updated_by: Userid || event.Updated_by,
+      certificate: req.file ? req.file.buffer : event.certificate
+    });
+
+    const eventData = event.toJSON();
 
     res.status(200).json({
-      message: "Hackathon event updated successfully. Tutor notified.",
-      event,
+      success: true,
+      message: "Hackathon event updated successfully",
+      data: {
+        ...eventData,
+        hasCertificate: eventData.certificate !== null,
+        certificate: undefined
+      },
     });
   } catch (error) {
-    console.error("❌ Error updating hackathon event:", error);
-    res.status(500).json({ message: "Error updating hackathon event", error: error.message });
-  }
-};
-
-// Get pending hackathon events
-export const getPendingHackathonEvents = async (req, res) => {
-  try {
-    const pendingEvents = await HackathonEvent.findAll({
-      where: { pending: true },
-      include: [
-        {
-          model: User,
-          as: "organizer",
-          attributes: ["Userid", "username", "email"],
-          include: [
-            {
-              model: StudentDetails,
-              as: "studentDetails",
-              attributes: ["regno", "staffId"],
-            },
-          ],
-        },
-      ],
-      order: [["createdAt", "DESC"]],
+    console.error('Error updating hackathon event:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
     });
-
-    const formattedEvents = pendingEvents.map((event) => {
-      const { organizer, ...rest } = event.get({ plain: true });
-      return {
-        ...rest,
-        username: organizer?.username || "N/A",
-        regno: organizer?.studentDetails?.regno || "N/A",
-        staffId: organizer?.studentDetails?.staffId || "N/A",
-      };
-    });
-
-    res.status(200).json({ success: true, events: formattedEvents });
-  } catch (error) {
-    console.error("Error fetching pending hackathon events:", error.message);
-    res.status(500).json({ success: false, message: "Error fetching pending events" });
   }
 };
 
-// Get approved hackathon events
-export const getApprovedHackathonEvents = async (req, res) => {
-  const userId = req.user?.Userid || req.query.UserId;
-  if (!userId) {
-    return res.status(400).json({ message: "User ID is required" });
-  }
-
-  try {
-    const approvedEvents = await HackathonEvent.findAll({
-      where: { tutor_approval_status: true, Userid: userId },
-      order: [["approved_at", "DESC"]],
-    });
-
-    return res.status(200).json({ success: true, events: approvedEvents });
-  } catch (error) {
-    console.error("Error fetching approved hackathon events:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-// Approve hackathon event
-export const approveHackathonEvent = async (req, res) => {
-  const { id } = req.params;
-  const { Userid, comments } = req.body;
-
-  try {
-    const event = await HackathonEvent.findByPk(id);
-    if (!event) {
-      return res.status(404).json({ message: "Event not found" });
-    }
-
-    event.tutor_approval_status = true;
-    event.pending = false;
-    event.Approved_by = Userid;
-    event.approved_at = new Date();
-    event.comments = comments || null;
-
-    await event.save();
-
-    // Send approval email to student
-    const user = await User.findByPk(event.Userid);
-    if (user && user.email) {
-      const emailText = `Dear ${user.username},\n\nYour hackathon event has been approved.\n\nEvent: ${event.event_name}\nOrganized By: ${event.organized_by}\nLevel Cleared: ${event.level_cleared}/10\nStatus: ${event.status}\n\nComments: ${comments || "None"}\n\nBest Regards,\nHackathon Management System`;
-
-      await sendEmail({
-        to: user.email,
-        subject: "Hackathon Event Approved",
-        text: emailText,
-      });
-    }
-
-    res.status(200).json({ message: "Event approved successfully", event });
-  } catch (error) {
-    console.error("❌ Error approving event:", error);
-    res.status(500).json({ message: "Error approving event", error: error.message });
-  }
-};
-
-// Reject hackathon event
-export const rejectHackathonEvent = async (req, res) => {
-  const { id } = req.params;
-  const { Userid, comments } = req.body;
-
-  try {
-    const event = await HackathonEvent.findByPk(id);
-    if (!event) {
-      return res.status(404).json({ message: "Event not found" });
-    }
-
-    event.tutor_approval_status = false;
-    event.pending = false;
-    event.Approved_by = Userid;
-    event.approved_at = new Date();
-    event.comments = comments || "Rejected";
-
-    await event.save();
-
-    // Send rejection email to student
-    const user = await User.findByPk(event.Userid);
-    if (user && user.email) {
-      const emailText = `Dear ${user.username},\n\nYour hackathon event has been rejected.\n\nEvent: ${event.event_name}\nOrganized By: ${event.organized_by}\n\nReason: ${comments || "No comments provided"}\n\nYou can resubmit your event after making necessary changes.\n\nBest Regards,\nHackathon Management System`;
-
-      await sendEmail({
-        to: user.email,
-        subject: "Hackathon Event Rejected",
-        text: emailText,
-      });
-    }
-
-    res.status(200).json({ message: "Event rejected successfully", event });
-  } catch (error) {
-    console.error("❌ Error rejecting event:", error);
-    res.status(500).json({ message: "Error rejecting event", error: error.message });
-  }
-};
-
-// Delete hackathon event
+// DELETE: delete hackathon event
 export const deleteHackathonEvent = async (req, res) => {
   try {
     const { id } = req.params;
 
     const event = await HackathonEvent.findByPk(id);
+
     if (!event) {
-      return res.status(404).json({ message: "Event not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Hackathon event not found",
+      });
     }
 
-    const student = await StudentDetails.findOne({ where: { Userid: event.Userid } });
-    const user = await User.findByPk(event.Userid);
+    // Check if the event is still pending (not approved/rejected)
+    if (!event.pending) {
+      return res.status(403).json({
+        success: false,
+        message: "Cannot delete approved or rejected events",
+      });
+    }
 
     await event.destroy();
 
-    // Send deletion notification emails
-    if (user && user.email) {
-      const emailText = `Dear ${user.username},\n\nYour hackathon event has been deleted.\n\nEvent Name: ${event.event_name}\nOrganized By: ${event.organized_by}\n\nIf this was an error, please contact your tutor.\n\nBest Regards,\nHackathon Management System`;
-
-      await sendEmail({
-        to: user.email,
-        subject: "Hackathon Event Deleted",
-        text: emailText,
-      });
-    }
-
-    if (student && student.tutorEmail) {
-      const emailText = `Dear Tutor,\n\nThe following hackathon event has been deleted:\n\nStudent: ${user?.username || "N/A"}\nRegno: ${student.regno}\nEvent: ${event.event_name}\n\nBest Regards,\nHackathon Management System`;
-
-      await sendEmail({
-        to: student.tutorEmail,
-        subject: "Hackathon Event Deleted Notification",
-        text: emailText,
-      });
-    }
-
-    res.status(200).json({ message: "Event deleted successfully" });
+    res.status(200).json({
+      success: true,
+      message: "Hackathon event deleted successfully",
+    });
   } catch (error) {
-    console.error("❌ Error deleting hackathon event:", error);
-    res.status(500).json({ message: "Error deleting event", error: error.message });
+    console.error('Error deleting hackathon event:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
-// Get all hackathon events for a student
-export const getStudentHackathonEvents = async (req, res) => {
-  const userId = req.user?.Userid || req.query.UserId;
-  if (!userId) {
-    return res.status(400).json({ message: "User ID is required" });
-  }
-
+export const approveHackathonEvent = async (req, res) => {
   try {
-    const events = await HackathonEvent.findAll({
-      where: { Userid: userId },
-      order: [["from_date", "DESC"]],
+    const { id } = req.params;
+    const { Userid, comments } = req.body;
+
+    const event = await HackathonEvent.findByPk(id);
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: "Hackathon event not found",
+      });
+    }
+
+    await event.update({
+      tutor_approval_status: true,
+      Approved_by: Userid,
+      approved_at: new Date(),
+      comments: comments || null,
+      pending: false
     });
 
-    res.status(200).json({ success: true, events });
+    const eventData = event.toJSON();
+
+    res.status(200).json({
+      success: true,
+      message: "Hackathon event approved",
+      data: {
+        ...eventData,
+        hasCertificate: eventData.certificate !== null,
+        certificate: undefined
+      },
+    });
   } catch (error) {
-    console.error("Error fetching student hackathon events:", error);
-    res.status(500).json({ message: "Internal server error" });
+    console.error('Error approving hackathon event:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
-}
+};
+
+export const getApprovedHackathonEvents = async (req, res) => {
+  try {
+    const approvedEvents = await HackathonEvent.findAll({
+      where: { tutor_approval_status: true },
+      order: [['approved_at', 'DESC']]
+    });
+
+    const eventsWithCertificateFlag = approvedEvents.map(event => {
+      const eventData = event.toJSON();
+      return {
+        ...eventData,
+        hasCertificate: eventData.certificate !== null,
+        certificate: undefined
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: eventsWithCertificateFlag,
+    });
+  } catch (error) {
+    console.error('Error fetching approved hackathon events:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const getCertificate = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const event = await HackathonEvent.findByPk(id);
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: "Hackathon event not found",
+      });
+    }
+
+    if (!event.certificate) {
+      return res.status(404).json({
+        success: false,
+        message: "No certificate available for this event",
+      });
+    }
+
+    // Determine content type based on the first few bytes
+    const buffer = event.certificate;
+    let contentType = 'application/pdf';
+    
+    // Check if it's a JPEG
+    if (buffer[0] === 0xFF && buffer[1] === 0xD8) {
+      contentType = 'image/jpeg';
+    }
+    // Check if it's a PNG
+    else if (buffer[0] === 0x89 && buffer[1] === 0x50) {
+      contentType = 'image/png';
+    }
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${event.event_name}_certificate"`);
+    res.send(buffer);
+  } catch (error) {
+    console.error('Error fetching certificate:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const getPendingHackathonEvents = async (req, res) => {
+  try {
+    const pendingHackathons = await HackathonEvent.findAll({
+      where: { pending: true },
+      order: [['createdAt', 'DESC']]
+    });
+
+    const eventsWithCertificateFlag = pendingHackathons.map(event => {
+      const eventData = event.toJSON();
+      return {
+        ...eventData,
+        hasCertificate: eventData.certificate !== null,
+        certificate: undefined
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: eventsWithCertificateFlag,
+    });
+  } catch (error) {
+    console.error('Error fetching pending hackathon events:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const getStudentHackathonEvents = async (req, res) => {
+  try {
+    const userId = req.user.Userid;
+
+    const studentHackathons = await HackathonEvent.findAll({
+      where: { Userid: userId },
+      order: [['createdAt', 'DESC']]
+    });
+
+    const eventsWithCertificateFlag = studentHackathons.map(event => {
+      const eventData = event.toJSON();
+      return {
+        ...eventData,
+        hasCertificate: eventData.certificate !== null,
+        certificate: undefined
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      events: eventsWithCertificateFlag,
+    });
+  } catch (error) {
+    console.error('Error fetching student hackathon events:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const rejectHackathonEvent = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { Userid, comments } = req.body;
+
+    const event = await HackathonEvent.findByPk(id);
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: "Hackathon event not found",
+      });
+    }
+
+    await event.update({
+      tutor_approval_status: false,
+      Approved_by: Userid,
+      approved_at: new Date(),
+      comments: comments || null,
+      pending: false
+    });
+
+    const eventData = event.toJSON();
+
+    res.status(200).json({
+      success: true,
+      message: "Hackathon event rejected successfully",
+      data: {
+        ...eventData,
+        hasCertificate: eventData.certificate !== null,
+        certificate: undefined
+      },
+    });
+  } catch (error) {
+    console.error('Error rejecting hackathon event:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};

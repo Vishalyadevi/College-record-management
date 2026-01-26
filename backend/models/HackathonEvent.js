@@ -86,6 +86,10 @@ const HackathonEvent = sequelize.define('HackathonEvent', {
     type: DataTypes.TEXT,
     allowNull: true,
   },
+  certificate: {
+    type: DataTypes.BLOB('long'),
+    allowNull: true,
+  },
   createdAt: {
     type: DataTypes.DATE,
     field: 'created_at',

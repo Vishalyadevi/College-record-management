@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import {
   FaUserPlus, FaUsers, FaUserTie, FaChalkboardTeacher, FaTachometerAlt,
   FaUserGraduate, FaBook, FaMedal, FaCertificate, FaLaptopCode, FaCalendarAlt,
-  FaSchool, FaPlane, FaAward, FaDownload, FaFileUpload
+  FaSchool, FaPlane, FaAward, FaDownload, FaFileUpload, FaFileAlt
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import axios from "axios";
@@ -19,7 +19,7 @@ const Sidebar = () => {
   const location = useLocation();
   const backendUrl = "http://localhost:4000";
 
-  useEffect(() => {
+ /* useEffect(() => {
     const fetchCurrentUserDetails = async () => {
       try {
         const token = localStorage.getItem("token");
@@ -50,14 +50,65 @@ const Sidebar = () => {
 
     fetchCurrentUserDetails();
   }, []);
+*/
+useEffect(() => {
+  // First, try to load from localStorage immediately
+  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+  if (storedUser && storedUser.role) {
+    setCurrentUser({
+      role: storedUser.role,
+      username: storedUser.username || "",
+      profileImage: storedUser.profileImage 
+        ? `${backendUrl}${storedUser.profileImage}`
+        : "https://thumbs.dreamstime.com/b/default-avatar-profile-icon-vector-social-media-user-image-182145777.jpg",
+    });
+  }
 
+  // Then fetch from API to update if needed
+  const fetchCurrentUserDetails = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const userId = localStorage.getItem("userId");
+
+      if (!token || !userId) {
+        return;
+      }
+
+      const response = await axios.get(`${backendUrl}/api/get-user/${userId}`);
+
+      if (response.data.success) {
+        setCurrentUser({
+          role: response.data.user.role,
+          username: response.data.user.username,
+          profileImage: response.data.user.profileImage
+            ? `${backendUrl}${response.data.user.profileImage}`
+            : "https://thumbs.dreamstime.com/b/default-avatar-profile-icon-vector-social-media-user-image-182145777.jpg",
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching user details:", error);
+      // Keep the localStorage data if API fails
+    }
+  };
+
+  fetchCurrentUserDetails();
+}, []);
   useEffect(() => {
     setShowDropdown(false);
   }, [location.pathname]);
 
-  const role = localStorage.getItem("userRole");
-
+// Use the fetched currentUser.role (reliable source)
+// Fallback to localStorage only if needed
+const role = currentUser.role || localStorage.getItem("userRole") || "";  
+//localStorage.setItem("userRole", user.role);
+useEffect(() => {
+  console.log("Current User Role:", currentUser.role);
+  console.log("LocalStorage userRole:", localStorage.getItem("userRole"));
+  console.log("LocalStorage role:", localStorage.getItem("role"));
+}, [currentUser.role]);
   const renderSidebarItems = () => {
+      console.log("Rendering sidebar for role:", role); // Add this
+
     switch (role) {
       case "Admin":
         return (
@@ -108,13 +159,16 @@ const Sidebar = () => {
             <SidebarLink to="/records/student-achievements" icon={<FaMedal />} label="Achievements" />
             <SidebarLink to="/records/student-internships" icon={<FaSchool />} label="Internships" />
             <SidebarLink to="/records/student-scholarships" icon={<FaAward />} label="Scholarships" />
+            <SidebarLink to="/records/student-resume-generator" icon={<FaFileAlt />} label="Resume Generator" />
             <SidebarLink to="/records/student-leave" icon={<FaPlane />} label="Leave Request" />
           </>
         );
       default:
         return null;
     }
+    
   };
+  
 
   return (
     <div className="fixed w-64 bg-white shadow-lg border-r border-gray-200 h-screen flex flex-col">

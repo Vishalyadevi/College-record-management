@@ -529,17 +529,30 @@ const IndustryPage = () => {
           
           {!isViewMode && (
             <div className="col-span-2">
-              <label className="block text-sm font-medium mb-2">
-                Certificate PDF
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Certificate PDF (Max 10MB)
               </label>
-              <input
-                type="file"
-                accept="application/pdf"
-                onChange={handleFileChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                disabled={isViewMode}
-              />
-              <p className="text-xs text-gray-500 mt-1">Max size: 10MB (PDF only)</p>
+              
+              <div className="space-y-2">
+                <div>
+                  <label 
+                    htmlFor="file-upload-industry" 
+                    className="inline-flex items-center px-4 py-2 bg-blue-50 text-blue-700 text-sm font-semibold rounded hover:bg-blue-100 cursor-pointer transition-colors"
+                  >
+                    Choose File
+                    <input 
+                      id="file-upload-industry" 
+                      type="file" 
+                      className="hidden" 
+                      onChange={handleFileChange} 
+                      accept=".pdf,application/pdf" 
+                    />
+                  </label>
+                  <span className="ml-3 text-sm text-gray-600">
+                    {pdfFile ? pdfFile.name : 'No file chosen'}
+                  </span>
+                </div>
+              </div>
               
               {currentItem && currentItem.has_pdf && !removePdf && !pdfFile && (
                 <div className="mt-2 flex items-center gap-2">

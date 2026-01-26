@@ -8,60 +8,54 @@ import {
 } from "../../controllers/student/onlinecoursesController.js";
 import { authenticate } from "../../middlewares/auth.js";
 import multer from "multer";
-import path from "path"; // Import the path module
+import path from "path";
 import fs from "fs";
 
-// Multer configuration for file uploads (certificates)
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = "uploads/certificates/";
     if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true }); // Ensure directory exists
+      fs.mkdirSync(uploadPath, { recursive: true });
     }
     cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname).toLowerCase(); // Use path.extname
+    const ext = path.extname(file.originalname).toLowerCase();
     cb(null, "certificate-" + uniqueSuffix + ext);
   },
 });
 
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = [
-    "application/pdf", // PDF files
-    "image/jpeg", // JPEG files
-    "image/png", // PNG files
-  ];
-
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true); // Accept the file
-  } else {
-    cb(new Error("❌ Invalid file type! Allowed formats: PNG, JPG, PDF"), false);
-  }
+  const allowed = ["application/pdf", "image/jpeg", "image/png"];
+  allowed.includes(file.mimetype)
+    ? cb(null, true)
+    : cb(new Error("Invalid file type! Only PDF, JPG, PNG allowed"), false);
 };
 
 const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  limits: { fileSize: 5 * 1024 * 1024 },
 });
 
 const router = express.Router();
 
-// Add Online Course
-router.post("/add-course", upload.single("certificate"), authenticate, addOnlineCourse);
+// Clean RESTful routes
 
-// Update Online Course
-router.patch("/update-course/:courseId", upload.single("certificate"), authenticate, updateOnlineCourse);
+// Add course
+router.post("/", upload.single("certificate"), authenticate, addOnlineCourse);
 
-// Delete Online Course
-router.delete("/delete-course/:courseId", authenticate, deleteOnlineCourse);
+// Update course
+router.patch("/:courseId", upload.single("certificate"), authenticate, updateOnlineCourse);
 
-// Get Pending Courses
-router.get("/pending-online-courses", authenticate, getPendingOnlineCourses);
+// Delete course
+router.delete("/:courseId", authenticate, deleteOnlineCourse);
 
-// Get Approved Courses
-router.get("/approved-courses", authenticate, getApprovedCourses);
+// Get approved courses (for student)
+router.get("/", authenticate, getApprovedCourses);
+
+// Get pending courses (for admin or combined view)
+router.get("/pending", authenticate, getPendingOnlineCourses);
 
 export default router;

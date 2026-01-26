@@ -524,7 +524,7 @@ const ProjectProposalsPage = () => {
       <div className="mb-6 flex justify-between items-center">
         <button
           onClick={handleAddNew}
-          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-blue-600 to-purple-500 hover:from-blue-600 hover:to-purple-500 px-4 py-2 rounded-md shadow-md"
+          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-pink-500 to-purple-400 hover:from-pink-600 hover:to-purple-500 px-4 py-2 rounded-md shadow-md"
         >
           <Plus size={16} />
           Add New Project Proposal
@@ -672,7 +672,7 @@ const ProjectProposalsPage = () => {
           
           {/* Co-PI Names with dynamic add/remove */}
           <div className="md:col-span-">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-semibold text-black-700 mb-2">
               Co-PI Names
             </label>
             {!isViewMode && (
@@ -682,13 +682,12 @@ const ProjectProposalsPage = () => {
                   value={coPiInput}
                   onChange={(e) => setCoPiInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCoPi())}
-                  placeholder="Enter Co-PI name"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-300 bg-gray-50 focus:bg-white"
                 />
                 <button
                   type="button"
                   onClick={handleAddCoPi}
-                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md flex items-center gap-1"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-md flex items-center gap-1"
                 >
                   <Plus size={16} />
                   Add
@@ -794,7 +793,7 @@ const ProjectProposalsPage = () => {
           <div className="md:col-span-2 space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Proof Document (PDF only, max 10MB)
+                Proof Document (PDF, DOC, DOCX, JPG, PNG - Max 10MB)
               </label>
               {isViewMode ? (
                 currentProposal?.proof ? (
@@ -803,24 +802,30 @@ const ProjectProposalsPage = () => {
                   <span className="text-gray-400">No proof uploaded</span>
                 )
               ) : (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="file"
-                    name="proof"
-                    accept=".pdf"
-                    onChange={handleFileChange}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  {formData.proof && (
-                    <span className="text-sm text-green-600 flex items-center gap-1">
-                      <Upload size={14} />
-                      {formData.proof.name}
+                <div className="space-y-2">
+                  <div>
+                    <label 
+                      htmlFor="file-upload-proof" 
+                      className="inline-flex items-center px-4 py-2 bg-blue-50 text-blue-700 text-sm font-semibold rounded hover:bg-blue-100 cursor-pointer transition-colors"
+                    >
+                      Choose File
+                      <input 
+                        id="file-upload-proof" 
+                        name="proof" 
+                        type="file" 
+                        className="hidden" 
+                        onChange={handleFileChange} 
+                        accept=".pdf" 
+                      />
+                    </label>
+                    <span className="ml-3 text-sm text-gray-600">
+                      {formData.proof ? formData.proof.name : 'No file chosen'}
                     </span>
-                  )}
+                  </div>
                   {currentProposal?.proof && !formData.proof && (
-                    <span className="text-sm text-gray-500">
-                      Current: {renderFileLink(currentProposal.proof, 'Proof')}
-                    </span>
+                    <div className="text-sm text-gray-500">
+                      Current: {renderFileLink(currentProposal, 'Proof')}
+                    </div>
                   )}
                 </div>
               )}
@@ -828,7 +833,7 @@ const ProjectProposalsPage = () => {
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Yearly Report (PDF only, max 10MB)
+                Yearly Report (PDF, DOC, DOCX, JPG, PNG - Max 10MB)
               </label>
               {isViewMode ? (
                 currentProposal?.yearly_report ? (
@@ -837,24 +842,30 @@ const ProjectProposalsPage = () => {
                   <span className="text-gray-400">No yearly report uploaded</span>
                 )
               ) : (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="file"
-                    name="yearly_report"
-                    accept=".pdf"
-                    onChange={handleFileChange}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  {formData.yearly_report && (
-                    <span className="text-sm text-green-600 flex items-center gap-1">
-                      <Upload size={14} />
-                      {formData.yearly_report.name}
+                <div className="space-y-2">
+                  <div>
+                    <label 
+                      htmlFor="file-upload-yearly" 
+                      className="inline-flex items-center px-4 py-2 bg-blue-50 text-blue-700 text-sm font-semibold rounded hover:bg-blue-100 cursor-pointer transition-colors"
+                    >
+                      Choose File
+                      <input 
+                        id="file-upload-yearly" 
+                        name="yearly_report" 
+                        type="file" 
+                        className="hidden" 
+                        onChange={handleFileChange} 
+                        accept=".pdf" 
+                      />
+                    </label>
+                    <span className="ml-3 text-sm text-gray-600">
+                      {formData.yearly_report ? formData.yearly_report.name : 'No file chosen'}
                     </span>
-                  )}
+                  </div>
                   {currentProposal?.yearly_report && !formData.yearly_report && (
-                    <span className="text-sm text-gray-500">
-                      Current: {renderFileLink(currentProposal.yearly_report, 'Yearly Report')}
-                    </span>
+                    <div className="text-sm text-gray-500">
+                      Current: {renderFileLink(currentProposal, 'Yearly Report')}
+                    </div>
                   )}
                 </div>
               )}
@@ -862,7 +873,7 @@ const ProjectProposalsPage = () => {
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Final Report (PDF only, max 10MB)
+                Final Report (PDF, DOC, DOCX, JPG, PNG - Max 10MB)
               </label>
               {isViewMode ? (
                 currentProposal?.final_report ? (
@@ -871,24 +882,30 @@ const ProjectProposalsPage = () => {
                   <span className="text-gray-400">No final report uploaded</span>
                 )
               ) : (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="file"
-                    name="final_report"
-                    accept=".pdf"
-                    onChange={handleFileChange}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  {formData.final_report && (
-                    <span className="text-sm text-green-600 flex items-center gap-1">
-                      <Upload size={14} />
-                      {formData.final_report.name}
+                <div className="space-y-2">
+                  <div>
+                    <label 
+                      htmlFor="file-upload-final" 
+                      className="inline-flex items-center px-4 py-2 bg-blue-50 text-blue-700 text-sm font-semibold rounded hover:bg-blue-100 cursor-pointer transition-colors"
+                    >
+                      Choose File
+                      <input 
+                        id="file-upload-final" 
+                        name="final_report" 
+                        type="file" 
+                        className="hidden" 
+                        onChange={handleFileChange} 
+                        accept=".pdf" 
+                      />
+                    </label>
+                    <span className="ml-3 text-sm text-gray-600">
+                      {formData.final_report ? formData.final_report.name : 'No file chosen'}
                     </span>
-                  )}
+                  </div>
                   {currentProposal?.final_report && !formData.final_report && (
-                    <span className="text-sm text-gray-500">
+                    <div className="text-sm text-gray-500">
                       Current: {renderFileLink(currentProposal, 'Final Report')}
-                    </span>
+                    </div>
                   )}
                 </div>
               )}

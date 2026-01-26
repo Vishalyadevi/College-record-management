@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { FaEdit, FaTrash } from "react-icons/fa";
+import { FaEdit, FaTrash, FaUpload } from "react-icons/fa";
+import { FileText } from "lucide-react";
 import { motion } from "framer-motion";
 import { useHackathon } from "../../contexts/HackathonContext";
 
@@ -25,13 +26,17 @@ const HackathonEvents = () => {
     status: "participate",
   });
 
+  const [certificateFile, setCertificateFile] = useState(null);
+  const [certificatePreview, setCertificatePreview] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [localLoading, setLocalLoading] = useState(false);
-  const userId = localStorage.getItem("userId");
-
+  const [uploadProgress, setUploadProgress] = useState(0);
+  //const userId = localStorage.getItem("userId");
+const user = JSON.parse(localStorage.getItem("user") || "{}");
+const userId = user?.Userid;
   useEffect(() => {
     if (userId) {
-      fetchStudentEvents(userId);
+      fetchStudentEvents();
     }
   }, [userId, fetchStudentEvents]);
 
@@ -41,6 +46,39 @@ const HackathonEvents = () => {
       ...formData,
       [name]: value,
     });
+  };
+
+  const handleCertificateChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+      if (!validTypes.includes(file.type)) {
+        alert('Please upload a valid file (JPG, PNG, or PDF)');
+        e.target.value = '';
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size should not exceed 5MB');
+        e.target.value = '';
+        return;
+      }
+
+      setCertificateFile(file);
+
+      // Create preview for images
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setCertificatePreview(reader.result);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        setCertificatePreview(null);
+      }
+    }
   };
 
   const validateForm = () => {
@@ -68,28 +106,48 @@ const HackathonEvents = () => {
   };
 
   const handleSubmit = async (e) => {
+    console.log("Current localStorage user:", localStorage.getItem("user"));
+console.log("Extracted userId:", userId);
+console.log("Sending Userid:", parseInt(userId));
     e.preventDefault();
     clearError();
     setLocalLoading(true);
-    
+    setUploadProgress(0);
+
     try {
       validateForm();
 
-      const eventData = {
-        ...formData,
-        Userid: parseInt(userId),
-        level_cleared: parseInt(formData.level_cleared),
-        rounds: parseInt(formData.rounds),
-      };
+      // Debug logging
+      console.log("Form data:", formData);
+      console.log("User ID:", userId);
+
+      const submitData = new FormData();
+      submitData.append('event_name', formData.event_name);
+      submitData.append('organized_by', formData.organized_by);
+      submitData.append('from_date', formData.from_date);
+      submitData.append('to_date', formData.to_date);
+      submitData.append('level_cleared', parseInt(formData.level_cleared));
+      submitData.append('rounds', parseInt(formData.rounds));
+      submitData.append('status', formData.status);
+      submitData.append('Userid', parseInt(userId));
+
+      // Log FormData contents
+      for (let [key, value] of submitData.entries()) {
+        console.log(`${key}: ${value}`);
+      }
+
+      if (certificateFile) {
+        submitData.append('certificate', certificateFile);
+      }
 
       if (editingId) {
-        await updateHackathonEvent(editingId, eventData);
+        await updateHackathonEvent(editingId, submitData);
       } else {
-        await addHackathonEvent(eventData);
+        await addHackathonEvent(submitData);
       }
 
       // Refresh the events list
-      await fetchStudentEvents(userId);
+      await fetchStudentEvents();
 
       // Reset form
       setFormData({
@@ -101,9 +159,13 @@ const HackathonEvents = () => {
         rounds: 1,
         status: "participate",
       });
+      setCertificateFile(null);
+      setCertificatePreview(null);
       setEditingId(null);
+      setUploadProgress(0);
     } catch (err) {
       console.error("Error submitting hackathon event:", err);
+      alert(err.message || "Failed to submit hackathon event");
     } finally {
       setLocalLoading(false);
     }
@@ -120,13 +182,15 @@ const HackathonEvents = () => {
       status: event.status,
     });
     setEditingId(event.id);
+    setCertificateFile(null);
+    setCertificatePreview(null);
   };
 
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this hackathon event?")) {
       try {
         await deleteHackathonEvent(id);
-        await fetchStudentEvents(userId);
+        await fetchStudentEvents();
       } catch (err) {
         console.error("Error deleting event:", err);
       }
@@ -144,8 +208,48 @@ const HackathonEvents = () => {
       rounds: 1,
       status: "participate",
     });
+    setCertificateFile(null);
+    setCertificatePreview(null);
     clearError();
   };
+
+  // Handle certificate viewing (opens in new tab like ProjectProposal page)
+  const handleViewCertificate = async (eventId) => {
+    try {
+      const response = await fetch(`http://localhost:4000/api/student/hackathons/certificate/${eventId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+
+        // Create a temporary link element and click it to open in new tab
+        const link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Clean up the blob URL after a delay
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url);
+        }, 1000);
+      } else {
+        alert('Certificate not available');
+      }
+    } catch (err) {
+      console.error('Error viewing certificate:', err);
+      alert('Failed to load certificate');
+    }
+  };
+
+
 
   const getStatusColor = (status) => {
     switch(status) {
@@ -279,6 +383,53 @@ const HackathonEvents = () => {
             </div>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <div className="col-span-1">
+              <label className="block text-gray-700 font-medium mb-1">
+                Certificate Upload
+                <span className="text-xs text-gray-500 ml-2">(JPG, PNG, PDF - Max 5MB)</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,application/pdf"
+                  onChange={handleCertificateChange}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                  id="certificate-upload"
+                />
+                {certificateFile && (
+                  <div className="mt-2 text-sm text-green-600 flex items-center">
+                    <FaUpload className="mr-2" />
+                    {certificateFile.name}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {certificatePreview && (
+            <div className="mb-4">
+              <label className="block text-gray-700 font-medium mb-2">Certificate Preview:</label>
+              <img 
+                src={certificatePreview} 
+                alt="Certificate Preview" 
+                className="max-w-md h-auto border rounded shadow-md"
+              />
+            </div>
+          )}
+
+          {uploadProgress > 0 && uploadProgress < 100 && (
+            <div className="mb-4">
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div 
+                  className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
+                  style={{ width: `${uploadProgress}%` }}
+                ></div>
+              </div>
+              <p className="text-sm text-gray-600 mt-1">Uploading... {uploadProgress}%</p>
+            </div>
+          )}
+
           <div className="flex justify-center space-x-4">
             {editingId && (
               <motion.button
@@ -315,7 +466,7 @@ const HackathonEvents = () => {
           <p className="text-gray-500">No hackathon events available.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse border border-gray-300"style={{ minWidth: '2000px', width: '100%' }}>
+            <table className="w-full border-collapse border border-gray-300" style={{ minWidth: '2000px', width: '100%' }}>
               <thead className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
                 <tr>
                   <th className="border border-gray-300 p-3 text-left">Event Name</th>
@@ -325,6 +476,7 @@ const HackathonEvents = () => {
                   <th className="border border-gray-300 p-3 text-left">Level</th>
                   <th className="border border-gray-300 p-3 text-left">Rounds</th>
                   <th className="border border-gray-300 p-3 text-left">Type</th>
+                  <th className="border border-gray-300 p-3 text-left">Certificate</th>
                   <th className="border border-gray-300 p-3 text-left">Status</th>
                   <th className="border border-gray-300 p-3 text-left">Actions</th>
                 </tr>
@@ -351,6 +503,20 @@ const HackathonEvents = () => {
                     <td className="border border-gray-300 p-3">{event.level_cleared}/10</td>
                     <td className="border border-gray-300 p-3">{event.rounds}</td>
                     <td className="border border-gray-300 p-3 capitalize">{event.status}</td>
+                    <td className="border border-gray-300 p-3">
+                      {event.hasCertificate ? (
+                        <button
+                          onClick={() => handleViewCertificate(event.id)}
+                          className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 rounded-full transition-colors duration-200 border border-blue-200"
+                          title="View Certificate"
+                        >
+                          <FileText size={14} />
+                          View Certificate
+                        </button>
+                      ) : (
+                        <span className="text-gray-400 text-sm">No Certificate</span>
+                      )}
+                    </td>
                     <td className="border border-gray-300 p-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(
                         event.pending ? "pending" : 
@@ -396,6 +562,8 @@ const HackathonEvents = () => {
           </div>
         )}
       </motion.div>
+
+
     </div>
   );
 };

@@ -120,10 +120,13 @@ const StudentInternship = () => {
   // Filter State
   const [filterStatus, setFilterStatus] = useState("all"); // "all", "ongoing", "completed"
 
+  // Combine approved and pending internships
+  const allInternships = [...internships, ...pendingInternships];
+
   // Filtered Internships
-  const filteredInternships = internships.filter((internship) => {
-    if (filterStatus === "all") return true;
-    return internship.status.toLowerCase() === filterStatus;
+  const filteredInternships = allInternships.filter((internship) => {
+    const statusMatch = filterStatus === "all" || internship.status.toLowerCase() === filterStatus;
+    return statusMatch;
   });
 
   // Calculate Paginated Data
@@ -133,6 +136,8 @@ const StudentInternship = () => {
   const totalPages = Math.ceil(filteredInternships.length / itemsPerPage);
 
   const token = localStorage.getItem("token");
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const userId = user?.Userid;
 
   const handleInputChange = (e) => {
     const { name, value, type, checked, files } = e.target;
@@ -194,14 +199,6 @@ const StudentInternship = () => {
     if (new Date(formData.end_date) <= new Date(formData.start_date)) return toast.error("End date must be after the start date.");
     if (!window.confirm("Are you sure you want to proceed?")) return;
 
-    let decodedData;
-    try {
-      const base64Url = token.split(".")[1];
-      decodedData = JSON.parse(atob(base64Url.replace(/-/g, "+").replace(/_/g, "/")));
-    } catch (error) {
-      return toast.error("Error fetching user details");
-    }
-
     if (formData.status === "completed" && !formData.cer_file) return toast.error("Please upload a certificate before marking as 'Completed'.");
 
     // Validate and parse stipend_amount
@@ -221,12 +218,11 @@ const StudentInternship = () => {
     formToSubmit.append("stipend_amount", stipendAmount || ""); // Use empty string if null
     formToSubmit.append("status", formData.status);
     formToSubmit.append("certificate", formData.certificate ? "true" : "false");
-    formToSubmit.append("Userid", String(decodedData.Userid));
     formToSubmit.append("description", isEditMode ? "Updated Internship" : "New Internship");
 
     // Append certificate file if it exists
     if (formData.cer_file) formToSubmit.append("cer_file", formData.cer_file);
-    console.log(formData)
+
     try {
       if (isEditMode) {
         if (formData.status === "completed" && !formData.cer_file) return toast.error("Certificate is required when updating to 'Completed'.");
@@ -256,6 +252,7 @@ const StudentInternship = () => {
               <th className="py-3 px-4 text-left font-medium">Stipend</th>
               <th className="py-3 px-4 text-left font-medium">Certificate</th>
               <th className="py-3 px-4 text-left font-medium">Status</th>
+              <th className="py-3 px-4 text-left font-medium">Approval Status</th>
               {showActions && <th className="py-3 px-4 text-left font-medium">Actions</th>}
             </tr>
           </thead>
@@ -297,7 +294,18 @@ const StudentInternship = () => {
                     {internship.status}
                   </span>
                 </td>
-                {showActions && (
+                <td className="py-3 px-4">
+                  <span
+                    className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      internship.tutor_approval_status === true
+                        ? "bg-green-100 text-green-700"
+                        : "bg-orange-100 text-orange-700"
+                    }`}
+                  >
+                    {internship.tutor_approval_status === true ? "Approved" : "Pending"}
+                  </span>
+                </td>
+                {showActions && internship.tutor_approval_status === false && (
                   <td className="py-3 px-4 space-x-2">
                     <button
                       onClick={() => handleEdit(internship)}
@@ -378,7 +386,7 @@ const StudentInternship = () => {
       </motion.div>
 
       {/* Filter Controls */}
-      <div className="flex justify-end mb-6">
+      <div className="flex justify-end space-x-4 mb-6">
         <Field
           label="Filter by Status"
           name="filterStatus"
